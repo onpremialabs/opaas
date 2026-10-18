@@ -1,7 +1,6 @@
 {
   "id": "banking",
   "version": 1,
-  "language": "en",
   "title": "Payments and banking",
   "description": "Balances, account closure, a lookup next to a transfer tool, and a supplier message that plants a new payee.",
   "scenarioSetHash": "sha256:c92ced72a9bc507f1d1e1b4276047e2e6818290831341874292acba52e43b4c1"
