@@ -31,7 +31,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from opaas.system.manifest import PENDING_ADAPTERS, REROUTED_ADAPTERS, SystemManifest
+from opaas.system.manifest import (
+    PENDING_ADAPTERS,
+    REROUTED_ADAPTERS,
+    REROUTED_REQUIRES,
+    SystemManifest,
+)
 from opaas.system.report import SYSTEM_ROW, Member, StepOutcome, flow_edge
 
 STEPS = ("discover", "bench", "smith", "sentinel", "inquest", "swarm")
@@ -184,11 +189,12 @@ def run_audit(
                 "rerouted is not driven, since its scenarios would act on its real tools "
                 "(D68)"))
             continue
-        if adapter == "open-webui" and not component.fields.get("model"):
+        field, meaning = REROUTED_REQUIRES.get(adapter, (None, ""))
+        if field and not component.fields.get(field):
             run.steps.append(StepOutcome(
                 "smith", component.id, "pending",
-                "an open-webui agent needs its 'model': the Open WebUI model or agent id "
-                "whose tools are OPAAS's mock server"))
+                f"the {adapter} agent needs its '{field}': {meaning} whose tools are "
+                "OPAAS's mock server"))
             continue
         target = _agent_args(manifest, component)
         if target is None:
@@ -259,7 +265,7 @@ def _agent_args(manifest: SystemManifest, component: Any) -> list[str] | None:
                 "--tools-listen", str(component.fields["tools_listen"])]
         if adapter == "open-webui":
             args += ["--model", str(component.fields["model"])]
-        if adapter == "langgraph" and component.fields.get("assistant"):
+        if adapter in ("langgraph", "flowise") and component.fields.get("assistant"):
             args += ["--assistant", str(component.fields["assistant"])]
         return args
     backend, model = component.fields.get("backend"), component.fields.get("model")

@@ -26,7 +26,7 @@ from __future__ import annotations
 from typing import Any
 
 from opaas.core.hashing import slugify
-from opaas.system.manifest import FORMAT, REROUTED_ADAPTERS
+from opaas.system.manifest import FORMAT, REROUTED_ADAPTERS, REROUTED_REQUIRES
 
 #: The purpose until the operator writes it. The system report refuses to call a
 #: system certifiable while it is still there: the AI Act risk classification
@@ -104,8 +104,8 @@ def draft_manifest(
             notes.append(
                 f"{component_id}: point its tools at OPAAS's mock MCP server and declare "
                 "'tools_listen' (host:port) before auditing"
-                + (", and its 'model' (the Open WebUI model or agent id)"
-                   if agent["adapter"] == "open-webui" else "")
+                + (f", and its '{required[0]}' ({required[1]})"
+                   if (required := REROUTED_REQUIRES.get(agent["adapter"])) else "")
                 + ". Until then smith does not drive it: its scenarios would act on its "
                 "real tools (D68).")
     proxy = None

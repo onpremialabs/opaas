@@ -15,7 +15,7 @@ left out (D64). Phase 10, steps 2 and 4: the root delegates to an issuing
 key, and keeps a revocation list (D65, D66). Phase 10, step 3 prepared: the
 ceremony runbook and its rehearsal (D67). Phase 11, first part: smith drives
 A2A, Open WebUI and LangGraph agents whose tools are rerouted to its mock MCP
-server (D68).
+server (D68), then LangServe, Dify, Flowise and n8n agents (D69).
 
 ### Upgrading
 
@@ -57,6 +57,10 @@ server (D68).
   configured with (and `model` for Open WebUI). Without it the agent stays
   pending, with a reason that now says what to declare; the report quotes
   each pending step's own reason.
+- **LangServe, Dify, Flowise and n8n agents are no longer pending either**
+  (D69), on the same terms; a Flowise agent also names its chatflow id as
+  `assistant`. A manifest still declaring `letta`, `anythingllm`, `autogen`,
+  `crewai` or `openhands` stays valid and pending.
 - **The sentinel's kept output for streams** is now taken from the assembled
   response, so streamed tool calls keep their names under the defaults; a
   non-JSON body that is not a stream no longer records `streamed: true`.
@@ -93,6 +97,9 @@ server (D68).
   `--tools-listen`, `--assistant` and `--agent-token` (OPAAS_AGENT_TOKEN,
   never written to the report). The manifest takes `tools_listen` and
   `assistant` (D68).
+- `opaas smith run --agent langserve | dify | flowise | n8n` (D69). Each
+  scenario starts a new conversation; `--assistant` is the Flowise chatflow
+  id; Dify needs the app key in `--agent-token`.
 
 ## [0.2.1] — 2026-10-15
 

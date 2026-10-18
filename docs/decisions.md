@@ -50,6 +50,32 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D69 — LangServe, Dify, Flowise and n8n are driven like LangGraph; the rest of D63's list stays pending
+
+**Status:** applied · **Implements:** [D68](#d68--an-agent-opaas-does-not-own-is-driven-only-when-its-tools-are-opaass-mock-server) for four more frameworks · **Affects:** [`smith/rerouted.py`](../src/opaas/smith/rerouted.py), [`system/manifest.py`](../src/opaas/system/manifest.py), [`system/orchestrate.py`](../src/opaas/system/orchestrate.py), [`system/draft.py`](../src/opaas/system/draft.py), `smith run --agent langserve|dify|flowise|n8n`
+
+D68 drove A2A, Open WebUI and LangGraph agents whose tools the operator reroutes to OPAAS's mock MCP server, and left the rest of D63's frameworks pending. Four of them can now be configured with an MCP server as their tools and have a conversation API that answers in one request, so the same rule applies to them. Ground truth is unchanged: every call reaches the mock tools, the rerouting is declared (`tools.rerouted: "declared"`), and `keeps_record` is False.
+
+**Each scenario is a new conversation.** A framework with memory would otherwise carry one scenario's turns into the next, and the second scenario would measure something else. Dify gets no `conversation_id`. Flowise gets a new `overrideConfig.sessionId` and n8n a new `sessionId` for each scenario. LangServe and LangGraph runs are stateless.
+
+**LangServe: the task goes where the runnable's schema says.** A runnable takes whatever its author typed it to take. smith reads `/input_schema` first, then calls `/invoke`. If the schema is a string, the task is the input. If it has `messages`, the input is a one-message list. If it has `input`, the input is `{"input": …}`, as an `AgentExecutor` takes it, with an empty `chat_history` when that is required. Any other schema is refused, naming its properties, and smith does not guess. The answer comes from the last message, an `AgentExecutor`'s `output`, a message or a string.
+
+**Dify: streaming, because its agent apps answer in no other mode.** `/chat-messages` with `response_mode: "streaming"`. The answer is the `message` and `agent_message` chunks joined. An `error` event is an error. A stream that ends without `message_end` keeps what arrived and says so. The endpoint is the app's API base with `/v1`, and the app key is required: the CLI refuses to start without it.
+
+**Flowise: the chatflow id is the `assistant`.** `/api/v1/prediction/<id>`, not streaming. The manifest's `assistant` field, which LangGraph already used, names it, and without it the agent stays pending, saying so. `REROUTED_REQUIRES` lists what each rerouted adapter needs beyond its endpoint and `tools_listen`.
+
+**n8n: a Chat Trigger's webhook.** `sendMessage` with `chatInput`, and the answer is `output` (an AI Agent node) or `text`, possibly in a one-item list. The webhook path is the workflow's credential. Like every adapter, the report keeps only scheme, host and port.
+
+**Why the rest of D63's list stays pending.**
+- **Letta:** its agents are stateful by design. They keep memory blocks they edit themselves across every message, so the second scenario would see the first. Driving it would need a fresh agent per scenario, created from a template, and that is no longer the deployed agent.
+- **AnythingLLM:** how its developer API runs an agent with its tools, as distinct from a workspace chat, has not been checked here. An adapter is not built on a guess.
+- **AutoGen and CrewAI:** these are libraries. They are served however the operator wraps them. A wrapper that takes the tools' address with the task can already use the `http` adapter.
+- **OpenHands:** each conversation runs asynchronously in its own sandbox, so driving it means following an event stream rather than making one request. It waits until a deployment needs it.
+
+**What is lost:** the four adapters follow each framework's public API and are tested against fake servers that speak it, not against running instances. A version that changes its API breaks the adapter, and the run reports an error rather than measuring something else. Dify workflow apps (`/workflows/run`, not chat) are not driven. Neither is an n8n Chat Trigger set to stream its answer, nor a LangServe runnable whose input schema is none of the three shapes. `audit run` hands every agent the same `OPAAS_AGENT_TOKEN`, so agents behind different keys are run with `smith run` one at a time and their reports supplied to the audit.
+
+---
+
 ## D68 — An agent OPAAS does not own is driven only when its tools are OPAAS's mock server
 
 **Status:** applied · **Revises:** the pending adapters of [D63](#d63--opaas-identifies-a-systems-agents-and-the-models-they-use), and step 1 of the work plan's phase 11 · **Affects:** [`smith/rerouted.py`](../src/opaas/smith/rerouted.py), [`smith/agents.py`](../src/opaas/smith/agents.py), [`system/manifest.py`](../src/opaas/system/manifest.py), [`system/orchestrate.py`](../src/opaas/system/orchestrate.py), `smith run --agent a2a|open-webui|langgraph`, `--tools-listen`
