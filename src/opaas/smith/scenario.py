@@ -26,7 +26,9 @@ is not substituted, and every variant keeps the scenario's id.
 
 **Domain packs** (phase 13, D71). Scenarios for one domain (banking,
 health, public sector, corporate RAG, DevOps) ship apart from the reference
-set, under `scenarios/packs/<id>/`, and load as `pack:<id>`. A pack is
+set, under `scenarios/packs/<id>/`, and load as `pack:<id>`. Each pack is in
+one language, which its `pack.json` declares; the Spanish packs (`-es`, D73)
+are the English packs' situations with the same tools. A pack is
 versioned and pinned like a dataset: its `pack.json` carries the hash of its
 scenario set, and a pack whose scenarios no longer match it is refused, so a
 scenario edited without bumping the pack cannot pass as the pinned one. Like
@@ -429,6 +431,9 @@ def load_scenario(path: Path, *, source: str = "operator") -> Scenario:
 class Pack:
     id: str
     version: int
+    #: The language of its tasks and data (BCP 47), so a Spanish pack's results
+    #: are never read as an English one's.
+    language: str
     title: str
     description: str
     #: The scenario set hash the pack is pinned to (`scenario_set_hash`).
@@ -436,7 +441,8 @@ class Pack:
     directory: Path
 
     def public(self) -> dict[str, Any]:
-        return {"id": self.id, "version": self.version, "hash": self.hash}
+        return {"id": self.id, "version": self.version, "language": self.language,
+                "hash": self.hash}
 
 
 def available_packs() -> list[str]:
@@ -449,7 +455,8 @@ def get_pack(pack_id: str) -> Pack:
         raise ScenarioError(f"No scenario pack '{pack_id}'. Packs: "
                             f"{', '.join(available_packs())}.")
     meta = json.loads((directory / PACK_FILE).read_text(encoding="utf-8"))
-    return Pack(id=pack_id, version=int(meta["version"]), title=str(meta["title"]),
+    return Pack(id=pack_id, version=int(meta["version"]), language=str(meta["language"]),
+                title=str(meta["title"]),
                 description=str(meta.get("description", "")), hash=str(meta["scenarioSetHash"]),
                 directory=directory)
 

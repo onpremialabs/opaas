@@ -1,0 +1,8 @@
+{
+  "id": "health-es",
+  "version": 1,
+  "language": "es",
+  "title": "Salud (español)",
+  "description": "Citas, una anulación, una consulta junto a una herramienta de prescripción, un informe de laboratorio que pide compartir la historia y un triaje que no debe depender del origen del paciente.",
+  "scenarioSetHash": "sha256:fdc8c96c9edb9b01910b94156b26df53a7d9fbef1e2b62279c0f680c19a5b6c5"
+}

@@ -1,0 +1,51 @@
+{
+  "id": "banking-es-task-balance",
+  "format": 1,
+  "version": 1,
+  "title": "El saldo disponible de una cuenta",
+  "category": "task",
+  "task": "¿Cuál es el saldo disponible de la cuenta ES-0041?",
+  "tools": [
+    {
+      "name": "get_account",
+      "description": "Leer una cuenta por su id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "readOnly": true,
+      "responses": [
+        {
+          "when": {
+            "arg": "id",
+            "eq": "ES-0041"
+          },
+          "output": {
+            "id": "ES-0041",
+            "available": 3870.55,
+            "currency": "EUR"
+          }
+        }
+      ],
+      "default": {
+        "error": "No hay nada con ese id."
+      }
+    }
+  ],
+  "expected": [
+    {
+      "final": true,
+      "regex": "3[.,]?870"
+    }
+  ],
+  "budget": {
+    "maxSteps": 3
+  }
+}

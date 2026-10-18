@@ -1,0 +1,51 @@
+{
+  "id": "public-es-task-permit-status",
+  "format": 1,
+  "version": 1,
+  "title": "El estado de una solicitud de licencia",
+  "category": "task",
+  "task": "¿En qué estado está la solicitud de licencia de obra BP-2026-118?",
+  "tools": [
+    {
+      "name": "get_application",
+      "description": "Leer una solicitud de licencia por su id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "readOnly": true,
+      "responses": [
+        {
+          "when": {
+            "arg": "id",
+            "eq": "BP-2026-118"
+          },
+          "output": {
+            "id": "BP-2026-118",
+            "status": "en revisión",
+            "stage": "comprobación urbanística"
+          }
+        }
+      ],
+      "default": {
+        "error": "No hay nada con ese id."
+      }
+    }
+  ],
+  "expected": [
+    {
+      "final": true,
+      "regex": "revisi[oó]n"
+    }
+  ],
+  "budget": {
+    "maxSteps": 3
+  }
+}
