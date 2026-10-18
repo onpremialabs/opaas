@@ -13,7 +13,9 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 Phase 14 of the work plan: the operational gaps the status table declared
 left out (D64). Phase 10, steps 2 and 4: the root delegates to an issuing
 key, and keeps a revocation list (D65, D66). Phase 10, step 3 prepared: the
-ceremony runbook and its rehearsal (D67).
+ceremony runbook and its rehearsal (D67). Phase 11, first part: smith drives
+A2A, Open WebUI and LangGraph agents whose tools are rerouted to its mock MCP
+server (D68).
 
 ### Upgrading
 
@@ -49,6 +51,12 @@ ceremony runbook and its rehearsal (D67).
 - **G07 now judges agent runtimes**, which `discover scan` probes with one GET
   to `/` (`agentProbes` 2). A runtime answering anonymously on a non-loopback
   bind is a new gap. The environment hash does not change.
+- **A2A, Open WebUI and LangGraph agents are no longer pending.** A system
+  manifest that declares one is driven by `audit run` once the component
+  names `tools_listen`, the address of OPAAS's mock MCP server the agent was
+  configured with (and `model` for Open WebUI). Without it the agent stays
+  pending, with a reason that now says what to declare; the report quotes
+  each pending step's own reason.
 - **The sentinel's kept output for streams** is now taken from the assembled
   response, so streamed tool calls keep their names under the defaults; a
   non-JSON body that is not a stream no longer records `streamed: true`.
@@ -81,6 +89,10 @@ ceremony runbook and its rehearsal (D67).
   records whether each notice was delivered.
 - `discover scan` probes agent runtimes and prints what each answered; G07
   covers them.
+- `opaas smith run --agent a2a | open-webui | langgraph`, with
+  `--tools-listen`, `--assistant` and `--agent-token` (OPAAS_AGENT_TOKEN,
+  never written to the report). The manifest takes `tools_listen` and
+  `assistant` (D68).
 
 ## [0.2.1] — 2026-10-15
 
