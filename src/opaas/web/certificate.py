@@ -18,20 +18,33 @@ tiers). Each block gets its own line, a block that was not evaluated says so
 as visibly as one that was, and every limitation the run declared is printed,
 even when that takes a second page.
 
+**The draft is shown before anything is signed** (D72). `opaas audit run`
+ends by writing `certificate-draft.html` next to the system report and
+opening it, so whoever ran the audit sees the certificate it will become. It
+is the same page over the same unsigned credential `opaas sign` would build
+with onpremIALabs as issuer, so its identifier is the one the issued
+certificate will carry, and its QR code is the address `opaas publish` gives
+that certificate under onpremIALabs's site. A band on every sheet, the title
+and the footer say it is a draft and unsigned: until onpremIALabs signs and
+publishes it, the QR leads nowhere and the page proves nothing.
+
 Rendered self-contained (inline CSS, inline SVG, no fonts or scripts from
 anywhere) so it prints the same offline and years later.
 """
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 import segno
 
-from opaas.core.credential.vc import public_identifier
-from opaas.core.hashing import short_hash
+from opaas.core.credential.keys import ONPREMIALABS_DID
+from opaas.core.credential.vc import build_system_credential, public_identifier
+from opaas.core.hashing import file_digest, short_hash
 from opaas.core.report import describe_scored_dataset
 from opaas.web.site import (
     Entry,
@@ -67,6 +80,33 @@ def check_verify_url(url: str) -> str:
             "page (https://…/cert/<id>/index.html), the one 'opaas publish' generates."
         )
     return url
+
+
+#: Where onpremIALabs publishes issued certificates: the root of the site
+#: `opaas publish` builds. A draft's QR code points under it.
+PUBLISH_BASE_URL = "https://onpremialabs.com"
+
+
+def certificate_url(entry: Entry, base_url: str = PUBLISH_BASE_URL) -> str:
+    """The page `opaas publish` writes for this certificate, under `base_url`."""
+    return check_verify_url(f"{base_url.rstrip('/')}/cert/{entry.slug}/index.html")
+
+
+def draft_entry(report_path: Path) -> Entry:
+    """The system report with the unsigned credential onpremIALabs would sign over it."""
+    report_bytes = report_path.read_bytes()
+    report = json.loads(report_bytes.decode("utf-8"))
+    credential = build_system_credential(report, file_digest(report_path),
+                                         issuer=ONPREMIALABS_DID, key_id="")
+    return Entry(report_path=report_path, credential_path=Path(), report=report,
+                 credential=credential, report_bytes=report_bytes)
+
+
+def render_draft(report_path: Path, *, base_url: str = PUBLISH_BASE_URL) -> str:
+    """The certificate a system report will become, marked unsigned on every sheet."""
+    entry = draft_entry(report_path)
+    return _render_system_printable(entry, verify_url=certificate_url(entry, base_url),
+                                    draft=True)
 
 
 def render_printable(
@@ -172,7 +212,8 @@ def render_printable(
 """
 
 
-def _render_system_printable(entry: Entry, *, verify_url: str | None) -> str:
+def _render_system_printable(entry: Entry, *, verify_url: str | None,
+                             draft: bool = False) -> str:
     """A system certificate (D60): components × dimensions, never a combined mark."""
     report, credential = entry.report, entry.credential
     subject = credential.get("credentialSubject", {})
@@ -182,9 +223,29 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None) -> str:
 
     qr_html, verify_text = "", "Verify offline with:"
     if verify_url is not None:
+        caption = ("Where onpremIALabs will publish it once issued" if draft
+                   else "Scan to verify the signature")
         qr_html = f"""<figure class="qr">{_qr_svg(check_verify_url(verify_url))}
-      <figcaption>Scan to verify the signature</figcaption></figure>"""
-        verify_text = f"Verify at <span class='mono'>{esc(verify_url)}</span>, or offline with:"
+      <figcaption>{caption}</figcaption></figure>"""
+        verify_text = (f"Once issued, at <span class='mono'>{esc(verify_url)}</span>, or "
+                       "offline with:" if draft else
+                       f"Verify at <span class='mono'>{esc(verify_url)}</span>, or offline with:")
+    band = ("<p class='draft-band'>Draft — not issued. Pending signature and issuance by "
+            "onpremIALabs. Not a certificate until then.</p>" if draft else "")
+    title = "Draft Certificate of System Audit" if draft else "Certificate of System Audit"
+    validity = (
+        f"<p><strong>Audited on {esc(issued)}.</strong> Validity starts when onpremIALabs "
+        "issues the certificate; as soon as any component changes, the system requires a new "
+        "audit.</p>" if draft else
+        f"<p><strong>Valid from {esc(issued)} until {esc(expires)}.</strong> After that date, "
+        "or as soon as any component changes, the system requires re-certification.</p>")
+    issuer_key = ("none: this draft is not signed" if draft
+                  else proof.get("verificationMethod"))
+    rendering_note = (
+        "This draft is unsigned, and anyone can edit an HTML page. The certificate is the "
+        "credential onpremIALabs signs over the system report whose hash is above." if draft
+        else "This page is a rendering. The certificate is the signed credential: if anything "
+        "here differs from it, the credential is right and this page is not.")
 
     reasons = subject.get("notCertifiableBecause") or []
     status_html = (
@@ -234,14 +295,15 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OPAAS System Certificate</title>
+<title>{"OPAAS Draft Certificate" if draft else "OPAAS System Certificate"}</title>
 <style>{_CSS}</style>
 </head>
 <body>
-<main class="sheet">
+<main class="sheet{" draft" if draft else ""}">
+  {band}
   <header>
     <p class="issuer">onpremIALabs · OPAAS — On-Prem AI Audit Suite</p>
-    <h1>Certificate of System Audit</h1>
+    <h1>{title}</h1>
     <p class="identifier mono">{esc(public_identifier(credential))}</p>
   </header>
 
@@ -262,8 +324,7 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None) -> str:
   {verdicts_html}
 
   <section class="validity">
-    <p><strong>Valid from {esc(issued)} until {esc(expires)}.</strong> After that date, or as
-    soon as any component changes, the system requires re-certification.</p>
+    {validity}
   </section>
 
   <footer>
@@ -276,14 +337,14 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None) -> str:
         <dt>System report SHA-256</dt><dd class="mono">{esc(entry.report_hash)}</dd>
         <dt>Manifest SHA-256</dt><dd class="mono">{esc(entry.system.get("manifestHash"))}</dd>
         <dt>Credential</dt><dd class="mono">{esc(credential.get("id"))}</dd>
-        <dt>Issuer key</dt><dd class="mono">{esc(proof.get("verificationMethod"))}</dd>
+        <dt>Issuer key</dt><dd class="mono">{esc(issuer_key)}</dd>
       </dl>
-      <p class="note">This page is a rendering. The certificate is the signed credential:
-      if anything here differs from it, the credential is right and this page is not.</p>
+      <p class="note">{rendering_note}</p>
     </div>
   </footer>
 </main>
-<section class="sheet limitations">
+<section class="sheet limitations{" draft" if draft else ""}">
+  {band}
   <h2>Results, per component and dimension</h2>
   <p class="note">A few measured figures per cell, each read from a member document listed
   below by its hash. Nothing is combined across cells.</p>
@@ -641,6 +702,12 @@ footer { display: flex; gap: 6mm; align-items: flex-start; margin-top: 4mm; }
 .certifiable { border-left: 4px solid #1f4e3d; background: #eef5f1; padding: 2mm 4mm; }
 .results { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
 .results td { border-bottom: 1px solid #e3dfd4; padding: 1mm 1.5mm; vertical-align: top; }
+.sheet.draft { border-color: #a3471b; position: relative; }
+.sheet.draft::before { content: "DRAFT"; position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center; font-size: 110pt; letter-spacing: .2em;
+  color: rgba(163, 71, 27, .08); transform: rotate(-24deg); pointer-events: none; }
+.draft-band { margin: 0 0 4mm; padding: 2mm 4mm; text-align: center; font-weight: bold;
+  color: #fff; background: #a3471b; letter-spacing: .03em; }
 @media print {
   body { background: #fff; }
   .sheet { margin: 0; max-width: none; box-shadow: none; }

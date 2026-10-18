@@ -311,6 +311,9 @@ def test_audit_run_end_to_end_with_fake_engines(tmp_path):
     assert report["coverage"]["agent"]["actionRecoverability"] == "not-applicable"
     assert {m["kind"] for m in report["members"]} == {"model-report", "smith-report"}
     assert "coverage" in result.output
+    draft = (out / "certificate-draft.html").read_text(encoding="utf-8")
+    assert "Draft — not issued" in draft and "not signed" in draft
+    assert "https://onpremialabs.com/cert/" in result.output
 
 
 def test_a_system_with_a2a_and_langgraph_agents_runs_with_no_pending_behaviour(tmp_path):
@@ -383,3 +386,13 @@ def test_a_pack_in_the_manifest_runs_as_its_own_set_and_never_as_the_operator_s(
     assert sets == ["reference", "pack:banking"]
     skipped = [s.reason for s in run.steps if s.step == "smith" and s.status == "skipped"]
     assert skipped and "no operator scenarios" in skipped[0]
+
+
+def test_audit_run_refuses_a_certificate_base_that_is_not_a_web_address(tmp_path):
+    """Found before anything runs, not after the audit it would have to repeat."""
+    system = _write(tmp_path, "system.json", {"format": 1, "id": "demo", "purpose": "x",
+                                              "components": [MODEL]})
+    result = runner.invoke(app, ["audit", "run", str(system), "-o", str(tmp_path / "o"),
+                                 "--certificate-base-url", "onpremialabs.com"])
+    assert result.exit_code == 2 and "not a web address" in result.output
+    assert not (tmp_path / "o").exists()

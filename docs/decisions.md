@@ -50,6 +50,22 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D72 — `audit run` shows the certificate it will become, as an unsigned draft with the QR of its future page
+
+**Status:** applied · **Affects:** [`web/certificate.py`](../src/opaas/web/certificate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), `audit run --certificate-base-url`, `--open/--no-open`
+
+Whoever runs an audit wants to see the certificate at the end of it, and the production root that would let onpremIALabs issue one on the spot does not exist yet (phase 10). Certificates will be issued by onpremIALabs after the audit and published on its site. Until then, a person who ran `audit run` got a JSON report and a hint to sign it.
+
+**A draft at the end of every audit.** `audit run` writes `certificate-draft.html` next to the system report and opens it in the browser when run from a terminal (`--open/--no-open` overrides that). It is the system certificate page, rendered over the same unsigned credential `opaas sign` would build over that report with `did:web:onpremialabs.com` as issuer. Its identifier is therefore the one the issued certificate will carry, because the credential id comes from the system id and the report's hash, not from the signature.
+
+**The QR code is the page the certificate will have.** It points to `<base>/cert/<id>/index.html`, which is where `opaas publish` puts that certificate's page. The base is `https://onpremialabs.com` by default and is set with `--certificate-base-url`. A base that is not a web address is refused before the audit runs. A QR cannot carry the HTML itself: a code holds 2–3 KB, and phones do not reliably open embedded pages. A local address works only on the same network while a command is running.
+
+**Unmistakably a draft.** Both sheets carry a band saying it is not issued and pending onpremIALabs's signature. They also carry a *DRAFT* watermark. The title reads *Draft Certificate*, the issuer key reads *none: this draft is not signed*, and no validity dates are printed, because validity starts at issuance. The footer says the certificate is the signed credential, not this page. `opaas certificate` still renders the final page only for a credential that verifies (D29).
+
+**What is lost:** until onpremIALabs publishes the issued certificate, the QR leads to a missing page. A reader who scans it then learns nothing except that the certificate has not been issued. The draft can be edited like any HTML page: it is evidence of nothing, and says so. The default base names onpremIALabs's site, so the paths there must follow `opaas publish`'s layout (`cert/<id>/index.html` at the site root), or `--certificate-base-url` must be given. A report the issuer would reject has no draft, with a note saying why, rather than a draft that could never be issued: for example, one with a cloud baseline among its members (D22).
+
+---
+
 ## D71 — Domain scenario packs, pinned and never certifiable alone; kind-aware templates
 
 **Status:** applied (phase 13) · **Extends:** [D47](#d47--smith-json-scenarios-mock-tools-as-ground-truth-no-auditability-for-a-bare-model) and the templates of [D60](#d60--the-audited-subject-is-the-system-with-one-result-format-and-one-certificate) (S4) · **Affects:** [`smith/scenario.py`](../src/opaas/smith/scenario.py), [`smith/runner.py`](../src/opaas/smith/runner.py), [`smith/scenarios/packs/`](../src/opaas/smith/scenarios/packs/), [`system/template.py`](../src/opaas/system/template.py), [`system/orchestrate.py`](../src/opaas/system/orchestrate.py), `smith packs`, `--scenarios pack:<id>`

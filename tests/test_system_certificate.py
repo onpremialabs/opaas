@@ -247,3 +247,63 @@ def test_overhead_and_swarm_bind_to_the_inventory(tmp_path):
     assert result.exit_code == 0, result.output
     binding = json.loads(overhead.read_text(encoding="utf-8"))["environmentFingerprint"]
     assert binding["bound"] is True and binding["inventoryHash"]
+
+
+# ------------------------------------------------------------- the draft (D72)
+
+
+def _report_file(tmp_path):
+    body = _body(tmp_path, [("llm", _bench()), ("agent", CERTIFIABLE_SMITH)])
+    path = tmp_path / "system-report.json"
+    write_document(path, envelope("system-report", body, environment=None))
+    return path
+
+
+def test_the_draft_is_the_certificate_it_will_become_marked_unsigned(tmp_path):
+    from opaas.core.hashing import file_digest
+    from opaas.web import certificate_url, render_draft
+    from opaas.web.certificate import draft_entry
+
+    path = _report_file(tmp_path)
+    entry = draft_entry(path)
+    signed_later = build_system_credential(json.loads(path.read_text(encoding="utf-8")),
+                                           file_digest(path), issuer="did:web:onpremialabs.com",
+                                           key_id="did:web:onpremialabs.com#issuing")
+    assert entry.credential["id"] == signed_later["id"]
+    assert entry.credential["proof"] is None
+    assert public_identifier(entry.credential).startswith("onpremialabs.com:system:")
+    url = certificate_url(entry)
+    assert url == f"https://onpremialabs.com/cert/{entry.slug}/index.html"
+    html = render_draft(path)
+    assert html.count("Draft — not issued") == 2  # on both sheets
+    assert "Draft Certificate of System Audit" in html and "not signed" in html
+    assert "<svg" in html and url in html
+    assert "Valid from" not in html  # validity starts at issuance
+
+
+def test_the_draft_qr_follows_the_site_it_is_published_on(tmp_path):
+    from opaas.web import render_draft
+
+    html = render_draft(_report_file(tmp_path), base_url="https://certs.example.test/opaas/")
+    assert "https://certs.example.test/opaas/cert/" in html
+
+
+def test_the_draft_opens_in_the_browser_only_when_asked_or_interactive(tmp_path, _no_browser):
+    from opaas.cli.audit import _write_draft
+
+    path = _report_file(tmp_path)
+    _write_draft(path, tmp_path / "a.html", "https://onpremialabs.com", None)
+    assert _no_browser == []  # pytest's stdout is not a terminal
+    _write_draft(path, tmp_path / "b.html", "https://onpremialabs.com", True)
+    assert _no_browser == [(tmp_path / "b.html").resolve().as_uri()]
+
+
+def test_a_report_the_issuer_would_reject_gets_no_draft_and_says_why(tmp_path):
+    """A draft that could never be issued would mislead whoever reads it (D22, D72)."""
+    from opaas.cli.audit import _write_draft
+
+    body = _body(tmp_path, [("llm", _bench(referenceType="cloud-baseline"))])
+    path = tmp_path / "system-report.json"
+    write_document(path, envelope("system-report", body, environment=None))
+    _write_draft(path, tmp_path / "draft.html", "https://onpremialabs.com", False)
+    assert not (tmp_path / "draft.html").exists()
