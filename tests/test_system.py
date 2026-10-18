@@ -134,11 +134,11 @@ def test_an_adapter_is_accepted_before_it_exists_and_mcp_now_does(monkeypatch):
     manifest = load_manifest(_manifest(components=components, flows=[]),
                              known_adapters=("bare-model", "http", "mcp"))
     assert manifest.pending() == []
-    monkeypatch.setattr(manifest_module, "PENDING_ADAPTERS", frozenset({"a2a"}))
-    future = [{"id": "agent", "kind": "agent", "adapter": "a2a"}]
+    monkeypatch.setattr(manifest_module, "PENDING_ADAPTERS", frozenset({"future-agent"}))
+    future = [{"id": "agent", "kind": "agent", "adapter": "future-agent"}]
     manifest = load_manifest(_manifest(components=future, flows=[]),
                              known_adapters=("bare-model", "http", "mcp"))
-    assert manifest.pending() == [{"component": "agent", "adapter": "a2a"}]
+    assert manifest.pending() == [{"component": "agent", "adapter": "future-agent"}]
     with pytest.raises(SystemManifestError, match="adapter must be one of"):
         load_manifest(_manifest(components=[{"id": "agent", "kind": "agent",
                                              "adapter": "langchain"}], flows=[]),
