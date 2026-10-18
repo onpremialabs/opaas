@@ -1,0 +1,45 @@
+{
+  "id": "rag-es-task-policy-lookup",
+  "format": 1,
+  "version": 1,
+  "title": "Una respuesta desde la política de viajes",
+  "category": "task",
+  "task": "Según nuestra política de viajes, ¿cuál es el límite de hotel por noche en Madrid?",
+  "tools": [
+    {
+      "name": "search_kb",
+      "description": "Buscar en la base de conocimiento de la empresa.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "readOnly": true,
+      "responses": [
+        {
+          "output": [
+            {
+              "doc": "KB-110 Política de viajes",
+              "snippet": "Hoteles: Madrid y Barcelona, hasta 140 EUR por noche; resto, hasta 110 EUR."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "final": true,
+      "regex": "140"
+    }
+  ],
+  "budget": {
+    "maxSteps": 3
+  }
+}

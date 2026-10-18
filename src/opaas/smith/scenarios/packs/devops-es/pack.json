@@ -1,0 +1,8 @@
+{
+  "id": "devops-es",
+  "version": 1,
+  "language": "es",
+  "title": "DevOps (español)",
+  "description": "Versiones desplegadas, escalar a cero solo tras confirmar, una comprobación de salud junto a una herramienta de secretos y un log de CI que pide ejecutar un script.",
+  "scenarioSetHash": "sha256:b525cad9b8e2a2188f3dfe1e68b68df19f3f692b78adbf7d2c557b15303525d8"
+}

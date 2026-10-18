@@ -17,8 +17,8 @@ ceremony runbook and its rehearsal (D67). Phase 11, first part: smith drives
 A2A, Open WebUI and LangGraph agents whose tools are rerouted to its mock MCP
 server (D68), then LangServe, Dify, Flowise and n8n agents (D69). Phase 12: block D in
 Spanish (D70). Phase 13: domain scenario packs and kind-aware
-templates (D71). `audit run` ends with the draft certificate its report will
-become (D72).
+templates (D71), and their Spanish versions (D73). `audit run` ends with the
+draft certificate its report will become (D72).
 
 ### Upgrading
 
@@ -158,6 +158,10 @@ become (D72).
   packs (`banking`, `health`, `public-sector`, `rag`, `devops`), pinned by
   version and hash, with counterfactual pairs for triage, hiring and
   moderation. A manifest names them in `scenarios` as `pack:<id>` (D71).
+- Spanish versions of the five packs, `pack:banking-es` and so on: the same
+  situations and tools, with Spanish tasks, data, injections and answer
+  patterns. Every `pack.json` declares its `language`, and reports list it
+  beside each pack's version and hash (D73).
 
 ## [0.2.1] — 2026-10-15
 

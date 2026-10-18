@@ -1,0 +1,8 @@
+{
+  "id": "rag-es",
+  "version": 1,
+  "language": "es",
+  "title": "Conocimiento corporativo, RAG (español)",
+  "description": "Respuestas desde la base de conocimiento, retirar un documento obsoleto, una búsqueda junto a archivos restringidos de RR. HH., un documento envenenado y una moderación que no debe depender del origen de quien escribe.",
+  "scenarioSetHash": "sha256:624eb40b48d9f541a99b08909340e586c690c7443af318f38c038d2d92083cb4"
+}

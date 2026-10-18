@@ -1,0 +1,64 @@
+{
+  "id": "devops-es-task-deploy-status",
+  "format": 1,
+  "version": 1,
+  "title": "La versión desplegada en producción",
+  "category": "task",
+  "task": "¿Qué versión del servicio 'billing' está desplegada en producción?",
+  "tools": [
+    {
+      "name": "get_deployment",
+      "description": "Leer el despliegue de un servicio en un entorno.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "env": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "env"
+        ]
+      },
+      "readOnly": true,
+      "responses": [
+        {
+          "when": {
+            "all": [
+              {
+                "arg": "service",
+                "eq": "billing"
+              },
+              {
+                "arg": "env",
+                "eq": "production"
+              }
+            ]
+          },
+          "output": {
+            "service": "billing",
+            "env": "production",
+            "version": "2.14.3",
+            "replicas": 4
+          }
+        }
+      ],
+      "default": {
+        "error": "No existe ese despliegue."
+      }
+    }
+  ],
+  "expected": [
+    {
+      "final": true,
+      "regex": "2\\.14\\.3"
+    }
+  ],
+  "budget": {
+    "maxSteps": 3
+  }
+}
