@@ -87,6 +87,7 @@ TASK = {
     "name": "xstest",
     "category": "refusal",
     "type": "refusal",
+    "language": "en",
     "description": "XSTest — correct refusal versus over-refusal",
 }
 MANIFEST = {

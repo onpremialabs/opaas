@@ -51,6 +51,13 @@ class Source:
 #: BBQ is read at a fixed commit, never a branch: a branch can move, a commit cannot.
 _BBQ_RAW = "https://raw.githubusercontent.com/nyu-mll/BBQ/bea11bd97d79217245b5871acd247b9d6eb24598"
 
+#: EsBBQ from the authors' repository at a fixed commit (D70). The Hugging Face
+#: copy is Parquet, which would need pyarrow; the repository ships JSONL.
+_ESBBQ_RAW = (
+    "https://raw.githubusercontent.com/langtech-bsc/SpainBBQ/"
+    "61b268600b5ed31ebe655fb1972ce0f187deec45/data_es"
+)
+
 #: RealToxicityPrompts at a fixed dataset commit: `main` on the Hub can move.
 _RTP_REVISION = "f21629712ffd6a3d13a54fd2807ccd521c55ef74"
 
@@ -139,6 +146,63 @@ KNOWN_SOURCES: dict[str, Source] = {
                 url=f"{_BBQ_RAW}/data/Sexual_orientation.jsonl",
                 filename="Sexual_orientation.jsonl",
                 sha256="2c71036b9e7584fe589c42aef32c1a42bc01b9a5e9b1b8704342630cdb08cefd",
+            ),
+        ),
+    ),
+    "esbbq": Source(
+        name="esbbq",
+        url=f"{_ESBBQ_RAW}/Age.full.jsonl",
+        filename="Age.full.jsonl",
+        importer="esbbq",
+        license="Apache-2.0 (Ruiz-Fernández et al., 2025; the Hugging Face copy is CC-BY-4.0)",
+        sha256="90858d72d6bd271310376019368d7baf130cb21de851fd322bc97859c09faed8",
+        description="Spanish social-bias questions, 10 categories (2,000 of 27,320)",
+        block="D",
+        extra_files=(
+            SourceFile(
+                url=f"{_ESBBQ_RAW}/DisabilityStatus.full.jsonl",
+                filename="DisabilityStatus.full.jsonl",
+                sha256="17dab15b71aca8e8316c43058d45598f7cd5b0080b5cc5c7e7b3741df1f9db3a",
+            ),
+            SourceFile(
+                url=f"{_ESBBQ_RAW}/Gender.full.jsonl",
+                filename="Gender.full.jsonl",
+                sha256="9c286f02580400d2592d547ddbe7605a5ba3b0a793a254551314f778fbdefb6a",
+            ),
+            SourceFile(
+                url=f"{_ESBBQ_RAW}/LGBTQIA.full.jsonl",
+                filename="LGBTQIA.full.jsonl",
+                sha256="7e0fd4b5f5c69a8818fe4da6483ee64fd41e34a719c31c61cd5f1246620e564c",
+            ),
+            SourceFile(
+                url=f"{_ESBBQ_RAW}/Nationality.full.jsonl",
+                filename="Nationality.full.jsonl",
+                sha256="3a076c1f423a2d5a7a45a1142b0fc806f1446de83775c610a3088783de181a5f",
+            ),
+            SourceFile(
+                url=f"{_ESBBQ_RAW}/PhysicalAppearance.full.jsonl",
+                filename="PhysicalAppearance.full.jsonl",
+                sha256="e3614cf7bf83e368125600e8ad20378be821292bc46083bbca5459c206f93a1d",
+            ),
+            SourceFile(
+                url=f"{_ESBBQ_RAW}/RaceEthnicity.full.jsonl",
+                filename="RaceEthnicity.full.jsonl",
+                sha256="b8b0db2bcabbe2db380e4cc2ba790241acc196973044625d33e43c1a87e2c899",
+            ),
+            SourceFile(
+                url=f"{_ESBBQ_RAW}/Religion.full.jsonl",
+                filename="Religion.full.jsonl",
+                sha256="10d2d30933bc1dcae03c15b2d5d3aa43379d0a6d8214090ce8ee2c064abe46a8",
+            ),
+            SourceFile(
+                url=f"{_ESBBQ_RAW}/SES.full.jsonl",
+                filename="SES.full.jsonl",
+                sha256="469704cb1c969bd5a6dece149366496eecdae1927571870c510dae80daec840a",
+            ),
+            SourceFile(
+                url=f"{_ESBBQ_RAW}/SpanishRegion.full.jsonl",
+                filename="SpanishRegion.full.jsonl",
+                sha256="d890a3efe6837127844b6927dc3fd388fa4f10ca6025feb98a1ce2440d20e1d5",
             ),
         ),
     ),

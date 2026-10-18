@@ -1,6 +1,6 @@
 # Work plan: from model certification to auditable agents
 
-**Status:** implemented, phases 0–7 (D40–D52), with the system audit (8, D60), agent identification (9, D63), the smith adapters for pending agents (11, D68, D69), the domain scenario packs (13, D71) and the declared operational gaps (14, D64); phase 12 (D70) is built but deferred to the release after the next, phase 10 is in progress, 15 is planned. The [status table](#status) says what each phase delivered and what was left out, and the [release scope](#release-scope) says what ships in the next release and what waits for the one after. This plan splits OPAAS into modules (`discover`, `smith`, `swarm`, `sentinel`, `inquest`, `card`) around one shared evidence core. Each phase lands as its own pull requests with `D<n>` entries. Nothing here changes an invariant in [CLAUDE.md](../CLAUDE.md); where a module needs a new one, it is listed under [New invariants](#new-invariants).
+**Status:** implemented, phases 0–7 (D40–D52), with the system audit (8, D60), agent identification (9, D63), the smith adapters for pending agents (11, D68, D69), block D beyond English (12, D70), the domain scenario packs (13, D71) and the declared operational gaps (14, D64); phase 10 is in progress, 15 is planned. The [status table](#status) says what each phase delivered and what was left out, and the [release scope](#release-scope) says what ships in the next release and what waits for the one after. This plan splits OPAAS into modules (`discover`, `smith`, `swarm`, `sentinel`, `inquest`, `card`) around one shared evidence core. Each phase lands as its own pull requests with `D<n>` entries. Nothing here changes an invariant in [CLAUDE.md](../CLAUDE.md); where a module needs a new one, it is listed under [New invariants](#new-invariants).
 
 ---
 
@@ -198,7 +198,7 @@ This is the paper's missing end-to-end audit. The ground truth comes from instru
 | **9. Agent identification** (D63) | `discover` identifies agents (A2A cards, Open WebUI, frameworks by OpenAPI title) and reads well-known MCP configurations; `audit draft --records` drafts agents, models and flows from records; pending adapters for agents smith cannot drive | 1, 8 | M |
 | **10. Production root of trust** (in progress) | Custody decisions settled; production key ceremony; bundled anchor; revocation list read offline by `verify`. [Detail](#phase-10-production-root-of-trust) | — | M |
 | **11. smith adapters for pending agents** | `a2a`, `open-webui` and framework adapters, with tools rerouted to the mock MCP server or observed through sentinel. [Detail](#phase-11-smith-adapters-for-pending-agents) | — | L |
-| **12. Block D beyond English** (deferred) | Pinned Spanish datasets, refusal patterns and a calibrated multilingual toxicity classifier, reported per language. [Detail](#phase-12-block-d-beyond-english) | — | M |
+| **12. Block D beyond English** | Pinned Spanish datasets, refusal patterns and a calibrated multilingual toxicity classifier, reported per language. [Detail](#phase-12-block-d-beyond-english) | — | M |
 | **13. Domain scenario packs** | Versioned, hashed scenario packs per domain; richer templates; more counterfactual pairs. [Detail](#phase-13-domain-scenario-packs) | 11 | M |
 | **14. Declared operational gaps** | Skill signatures verified (G05); full stream output when kept; approver notification; agent runtimes probed. [Detail](#phase-14-declared-operational-gaps) | — | S–M |
 | **15. Engines without an OpenAI-compatible API** (optional) | Native adapters (Triton / TensorRT-LLM, TGI native) only when a real deployment needs one. [Detail](#phase-15-engines-without-an-openai-compatible-api-optional) | — | S |
@@ -308,7 +308,7 @@ with no pending behaviour cells.
 5. `methodology.md` states what may not be claimed from each Spanish figure.
 
 **Done when** block D reports Spanish results with their own provenance and
-calibration, and *What is not measured* says so. **Done in D70**, in `develop` and deferred to the release after the next, for bias and
+calibration, and *What is not measured* says so. **Done in D70** for bias and
 toxicity; the refusal pair and the adversarial set have no Spanish source with
 a license that could be verified, and are declared.
 

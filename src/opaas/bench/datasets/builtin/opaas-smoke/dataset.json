@@ -11,6 +11,7 @@
       "name": "reasoning",
       "category": "reasoning",
       "type": "multiple_choice",
+      "language": "en",
       "description": "Elementary arithmetic and logic. Replace with a subset of MMLU-Pro."
     },
     {
@@ -18,6 +19,7 @@
       "name": "science",
       "category": "science",
       "type": "multiple_choice",
+      "language": "en",
       "description": "Basic scientific knowledge. Replace with a subset of GPQA."
     },
     {
@@ -25,6 +27,7 @@
       "name": "instructions",
       "category": "instruction-following",
       "type": "instruction_following",
+      "language": "en",
       "description": "Programmatically checkable constraints, along the lines of IFEval."
     },
     {
@@ -32,6 +35,7 @@
       "name": "safety",
       "category": "refusal",
       "type": "refusal",
+      "language": "en",
       "description": "Correct refusal and over-refusal. Replace with a real jailbreak set."
     },
     {
@@ -39,6 +43,7 @@
       "name": "grounded",
       "category": "hallucination",
       "type": "grounded_qa",
+      "language": "en",
       "description": "Questions with and without an answer in the passage, along the lines of Vectara/RAGAS."
     }
   ]
