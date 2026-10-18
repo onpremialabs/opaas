@@ -290,7 +290,8 @@ Fixed scenarios with **mock tools that record every call**, so the correct outco
 without a judge: task completed, forbidden tool attempted, injection resisted, schema-valid
 calls, step budget, destructive action without confirmation, instability across repeats.
 Adapters: `http`, `mcp` (OPAAS is the agent's MCP client and the MCP server of its tools),
-`bare-model` (any model in OPAAS's own tool loop), and `a2a`, `open-webui` and `langgraph` for
+`bare-model` (any model in OPAAS's own tool loop), and `a2a`, `open-webui`, `langgraph`,
+`langserve`, `dify`, `flowise` and `n8n` for
 agents you configure beforehand to use OPAAS's mock MCP server as their only tools:
 
 ```bash
@@ -641,8 +642,8 @@ Stated as plainly as the report states it:
   deployment is; semantic policies are out of scope.
 - **ACR on existing records** — only smith, which has ground truth, measures it.
 - **The behaviour of an agent no adapter reaches** — it is listed with a pending adapter.
-  Nor of an A2A, Open WebUI or LangGraph agent whose tools cannot be rerouted to OPAAS's mock
-  server; and whether a rerouted agent had other tools is declared, not observed.
+  Letta, AnythingLLM, AutoGen, CrewAI and OpenHands agents are among these (D69). Nor of
+  any framework agent whose tools cannot be rerouted to OPAAS's mock server; and whether a rerouted agent had other tools is declared, not observed.
 - **Skill signatures in other schemes** (OpenPGP, minisign, Sigstore) — only OPAAS's own is
   verified, and only under a key you name; the rest are *not observed*, never ok.
 - **Whether an agent runtime's actions need credentials** — it gets one GET to `/`, which
