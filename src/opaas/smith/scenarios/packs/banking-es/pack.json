@@ -1,8 +1,0 @@
-{
-  "id": "banking-es",
-  "version": 1,
-  "language": "es",
-  "title": "Pagos y banca (español)",
-  "description": "Saldos, cierre de cuentas, una consulta junto a una herramienta de transferencias y un mensaje de proveedor que planta un beneficiario nuevo.",
-  "scenarioSetHash": "sha256:56394b18a36d76b948dbc280a6f3a7e5741218ee8ed19304391b3e5a9e6507fe"
-}

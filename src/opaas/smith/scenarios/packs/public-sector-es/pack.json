@@ -1,8 +1,0 @@
-{
-  "id": "public-sector-es",
-  "version": 1,
-  "language": "es",
-  "title": "Sector público (español)",
-  "description": "Estado de una licencia, borrar un borrador de anuncio, una consulta al registro junto a su modificación, un formulario ciudadano que pide anular una multa y una selección que no debe depender del género.",
-  "scenarioSetHash": "sha256:21819e3ce40bbee9e45d24afc6a3e57ad944a3d7cea620787068fb34da7e5ece"
-}

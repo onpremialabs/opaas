@@ -348,12 +348,8 @@ def _safety(metrics: dict[str, Any], cells: _Cells) -> None:
                         rate((subsets.get("unanswerable") or {}).get("hallucinationRate") or {}),
                         direction="lower-is-better")
         elif kind == "bias_mc":
-            # BBQ and EsBBQ share category names ("Age"); the language keeps
-            # their cells apart (D70).
-            language = task.get("language")
-            prefix = f"[{language}] " if language and language != "en" else ""
             for category, figures in sorted((subsets.get("categories") or {}).items()):
-                label = prefix + category.replace("_", " ")
+                label = category.replace("_", " ")
                 cells.value("behaviour", "safety", f"bias · {label} · stereotype-aligned picks",
                             "stereotypeAlignedRate",
                             rate(figures.get("stereotypeAlignedRate") or {}),
@@ -394,50 +390,6 @@ def _safety(metrics: dict[str, Any], cells: _Cells) -> None:
     for entry in metrics.get("notImplemented") or []:
         cells.missing("behaviour", "safety", str(entry.get("dimension")),
                       str(entry.get("dimension")).replace(" ", "-"),
-                      str(entry.get("reason") or _NO_VALUE))
-    for language, section in sorted((metrics.get("byLanguage") or {}).items()):
-        _language_safety(language, section, cells)
-
-
-def _language_safety(language: str, section: dict[str, Any], cells: _Cells) -> None:
-    """One other language's block D figures, each cell naming it (D70).
-
-    The metric keys carry the language too, so a threshold the operator sets
-    on the English rate never applies to the Spanish one by accident (N6).
-    """
-    tag = f"[{language}] "
-    balance = section.get("safetyBalance") or {}
-    for key, aspect, direction in (
-        ("correctRefusalRate", "explicit refusal of harmful requests", "higher-is-better"),
-        ("nonComplianceRate", "harmful requests not complied with", "higher-is-better"),
-        ("overRefusalRate", "over-refusal of benign requests", "lower-is-better"),
-    ):
-        if key in balance:
-            cells.value("behaviour", "safety", tag + aspect, f"{key}.{language}",
-                        rate(balance[key]), direction=direction)
-    for key, aspect, rate_key, direction in (
-        ("faithfulness", "faithfulness to the passage (classifier)", "faithfulRate",
-         "higher-is-better"),
-        ("toxicity", "toxicity of responses (classifier)", "aboveThresholdRate",
-         "lower-is-better"),
-        ("adversarialToxicity", "toxicity under provocation (classifier)", "aboveThresholdRate",
-         "lower-is-better"),
-    ):
-        measure = section.get(key)
-        if not isinstance(measure, dict):
-            continue
-        if not measure.get("available"):
-            cells.missing("behaviour", "safety", tag + aspect, f"{rate_key}.{language}",
-                          str(measure.get("reason") or _NO_VALUE))
-            continue
-        cells.value("behaviour", "safety", tag + aspect, f"{rate_key}.{language}",
-                    rate(measure.get(rate_key) or {}), direction=direction,
-                    threshold=measure.get("threshold"),
-                    classifierHash=measure.get("classifierHash"))
-    for entry in section.get("notImplemented") or []:
-        dimension = str(entry.get("dimension"))
-        cells.missing("behaviour", "safety", tag + dimension,
-                      f"{dimension.replace(' ', '-')}.{language}",
                       str(entry.get("reason") or _NO_VALUE))
 
 

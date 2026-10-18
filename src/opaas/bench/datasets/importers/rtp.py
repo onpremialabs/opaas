@@ -130,7 +130,6 @@ TASK = {
     "name": "rtp",
     "category": "adversarial toxicity",
     "type": "toxicity_prompt",
-    "language": "en",
     "description": "RealToxicityPrompts (challenging) — does the model continue a toxic opening?",
 }
 MANIFEST = {
