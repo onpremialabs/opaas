@@ -14,7 +14,17 @@ from opaas.cli.common import _plain, console, err_console
 from opaas.core.evidence import EvidenceError, envelope, read_document, write_document
 from opaas.core.fingerprint import deployment_fingerprint
 from opaas.core.report import describe_environment
-from opaas.smith import BareModelAgent, HttpAgent, McpAgent, ScenarioError, available_agents
+from opaas.smith import (
+    A2aAgent,
+    BareModelAgent,
+    HttpAgent,
+    LangGraphAgent,
+    McpAgent,
+    OpenWebUiAgent,
+    ScenarioError,
+    available_agents,
+)
+from opaas.smith.rerouted import DEFAULT_TOOLS_LISTEN, TOKEN_ENV, parse_listen
 from opaas.smith.runner import build_report, run_scenarios
 from opaas.smith.scenario import load_scenarios
 from opaas.smith.toxicity import score_agent_toxicity
@@ -51,10 +61,20 @@ def run_command(
                                          help="Runs per scenario; 2+ measures instability.")]
     = 3,
     endpoint: Annotated[str | None, typer.Option(
-        "--endpoint", help="Agent URL (http adapter).")] = None,
+        "--endpoint", help="Agent URL (http, mcp, a2a, open-webui, langgraph).")] = None,
+    tools_listen: Annotated[str, typer.Option(
+        "--tools-listen", help="host:port where OPAAS serves the scenario's mock tools over "
+        "MCP (a2a, open-webui, langgraph). The agent must be configured to use "
+        "http://<host:port>/mcp as its only tools, before the run.")] = DEFAULT_TOOLS_LISTEN,
+    assistant: Annotated[str, typer.Option(
+        "--assistant", help="LangGraph assistant or graph id.")] = "agent",
+    agent_token: Annotated[str | None, typer.Option(
+        "--agent-token", envvar=TOKEN_ENV, help="The agent's API key (open-webui, langgraph, "
+        "a2a). Never written to the report.")] = None,
     backend: Annotated[str | None, typer.Option(
         "--backend", "-b", help="Engine adapter (bare-model).")] = None,
-    model: Annotated[str | None, typer.Option("--model", "-m", help="Model (bare-model).")]
+    model: Annotated[str | None, typer.Option(
+        "--model", "-m", help="Model (bare-model), or the Open WebUI model or agent id.")]
     = None,
     base_url: Annotated[str | None, typer.Option("--base-url", help="Engine URL.")] = None,
     api_key: Annotated[str | None, typer.Option("--api-key", envvar="OPAAS_API_KEY",
@@ -92,6 +112,26 @@ def run_command(
             err_console.print(f"[red]--agent {agent} needs --endpoint.[/red]")
             raise typer.Exit(code=2)
         adapter: Any = HttpAgent(endpoint) if agent == "http" else McpAgent(endpoint)
+    elif agent in ("a2a", "open-webui", "langgraph"):
+        if not endpoint:
+            err_console.print(f"[red]--agent {agent} needs --endpoint.[/red]")
+            raise typer.Exit(code=2)
+        if agent == "open-webui" and not model:
+            err_console.print("[red]--agent open-webui needs --model: the Open WebUI model or "
+                              "agent id whose tools are OPAAS's mock server.[/red]")
+            raise typer.Exit(code=2)
+        try:
+            parse_listen(tools_listen)
+        except ValueError as exc:
+            err_console.print(f"[red]--tools-listen: {_plain(exc)}[/red]")
+            raise typer.Exit(code=2) from None
+        common: dict[str, Any] = {"tools_listen": tools_listen, "token": agent_token}
+        adapter = (A2aAgent(endpoint, **common) if agent == "a2a"
+                   else OpenWebUiAgent(endpoint, model=str(model), **common)
+                   if agent == "open-webui"
+                   else LangGraphAgent(endpoint, assistant=assistant, **common))
+        console.print(f"[dim]Mock tools at {adapter.tools_url}: the agent must use them, and "
+                      "only them (D68).[/dim]")
     elif agent == "bare-model":
         if not backend or not model:
             err_console.print("[red]--agent bare-model needs --backend and --model.[/red]")
@@ -115,7 +155,12 @@ def run_command(
             loaded, adapter, repeats=repeats, keep_finals=keep_finals,
             progress=lambda sid, i, n: console.print(f"[dim]{i}/{n} {sid}[/dim]"),
         )
+    except OSError as exc:  # the mock tools' address is taken or not ours
+        err_console.print(f"[red]Cannot serve the mock tools at {tools_listen}: "
+                          f"{_plain(exc)}[/red]")
+        raise typer.Exit(code=2) from None
     finally:
+        adapter.close()
         if engine is not None:
             engine.close()
     answers = [o.final_text for o in outcomes if o.final_text]

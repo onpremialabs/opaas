@@ -78,6 +78,9 @@ class MockEnvironment:
     default_chain: list[dict[str, str]]
     state: dict[str, Any] = field(init=False)
     record: list[dict[str, Any]] = field(default_factory=list, init=False)
+    #: Whether the agent asked for this scenario's tools over MCP. An agent
+    #: that never does may be calling a tool list from an earlier scenario (D68).
+    listed: bool = field(default=False, init=False)
     calls: list[dict[str, Any]] = field(default_factory=list, init=False)
     _confirmed: bool = field(default=False, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
