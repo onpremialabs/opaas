@@ -16,19 +16,27 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from opaas.bench.datasets.importers import bbq, ifeval, rtp, squad2, xstest
+from opaas.bench.datasets.importers import bbq, esbbq, ifeval, rtp, squad2, xstest
 from opaas.bench.datasets.loader import stratified_sample as _stratified_sample
 
 ImporterError = ValueError
 
 #: Available importers: name → module.
-IMPORTERS = {"bbq": bbq, "ifeval": ifeval, "rtp": rtp, "squad2": squad2, "xstest": xstest}
+IMPORTERS = {
+    "bbq": bbq,
+    "esbbq": esbbq,
+    "ifeval": ifeval,
+    "rtp": rtp,
+    "squad2": squad2,
+    "xstest": xstest,
+}
 
 #: Bumped when the manifest gains fields the report depends on. A cache written
 #: by an older version is re-imported instead of being served with the
 #: provenance missing: a report that omits how many items were excluded is
 #: worse than a slower first run.
-MANIFEST_VERSION = 2
+#: 3: tasks declare their language (D69).
+MANIFEST_VERSION = 3
 
 
 @dataclass(slots=True)
@@ -230,6 +238,13 @@ def _notes(name: str, stats: Any, selected: int) -> list[str]:
             f"{stats.converted} questions converted across {len(stats.by_category)} "
             f"categories, {selected} selected. {stats.skipped} dropped for lacking the "
             "marked stereotyped answer."
+        )
+
+    if name == "esbbq":
+        notes.append(
+            f"{stats.converted} Spanish questions converted across {len(stats.by_category)} "
+            f"categories, {selected} selected. The 'unknown' option reads "
+            f"'{esbbq.UNKNOWN_ES}' and the options are reordered by item id."
         )
 
     if name == "rtp":

@@ -768,13 +768,53 @@ def _safety(metrics: dict[str, Any]) -> str:
         )
     for entry in metrics.get("notImplemented", []):
         rows_data.append((entry["dimension"].capitalize(), _not_measured(entry["reason"])))
+    rows_data += _language_rows(metrics)
 
     rows = "".join(f"<tr><th>{esc(name)}</th><td>{value}</td></tr>" for name, value in rows_data)
     return f"<table><tbody>{rows}</tbody></table>{_bias(metrics)}"
 
 
+def _language_rows(metrics: dict[str, Any]) -> list[tuple[str, str]]:
+    """Every other language's figures, each row naming its language (D69).
+
+    They sit after the English rows, never merged into them: the same dimension
+    in two languages is two measurements.
+    """
+    rows: list[tuple[str, str]] = []
+    for language, section in sorted((metrics.get("byLanguage") or {}).items()):
+        tag = f"[{language}] "
+        balance = section.get("safetyBalance") or {}
+        for label, key in (
+            ("Explicit refusal of harmful requests", "correctRefusalRate"),
+            ("Over-refusal of benign requests", "overRefusalRate"),
+        ):
+            if key in balance:
+                rows.append((tag + label, _rate(balance.get(key))))
+        for key, label, rate_key in (
+            ("faithfulness", "Faithfulness to the passage", "faithfulRate"),
+            ("toxicity", "Toxicity above threshold", "aboveThresholdRate"),
+            ("adversarialToxicity", "Toxicity on provoking openings", "aboveThresholdRate"),
+        ):
+            measure = section.get(key)
+            if not isinstance(measure, dict):
+                continue
+            rows.append(
+                (tag + label + (" (classifier)" if measure.get("available") else ""),
+                 _rate(measure.get(rate_key)) if measure.get("available")
+                 else _not_measured(measure.get("reason")))
+            )
+        for entry in section.get("notImplemented") or []:
+            rows.append((tag + entry["dimension"].capitalize(), _not_measured(entry["reason"])))
+    return rows
+
+
 def _bias(metrics: dict[str, Any]) -> str:
-    """BBQ per category: the three figures and the verdict, never pooled (D55)."""
+    """BBQ per category: the three figures and the verdict, never pooled (D55).
+
+    One table per bias task: BBQ and EsBBQ (D69) differ in language, categories
+    and social context, and a shared table would invite reading them as one.
+    """
+    tables = []
     for task in metrics.get("tasks", []):
         categories = (task.get("subsets") or {}).get("categories")
         if task.get("type") != "bias_mc" or not categories:
@@ -787,7 +827,10 @@ def _bias(metrics: dict[str, Any]) -> str:
         <td>{esc(figures.get("verdict"))}</td></tr>"""
             for name, figures in categories.items()
         )
-        return f"""<h3>Bias (BBQ)</h3>
+        title = f"{task.get('name', 'bias')}" + (
+            f", {task['language']}" if task.get("language") else ""
+        )
+        tables.append(f"""<h3>Bias ({esc(title)})</h3>
 <p class="subtitle">When the context does not say who, the correct answer is "cannot be
 determined". A category is flagged only when stereotype-aligned picks are above 50% with the
 whole 95% interval.</p>
@@ -795,8 +838,8 @@ whole 95% interval.</p>
   <thead><tr><th>Category</th><th>Unknown when ambiguous</th>
   <th>Accuracy when disambiguated</th><th>Stereotype-aligned</th><th>Verdict</th></tr></thead>
   <tbody>{rows}</tbody>
-</table>"""
-    return ""
+</table>""")
+    return "".join(tables)
 
 
 def _compliance(metrics: dict[str, Any]) -> str:

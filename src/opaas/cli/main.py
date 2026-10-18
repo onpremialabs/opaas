@@ -378,9 +378,29 @@ ToxicityModel = Annotated[
         "classifiers extra is installed, the pinned default is fetched once into the cache.",
     ),
 ]
+ToxicityEsModel = Annotated[
+    Path | None,
+    typer.Option(
+        "--toxicity-es-model",
+        help="Local weights of the Spanish toxicity classifier, for Spanish tasks. Without it, "
+        "and only if the classifiers extra is installed, the pinned multilingual default is "
+        "fetched once into the cache.",
+    ),
+]
 ClassifierThreshold = Annotated[
     float | None,
-    typer.Option("--classifier-threshold", help="Threshold for both classifiers, in [0, 1]."),
+    typer.Option(
+        "--classifier-threshold",
+        help="Threshold for the English faithfulness and toxicity classifiers, in [0, 1].",
+    ),
+]
+ToxicityEsThreshold = Annotated[
+    float | None,
+    typer.Option(
+        "--toxicity-es-threshold",
+        help="Threshold for the Spanish toxicity classifier, in [0, 1]. Kept apart from "
+        "--classifier-threshold: a threshold set for one instrument says nothing about another.",
+    ),
 ]
 AllowRemoteCode = Annotated[
     bool,
@@ -488,6 +508,8 @@ def run(
     faithfulness_profile: FaithfulnessProfile = "nli",
     toxicity_model: ToxicityModel = None,
     classifier_threshold: ClassifierThreshold = None,
+    toxicity_es_model: ToxicityEsModel = None,
+    toxicity_es_threshold: ToxicityEsThreshold = None,
     allow_remote_code: AllowRemoteCode = False,
 ) -> None:
     """Runs an evaluation and writes the structured report."""
@@ -604,6 +626,8 @@ def run(
             "faithfulness_threshold": classifier_threshold,
             "toxicity_model": str(toxicity_model) if toxicity_model else None,
             "toxicity_threshold": classifier_threshold,
+            "toxicity_es_model": str(toxicity_es_model) if toxicity_es_model else None,
+            "toxicity_es_threshold": toxicity_es_threshold,
             "allow_remote_code": allow_remote_code,
         },
         "compliance": {
@@ -2298,7 +2322,12 @@ def _print_bias_table(metrics: dict[str, Any]) -> None:
         categories = (task.get("subsets") or {}).get("categories")
         if task.get("type") != "bias_mc" or not categories:
             continue
-        table = Table(title="Block D — Bias (BBQ)")
+        language = task.get("language")
+        table = Table(
+            title=f"Block D — Bias ({_plain(str(task.get('name', 'bias')))}"
+            + (f", {_plain(language)}" if language else "")
+            + ")"
+        )
         table.add_column("category", style="bold")
         table.add_column("unknown when ambiguous", justify="right")
         table.add_column("accuracy when disambiguated", justify="right")
@@ -2396,6 +2425,29 @@ def _print_safety_table(metrics: dict[str, Any]) -> None:
             "—" if rate.get("low") is None else f"{rate['low']:.1%} – {rate['high']:.1%}",
             str(rate.get("n", 0)),
         )
+    # Every other language on rows of its own, named, never merged (D69).
+    for language, section in sorted((metrics.get("byLanguage") or {}).items()):
+        balance = section.get("safetyBalance") or {}
+        rows = [
+            (f"[{language}] explicit refusal (harmful)", balance.get("correctRefusalRate")),
+            (f"[{language}] over-refusal (benign)", balance.get("overRefusalRate")),
+        ]
+        toxicity = section.get("toxicity") or {}
+        if toxicity.get("available"):
+            rows.append(
+                (f"[{language}] toxicity (classifier) · threshold {toxicity.get('threshold')}",
+                 toxicity.get("aboveThresholdRate"))
+            )
+        for label, rate in rows:
+            if not rate:
+                continue
+            point = rate.get("point")
+            table.add_row(
+                label,
+                "—" if point is None else f"{point:.1%}",
+                "—" if rate.get("low") is None else f"{rate['low']:.1%} – {rate['high']:.1%}",
+                str(rate.get("n", 0)),
+            )
     console.print(table)
     _print_bias_table(metrics)
     _print_exclusions(metrics.get("dataset") or {}, _SAFETY_TYPES)
