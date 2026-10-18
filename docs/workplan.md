@@ -1,6 +1,6 @@
 # Work plan: from model certification to auditable agents
 
-**Status:** implemented, phases 0–7 (D40–D52), with the system audit (8, D60), agent identification (9, D63), the smith adapters for pending agents (11, D68, D69), block D beyond English (12, D70), the domain scenario packs (13, D71) and the declared operational gaps (14, D64); phase 10 is in progress, 15 is planned. The [status table](#status) says what each phase delivered and what was left out. This plan splits OPAAS into modules (`discover`, `smith`, `swarm`, `sentinel`, `inquest`, `card`) around one shared evidence core. Each phase lands as its own pull requests with `D<n>` entries. Nothing here changes an invariant in [CLAUDE.md](../CLAUDE.md); where a module needs a new one, it is listed under [New invariants](#new-invariants).
+**Status:** implemented, phases 0–7 (D40–D52), with the system audit (8, D60), agent identification (9, D63), the smith adapters for pending agents (11, D68, D69), block D beyond English (12, D70), the domain scenario packs (13, D71) and the declared operational gaps (14, D64); phase 10 is in progress, 15 is planned. The [status table](#status) says what each phase delivered and what was left out, and the [release scope](#release-scope) says what ships in the next release and what waits for the one after. This plan splits OPAAS into modules (`discover`, `smith`, `swarm`, `sentinel`, `inquest`, `card`) around one shared evidence core. Each phase lands as its own pull requests with `D<n>` entries. Nothing here changes an invariant in [CLAUDE.md](../CLAUDE.md); where a module needs a new one, it is listed under [New invariants](#new-invariants).
 
 ---
 
@@ -223,6 +223,15 @@ This is the paper's missing end-to-end audit. The ground truth comes from instru
 | **13. Domain scenario packs** | D71: `banking`, `health`, `public-sector`, `rag` and `devops` packs (23 scenarios, each domain with a task, destructive, permission and injection scenario), loaded as `pack:<id>`, pinned by version and scenario-set hash and refused on mismatch, each replayed by a correct solution in the tests; a run on packs and reference scenarios alone is not certifiable. Counterfactual pairs for triage, hiring and moderation. `audit template` aims injection templates at the manifest's sinks and puts permission templates beside a lookup of the same kind. | Packs use invented data; Spanish versions of all five followed in D73, other languages wait for a deployment that needs them. A pack scenario is not promoted to the reference set, which stays the 21 that existing reports cite. |
 | **15.** | Planned, not started. | — |
 | **14. Declared operational gaps** | D64: G05 verifies skill signatures (`discover sign-skill`, `gaps --skill-key`; `RULESET_VERSION` 2). The proxy assembles OpenAI, Responses API and Ollama streams before applying `keep`; `--keep-output`. The gate notifies approvers through `--notify-webhook` / `--notify-command` with ids and digest only, and records whether each notice was delivered. `discover` probes agent runtimes with one GET and G07 covers them. | Signatures in schemes other than OPAAS's own are not verified (`not-observed`). Streams in other shapes keep their last line, marked. A runtime probe sees its front door, not whether its actions need credentials. |
+
+### Release scope
+
+**The next release is in English.** It ships and supports what the phases above delivered in English: the reference scenarios, the five English domain packs, and the English block D instruments, which are the instruments its documentation describes.
+
+**Deferred to the release after it:**
+
+- **Phase 10, step 3:** the production key ceremony on the two hardware tokens and the anchor bundled in `core/credential/anchors/`. It is left for last on purpose. Until then a certificate verifies only with the key or DID document handed over separately (invariant 6), and `audit run`'s draft certificate stays unsigned (D72).
+- **The Spanish domain packs** (D73): `banking-es`, `health-es`, `public-sector-es`, `rag-es` and `devops-es`. They are in `develop` and replay in the tests, but are outside this release's scope. Before they ship, the translation needs the review by domain experts that D73 says it has not had.
 
 **Open questions (§6), as settled:** 1 — `observe` changes nothing and `gate` is opt-in (D46, D50). 2 — digests by default, the operator adds fields with `--keep` and declares retention on the card; whether a third party may require fields stays open. 3 — yes: a report on reference scenarios alone is `certifiable: false` (D47). 4 — yes, specified once in `smith`: counterfactual scenarios compared on the agent's actions (D60, S4).
 
