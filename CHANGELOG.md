@@ -150,10 +150,10 @@ draft certificate its report will become (D72).
   scenario starts a new conversation; `--assistant` is the Flowise chatflow
   id; Dify needs the app key in `--agent-token`.
 - `audit run` writes and opens `certificate-draft.html`: the system
-  certificate over its report, unsigned and marked a draft on every sheet,
-  with a QR code to `<base>/cert/<id>/index.html`, where the issued
-  certificate will be published (`--certificate-base-url`, default
-  `https://onpremialabs.com`; `--open/--no-open`) (D72).
+  certificate over its report, unsigned and marked a draft on every sheet.
+  With `--certificate-base-url` it carries a QR code to
+  `<base>/cert/<id>/index.html`, where the issued certificate will be
+  published; without it, none (`--open/--no-open`) (D72).
 - `opaas smith packs` and `--scenarios pack:<id>`: five domain scenario
   packs (`banking`, `health`, `public-sector`, `rag`, `devops`), pinned by
   version and hash, with counterfactual pairs for triage, hiring and
