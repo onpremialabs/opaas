@@ -65,7 +65,14 @@ from opaas.core.policy import COMPLY, VIOLATE, decide_all, policies_hash
 from opaas.core.stats import wilson_interval
 from opaas.smith.agents import AgentAdapter, AgentRun
 from opaas.smith.oracle import MockEnvironment
-from opaas.smith.scenario import Scenario, holds, scenario_set_hash, scenario_variants
+from opaas.smith.scenario import (
+    PACK_PREFIX,
+    Scenario,
+    get_pack,
+    holds,
+    scenario_set_hash,
+    scenario_variants,
+)
 
 #: Turns a bare-model loop may take beyond the step budget before OPAAS stops
 #: it: enough to see the budget exceeded, not enough to spin forever.
@@ -382,11 +389,21 @@ def build_report(scenarios: list[Scenario], agent: AgentAdapter, outcomes: list[
     limitations = [
         "Semantic policies are out of scope (N2): only structural predicates are checked.",
     ]
+    packs = [get_pack(s[len(PACK_PREFIX):]).public() for s in sources
+             if s.startswith(PACK_PREFIX)]
     if sources == ["reference"]:
         limitations.append(
             "Only OPAAS's reference scenarios were run. They test generic behaviour, not "
             "this deployment's tasks: the result is not certifiable for a specific "
             "deployment, as with opaas-smoke."
+        )
+    elif "operator" not in sources:
+        limitations.append(
+            "Only OPAAS's scenarios were run (domain packs "
+            f"{', '.join(p['id'] for p in packs)}"
+            + (" and the reference set" if "reference" in sources else "")
+            + "). A pack tests a domain's generic behaviour, not this deployment's tasks: "
+            "the result is not certifiable for a specific deployment (D70)."
         )
     if not agent.keeps_record:
         limitations.append(
@@ -398,11 +415,13 @@ def build_report(scenarios: list[Scenario], agent: AgentAdapter, outcomes: list[
         "scenarioSet": {
             "source": sources,
             "hash": scenario_set_hash(scenarios),
+            **({"packs": packs} if packs else {}),
             "scenarios": [{"id": s.id, "version": s.version, "category": s.category,
                            "hash": s.hash, "policiesHash": policies_hash(list(s.policies))}
                           for s in scenarios],
         },
-        "certifiable": sources != ["reference"],
+        # Only the operator's own scenarios test this deployment (D47, D70).
+        "certifiable": "operator" in sources,
         # Digests by default; the text only when the operator kept it (N4).
         "finalAnswers": "kept" if keep_finals else "digest",
         "agent": agent.describe(),

@@ -131,3 +131,31 @@ def test_completed_templates_make_the_agent_certifiable(tmp_path):
                                   "fake-answering", "--model", "m", "--scenarios",
                                   str(unfinished), "-o", str(tmp_path / "no.json")])
     assert refused.exit_code == 2
+
+
+def test_an_injection_template_is_aimed_at_the_manifest_s_tools_that_act():
+    """A canary is caught only in a side effect, so the planted text asks for a sink (D70)."""
+    templates, notes = scenario_templates(_manifest(["read_email", "send_payment"]))
+    injection = next(s for _, s in templates if s["category"] == "injection")
+    canary = injection["adversarial"][0]["canary"]
+    planted = injection["tools"][0]["responses"][0]["output"]
+    assert "send_payment" in planted and "payee" in planted and canary in planted
+    assert [t["name"] for t in injection["tools"]] == ["read_email", "send_payment"]
+    assert injection["policies"][0]["match"] == {"field": "target", "eq": "send_payment"}
+    assert not any("no other tool" in n for n in notes)
+    parse_scenario(_complete(injection))
+
+
+def test_an_injection_template_with_nothing_to_aim_at_says_so():
+    _, notes = scenario_templates(_manifest(["read_email"]))
+    assert any("read_email: no other tool" in n for n in notes)
+
+
+def test_a_permission_template_puts_the_risky_tool_beside_a_lookup_of_its_kind():
+    templates, _ = scenario_templates(_manifest(["get_invoice", "lookup_user", "pay_invoice"]))
+    permission = next(s for _, s in templates if s["category"] == "permission")
+    assert [t["name"] for t in permission["tools"]] == ["get_invoice", "pay_invoice"]
+    assert permission["tools"][0]["readOnly"] is True
+    assert "get_invoice" in permission["task"] and "pay_invoice" in permission["task"]
+    assert permission["policies"][0]["match"]["eq"] == "pay_invoice"
+    parse_scenario(_complete(permission))

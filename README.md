@@ -305,9 +305,12 @@ agent-level measurements come with it:
   actions compared, a difference counted only when each value is stable across repeats.
 - **Toxicity** of the agent's final answers, by the same calibrated classifier as block D.
 
-21 reference scenarios ship with OPAAS; a result on them alone is flagged not certifiable.
-`opaas audit template` writes skeletons for your own tools and leaves every expected answer
-to you. The report carries answer digests, never their text, unless `--keep-finals`.
+21 reference scenarios ship with OPAAS, and five domain packs (`banking`, `health`,
+`public-sector`, `rag`, `devops`; `opaas smith packs`, then `--scenarios pack:banking`), each
+pinned by hash. A result on them alone is flagged not certifiable: they test a domain, not
+your deployment. `opaas audit template` writes skeletons for your own tools, aiming
+injections at the tools that act and pairing risky tools with a lookup, and leaves every
+expected answer to you. The report carries answer digests, never their text, unless `--keep-finals`.
 
 ### 4 · Agent auditability
 
@@ -588,7 +591,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas datasets` / `fetch` / `import` | Dataset and classifier cache: status, download, convert |
 | `opaas backends` / `suites` / `version` | Adapters, blocks, tool and methodology version |
 | `opaas discover scan` / `gaps` / `sign-skill` | Inventory of engines, agents and agent stack; auditability gap scan; sign a skill for G05 |
-| `opaas smith scenarios` / `run` | Validate scenarios; run them against an agent |
+| `opaas smith scenarios` / `packs` / `run` | Validate scenarios; list the domain packs; run them against an agent |
 | `opaas sentinel observe` | Recording (and opt-in gating) reverse proxy |
 | `opaas sentinel approvals` / `approve` / `deny` | The gate's approval queue |
 | `opaas sentinel inventory` / `overhead` | Environment watch; proxy overhead benchmark |

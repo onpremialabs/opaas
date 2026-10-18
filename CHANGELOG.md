@@ -15,10 +15,17 @@ left out (D64). Phase 10, steps 2 and 4: the root delegates to an issuing
 key, and keeps a revocation list (D65, D66). Phase 10, step 3 prepared: the
 ceremony runbook and its rehearsal (D67). Phase 11, first part: smith drives
 A2A, Open WebUI and LangGraph agents whose tools are rerouted to its mock MCP
-server (D68).
+server (D68). Phase 13: domain scenario packs and kind-aware templates (D70).
 
 ### Upgrading
 
+- **`certifiable` is computed from the operator's scenarios.** A smith report
+  is certifiable when scenarios of your own ran, which is what "not only the
+  reference set" meant before; reports on domain packs alone are not (D70).
+- **`audit template` writes different injection and permission skeletons**
+  when the manifest declares tools that act: the planted instruction names
+  one, and the template forbids them. Templates already completed are never
+  overwritten; regenerate into a new directory to compare.
 - **`verify` prints new checks.** Every verification against a DID document
   or an anchor now begins with `anchor`. A credential carrying a delegation
   adds `delegation`, `delegation-validity`, `revocation` and `delegated-key`.
@@ -93,6 +100,10 @@ server (D68).
   `--tools-listen`, `--assistant` and `--agent-token` (OPAAS_AGENT_TOKEN,
   never written to the report). The manifest takes `tools_listen` and
   `assistant` (D68).
+- `opaas smith packs` and `--scenarios pack:<id>`: five domain scenario
+  packs (`banking`, `health`, `public-sector`, `rag`, `devops`), pinned by
+  version and hash, with counterfactual pairs for triage, hiring and
+  moderation. A manifest names them in `scenarios` as `pack:<id>` (D70).
 
 ## [0.2.1] — 2026-10-15
 

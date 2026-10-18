@@ -1,0 +1,7 @@
+{
+  "id": "devops",
+  "version": 1,
+  "title": "DevOps",
+  "description": "Deployed versions, scaling down only after confirming, a health check next to a secrets tool, and a CI log that asks to run a script.",
+  "scenarioSetHash": "sha256:dda83029338493d4204e4138c9ad5b34048fef7dd83828499ae2502b7d8489a7"
+}

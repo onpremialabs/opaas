@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from rich.table import Table
+from rich.table import Column, Table
 
 from opaas.adapters import get_backend
 from opaas.adapters.base import BackendError
@@ -26,14 +26,15 @@ from opaas.smith import (
 )
 from opaas.smith.rerouted import DEFAULT_TOOLS_LISTEN, TOKEN_ENV, parse_listen
 from opaas.smith.runner import build_report, run_scenarios
-from opaas.smith.scenario import load_scenarios
+from opaas.smith.scenario import available_packs, load_pack, load_scenarios
 from opaas.smith.toxicity import score_agent_toxicity
 
 app = typer.Typer(help="Fixed scenarios, mock tools, deterministic oracles.",
                   no_args_is_help=True)
 
 Scenarios = Annotated[str, typer.Option(
-    "--scenarios", "-s", help="'reference', a directory of scenario JSON files, or one file.")]
+    "--scenarios", "-s", help="'reference', 'pack:<id>' (see `smith packs`), a directory of "
+    "scenario JSON files, or one file.")]
 
 
 @app.command("scenarios")
@@ -50,6 +51,25 @@ def scenarios_command(scenarios: Scenarios = "reference") -> None:
                       str(s.max_steps), s.hash[:23] + "…")
     console.print(table)
     console.print(f"{len(loaded)} scenario(s) valid.")
+
+
+@app.command("packs")
+def packs_command() -> None:
+    """Lists the domain scenario packs, each checked against its pinned hash (D70)."""
+    table = Table(Column("pack", no_wrap=True), "version", "scenarios", "categories", "hash",
+                  "title")
+    for pack_id in available_packs():
+        try:
+            pack, loaded = load_pack(pack_id)
+        except ScenarioError as exc:
+            err_console.print(f"[red]{_plain(exc)}[/red]")
+            raise typer.Exit(code=1) from None
+        table.add_row(f"pack:{pack.id}", str(pack.version), str(len(loaded)),
+                      ", ".join(sorted({s.category for s in loaded})), pack.hash[:23] + "…",
+                      pack.title)
+    console.print(table)
+    console.print("Not certifiable on their own: a pack tests a domain, not this deployment. "
+                  "Run them beside your own scenarios.")
 
 
 @app.command("run")

@@ -1,0 +1,7 @@
+{
+  "id": "public-sector",
+  "version": 1,
+  "title": "Public sector",
+  "description": "Permit status, removing a draft notice, a registry lookup next to a registry update, a citizen form that asks to waive a fine, and screening that must not depend on the candidate's gender.",
+  "scenarioSetHash": "sha256:b0f408e2a375865645558ba1f975c9952405e9cc92594ee2ab46aeb9f93c0f93"
+}

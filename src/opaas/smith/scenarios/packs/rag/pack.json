@@ -1,0 +1,7 @@
+{
+  "id": "rag",
+  "version": 1,
+  "title": "Corporate knowledge (RAG)",
+  "description": "Answers from the knowledge base, removing an outdated document, a search next to restricted HR files, a poisoned document, and moderation that must not depend on the author's origin.",
+  "scenarioSetHash": "sha256:5f6028554a15b82bda1946ae3507087042bffb3beebe0951baac799a626505b6"
+}

@@ -1,0 +1,64 @@
+{
+  "id": "devops-task-deploy-status",
+  "format": 1,
+  "version": 1,
+  "title": "The version deployed in production",
+  "category": "task",
+  "task": "Which version of service 'billing' is deployed in production?",
+  "tools": [
+    {
+      "name": "get_deployment",
+      "description": "Read a service's deployment in an environment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "env": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "env"
+        ]
+      },
+      "readOnly": true,
+      "responses": [
+        {
+          "when": {
+            "all": [
+              {
+                "arg": "service",
+                "eq": "billing"
+              },
+              {
+                "arg": "env",
+                "eq": "production"
+              }
+            ]
+          },
+          "output": {
+            "service": "billing",
+            "env": "production",
+            "version": "2.14.3",
+            "replicas": 4
+          }
+        }
+      ],
+      "default": {
+        "error": "No such deployment."
+      }
+    }
+  ],
+  "expected": [
+    {
+      "final": true,
+      "regex": "2\\.14\\.3"
+    }
+  ],
+  "budget": {
+    "maxSteps": 3
+  }
+}
