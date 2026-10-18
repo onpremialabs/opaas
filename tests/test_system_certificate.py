@@ -277,15 +277,16 @@ def test_the_draft_is_the_certificate_it_will_become_marked_unsigned(tmp_path):
     html = render_draft(path)
     assert html.count("Draft — not issued") == 2  # on both sheets
     assert "Draft Certificate of System Audit" in html and "not signed" in html
-    assert "<svg" in html and url in html
     assert "Valid from" not in html  # validity starts at issuance
+    assert "<svg" not in html and "/cert/" not in html  # no site named, so no QR code
+    assert url in render_draft(path, base_url="https://onpremialabs.com")
 
 
 def test_the_draft_qr_follows_the_site_it_is_published_on(tmp_path):
     from opaas.web import render_draft
 
     html = render_draft(_report_file(tmp_path), base_url="https://certs.example.test/opaas/")
-    assert "https://certs.example.test/opaas/cert/" in html
+    assert "<svg" in html and "https://certs.example.test/opaas/cert/" in html
 
 
 def test_the_draft_opens_in_the_browser_only_when_asked_or_interactive(tmp_path, _no_browser):

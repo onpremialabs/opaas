@@ -313,7 +313,7 @@ def test_audit_run_end_to_end_with_fake_engines(tmp_path):
     assert "coverage" in result.output
     draft = (out / "certificate-draft.html").read_text(encoding="utf-8")
     assert "Draft — not issued" in draft and "not signed" in draft
-    assert "https://onpremialabs.com/cert/" in result.output
+    assert "<svg" not in draft and "QR" not in result.output
 
 
 def test_a_system_with_a2a_and_langgraph_agents_runs_with_no_pending_behaviour(tmp_path):

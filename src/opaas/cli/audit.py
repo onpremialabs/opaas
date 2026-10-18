@@ -34,7 +34,7 @@ from opaas.system import (
 )
 from opaas.system.orchestrate import STEPS, AuditPlanError, run_audit
 from opaas.system.report import SYSTEM_ROW, SystemReportError, build_report, load_thresholds
-from opaas.web import PUBLISH_BASE_URL, SiteError, certificate_url, check_verify_url, render_draft
+from opaas.web import SiteError, certificate_url, check_verify_url, render_draft
 from opaas.web.certificate import draft_entry
 
 app = typer.Typer(help="System audit: manifest and measurements (D60).", no_args_is_help=True)
@@ -61,9 +61,10 @@ def run_command(
         "--bench-args", help="Extra `opaas run` options for every model, quoted.")] = "",
     repeats: Annotated[int, typer.Option("--repeats", "-n", min=1,
                                          help="smith runs per scenario.")] = 3,
-    certificate_base: Annotated[str, typer.Option(
-        "--certificate-base-url", help="Site where the issued certificate will be published: "
-        "the draft's QR code points to <url>/cert/<id>/index.html.")] = PUBLISH_BASE_URL,
+    certificate_base: Annotated[str | None, typer.Option(
+        "--certificate-base-url", help="Site where the issued certificate will be published, "
+        "e.g. https://onpremialabs.com: the draft then carries a QR code to "
+        "<url>/cert/<id>/index.html. Without it the draft has no QR code.")] = None,
     open_draft: Annotated[bool | None, typer.Option(
         "--open/--no-open", help="Open the draft certificate in the browser. By default only "
         "when run from a terminal.")] = None,
@@ -74,7 +75,8 @@ def run_command(
     try:
         # Checked before anything runs: a wrong address found after the audit would mean
         # running it again for its draft.
-        check_verify_url(f"{certificate_base.rstrip('/')}/cert/x/index.html")
+        if certificate_base is not None:
+            check_verify_url(f"{certificate_base.rstrip('/')}/cert/x/index.html")
     except SiteError:
         err_console.print(f"[red]--certificate-base-url: '{_plain(certificate_base)}' is not a "
                           "web address, e.g. https://onpremialabs.com.[/red]")
@@ -114,18 +116,20 @@ def run_command(
         raise typer.Exit(code=1)
 
 
-def _write_draft(report: Path, path: Path, base_url: str, open_draft: bool | None) -> None:
+def _write_draft(report: Path, path: Path, base_url: str | None,
+                 open_draft: bool | None) -> None:
     """The certificate this report would become, unsigned and marked so (D72)."""
     try:
         html = render_draft(report, base_url=base_url)
-        url = certificate_url(draft_entry(report), base_url)
+        url = certificate_url(draft_entry(report), base_url) if base_url else None
     except (SiteError, ValueError) as exc:  # a report no credential can be built over
         err_console.print(f"[yellow]No draft certificate:[/yellow] {_plain(exc)}")
         return
     path.write_text(html, encoding="utf-8")
     console.print(f"[bold]Draft certificate:[/bold] {path}")
-    console.print(f"  [dim]unsigned until onpremIALabs issues it; its QR code points to {url}, "
-                  "where it will be published[/dim]")
+    console.print("  [dim]unsigned until onpremIALabs issues it"
+                  + (f"; its QR code points to {url}, where it will be published" if url
+                     else "") + "[/dim]")
     if open_draft if open_draft is not None else sys.stdout.isatty():
         webbrowser.open(path.resolve().as_uri())
 

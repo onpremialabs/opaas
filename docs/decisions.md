@@ -50,19 +50,19 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
-## D72 — `audit run` shows the certificate it will become, as an unsigned draft with the QR of its future page
+## D72 — `audit run` shows the certificate it will become, as an unsigned draft
 
-**Status:** applied · **Affects:** [`web/certificate.py`](../src/opaas/web/certificate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), `audit run --certificate-base-url`, `--open/--no-open`
+**Status:** applied, revised before release: no QR code unless a site is named · **Affects:** [`web/certificate.py`](../src/opaas/web/certificate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), `audit run --certificate-base-url`, `--open/--no-open`
 
 Whoever runs an audit wants to see the certificate at the end of it, and the production root that would let onpremIALabs issue one on the spot does not exist yet (phase 10). Certificates will be issued by onpremIALabs after the audit and published on its site. Until then, a person who ran `audit run` got a JSON report and a hint to sign it.
 
 **A draft at the end of every audit.** `audit run` writes `certificate-draft.html` next to the system report and opens it in the browser when run from a terminal (`--open/--no-open` overrides that). It is the system certificate page, rendered over the same unsigned credential `opaas sign` would build over that report with `did:web:onpremialabs.com` as issuer. Its identifier is therefore the one the issued certificate will carry, because the credential id comes from the system id and the report's hash, not from the signature.
 
-**The QR code is the page the certificate will have.** It points to `<base>/cert/<id>/index.html`, which is where `opaas publish` puts that certificate's page. The base is `https://onpremialabs.com` by default and is set with `--certificate-base-url`. A base that is not a web address is refused before the audit runs. A QR cannot carry the HTML itself: a code holds 2–3 KB, and phones do not reliably open embedded pages. A local address works only on the same network while a command is running.
+**A QR code only once there is a page to reach.** With `--certificate-base-url` (for example `https://onpremialabs.com`), the draft carries a QR code to `<base>/cert/<id>/index.html`, which is where `opaas publish` puts that certificate's page. A base that is not a web address is refused before the audit runs. Without it there is no QR code, and that is the default. The first version defaulted to onpremIALabs's site, but onpremIALabs publishes nothing until it has its own hardware for the benchmarks behind its certificates, and a code that leads to a missing page for months only misleads whoever scans it. A QR cannot carry the HTML itself: a code holds 2–3 KB, and phones do not reliably open embedded pages. A local address works only on the same network while a command is running.
 
 **Unmistakably a draft.** Both sheets carry a band saying it is not issued and pending onpremIALabs's signature. They also carry a *DRAFT* watermark. The title reads *Draft Certificate*, the issuer key reads *none: this draft is not signed*, and no validity dates are printed, because validity starts at issuance. The footer says the certificate is the signed credential, not this page. `opaas certificate` still renders the final page only for a credential that verifies (D29).
 
-**What is lost:** until onpremIALabs publishes the issued certificate, the QR leads to a missing page. A reader who scans it then learns nothing except that the certificate has not been issued. The draft can be edited like any HTML page: it is evidence of nothing, and says so. The default base names onpremIALabs's site, so the paths there must follow `opaas publish`'s layout (`cert/<id>/index.html` at the site root), or `--certificate-base-url` must be given. A report the issuer would reject has no draft, with a note saying why, rather than a draft that could never be issued: for example, one with a cloud baseline among its members (D22).
+**What is lost:** a draft printed without a QR code has no route from paper to the issued certificate. Its identifier and the report's hash are the only link, and `opaas verify` needs the credential itself. A draft printed with one leads to a missing page until onpremIALabs publishes there, and that site must follow `opaas publish`'s layout (`cert/<id>/index.html` at the root). The draft can be edited like any HTML page: it is evidence of nothing, and says so. A report the issuer would reject has no draft, with a note saying why, rather than a draft that could never be issued: for example, one with a cloud baseline among its members (D22).
 
 ---
 
