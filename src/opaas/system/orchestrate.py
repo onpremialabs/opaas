@@ -15,9 +15,10 @@ have written, and keeps its hash. A document the operator already has is
 supplied instead (`--member component=path`) and that step is not run again:
 a bench run takes hours, and the one that was certified is the one to cite.
 
-A step skipped by the operator, one that failed, and an agent whose adapter
-does not exist yet (MCP) are all recorded with their reason, and their cells
-read *not measured* in the report. Nothing is left out silently.
+A step skipped by the operator, one that failed, an agent whose adapter does
+not exist yet, and a rerouted agent with no `tools_listen` (D68) are all
+recorded with their reason, and their cells read *not measured* in the
+report. Nothing is left out silently.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from opaas.system.manifest import PENDING_ADAPTERS, SystemManifest
+from opaas.system.manifest import PENDING_ADAPTERS, REROUTED_ADAPTERS, SystemManifest
 from opaas.system.report import SYSTEM_ROW, Member, StepOutcome, flow_edge
 
 STEPS = ("discover", "bench", "smith", "sentinel", "inquest", "swarm")
@@ -174,6 +175,21 @@ def run_audit(
                 "the component that keeps them")
             run.steps.append(StepOutcome("smith", component.id, "pending", reason))
             continue
+        if adapter in REROUTED_ADAPTERS and not component.fields.get("tools_listen"):
+            run.steps.append(StepOutcome(
+                "smith", component.id, "pending",
+                f"the {adapter} agent is driven only once its tools are OPAAS's mock MCP "
+                "server: declare 'tools_listen' (host:port, served at /mcp) and configure "
+                "the agent to use it as its only tools. An agent whose tools cannot be "
+                "rerouted is not driven, since its scenarios would act on its real tools "
+                "(D68)"))
+            continue
+        if adapter == "open-webui" and not component.fields.get("model"):
+            run.steps.append(StepOutcome(
+                "smith", component.id, "pending",
+                "an open-webui agent needs its 'model': the Open WebUI model or agent id "
+                "whose tools are OPAAS's mock server"))
+            continue
         target = _agent_args(manifest, component)
         if target is None:
             run.steps.append(StepOutcome(
@@ -238,6 +254,14 @@ def _agent_args(manifest: SystemManifest, component: Any) -> list[str] | None:
     adapter = component.fields["adapter"]
     if adapter in ("http", "mcp"):
         return ["--agent", adapter, "--endpoint", str(component.fields["endpoint"])]
+    if adapter in REROUTED_ADAPTERS:
+        args = ["--agent", adapter, "--endpoint", str(component.fields["endpoint"]),
+                "--tools-listen", str(component.fields["tools_listen"])]
+        if adapter == "open-webui":
+            args += ["--model", str(component.fields["model"])]
+        if adapter == "langgraph" and component.fields.get("assistant"):
+            args += ["--assistant", str(component.fields["assistant"])]
+        return args
     backend, model = component.fields.get("backend"), component.fields.get("model")
     base_url = component.fields.get("base_url")
     if not (backend and model):

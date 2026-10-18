@@ -23,7 +23,7 @@ from .test_system import BENCH, DOCUMENTS, SMITH
 
 runner = CliRunner()
 RATE = {"point": 0.5, "low": 0.3, "high": 0.7, "n": 20}
-ADAPTERS = ("bare-model", "http", "mcp")
+ADAPTERS = ("a2a", "bare-model", "http", "langgraph", "mcp", "open-webui")
 
 
 def _manifest(components, flows=(), **extra):
@@ -310,3 +310,38 @@ def test_audit_run_end_to_end_with_fake_engines(tmp_path):
     assert report["coverage"]["agent"]["actionRecoverability"] == "not-applicable"
     assert {m["kind"] for m in report["members"]} == {"model-report", "smith-report"}
     assert "coverage" in result.output
+
+
+def test_a_system_with_a2a_and_langgraph_agents_runs_with_no_pending_behaviour(tmp_path):
+    """Phase 11's done-when: agents whose tools are OPAAS's mock server are measured (D68)."""
+    components = [
+        {"id": "support", "kind": "agent", "adapter": "a2a", "endpoint": "http://a2a:41000",
+         "tools_listen": "0.0.0.0:8765"},
+        {"id": "planner", "kind": "agent", "adapter": "langgraph",
+         "endpoint": "http://graph:2024", "tools_listen": "0.0.0.0:8766",
+         "assistant": "planner"},
+        {"id": "webui", "kind": "agent", "adapter": "open-webui", "endpoint": "http://ui:3000",
+         "model": "support-bot", "tools_listen": "0.0.0.0:8767"},
+    ]
+    invoke = _Recorder()
+    run = run_audit(_manifest(components), base=tmp_path, out=tmp_path / "out", invoke=invoke)
+    smith = {call[call.index("--agent") + 1]: call for call in invoke.calls
+             if call[0] == "smith"}
+    assert smith["a2a"][smith["a2a"].index("--tools-listen") + 1] == "0.0.0.0:8765"
+    assert smith["langgraph"][smith["langgraph"].index("--assistant") + 1] == "planner"
+    assert smith["open-webui"][smith["open-webui"].index("--model") + 1] == "support-bot"
+    assert not [s for s in run.steps if s.status == "pending"]
+
+
+def test_a_rerouted_agent_without_its_tools_address_is_not_driven(tmp_path):
+    """Driving it anyway would run destructive scenarios against its real tools."""
+    components = [{"id": "support", "kind": "agent", "adapter": "a2a",
+                   "endpoint": "http://a2a:41000"},
+                  {"id": "webui", "kind": "agent", "adapter": "open-webui",
+                   "endpoint": "http://ui:3000", "tools_listen": "0.0.0.0:8767"}]
+    invoke = _Recorder()
+    run = run_audit(_manifest(components), base=tmp_path, out=tmp_path / "out", invoke=invoke)
+    assert not [call for call in invoke.calls if call[0] == "smith"]
+    pending = {s.component: s.reason for s in run.steps if s.status == "pending"}
+    assert "tools_listen" in pending["support"] and "real tools" in pending["support"]
+    assert "'model'" in pending["webui"]

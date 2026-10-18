@@ -19,6 +19,7 @@ from opaas.discover.agents import agent_runtimes, agent_stack_hash
 from opaas.discover.gaps import GAP, NOT_OBSERVED, OK, scan_gaps
 from opaas.discover.identify import scan_agents, scan_runtimes, well_known_mcp_configs
 from opaas.discover.inventory import Listener
+from opaas.smith.agents import available_agents
 from opaas.system import load_manifest
 from opaas.system.draft import draft_manifest
 from opaas.system.report import Member, build_report
@@ -157,7 +158,7 @@ def test_the_records_say_which_agents_use_which_models_and_tools():
                                     "component": "sentinel"}]
     joined = " ".join(notes)
     assert "unused is served" in joined and "remote-model is called" in joined
-    load_manifest(manifest, known_adapters=("bare-model", "http", "mcp"))
+    load_manifest(manifest, known_adapters=tuple(available_agents()))
 
 
 def test_an_identified_agent_is_observed_and_an_undeclared_one_is_a_finding(tmp_path):
@@ -189,7 +190,7 @@ def test_an_agent_known_from_records_is_pending_with_its_reason(tmp_path):
     assert calls[0][:3] == ["discover", "scan", "--well-known"]
     pending = {s.component: s.reason for s in run.steps if s.status == "pending"}
     assert "known only from the records" in pending["rag-bot"]
-    assert "no a2a adapter yet" in pending["support-agent"]
+    assert "tools_listen" in pending["support-agent"], "a2a exists, its tools are not set"
 
 
 def test_audit_draft_from_a_sentinel_log(tmp_path):

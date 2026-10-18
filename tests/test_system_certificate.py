@@ -80,7 +80,7 @@ def test_a_system_meeting_every_rule_is_certifiable(tmp_path):
     ([("llm", _bench()), ("agent", SMITH)], (), "only OPAAS's reference scenarios"),
     ([("llm", _bench())], (), "Agent agent has no smith report"),
     ([("llm", _bench())], [StepOutcome("smith", "agent", "pending", "no adapter")],
-     "smith has no"),
+     "could not be measured: no adapter"),
     ([("llm", _bench()), ("agent", CERTIFIABLE_SMITH)],
      [StepOutcome("inquest", "system", "failed", "exit 2")], "Step inquest failed"),
 ])

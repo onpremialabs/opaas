@@ -33,6 +33,7 @@ import json
 import re
 import threading
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, ClassVar
@@ -60,6 +61,9 @@ class AgentRun:
     malformed_replies: int = 0
     error: str | None = None
     notes: list[str] = field(default_factory=list)
+    #: The agent called tools of another scenario from a stale tool list
+    #: (D68): those calls are its configuration's fault, not forbidden moves.
+    stale_tools: bool = False
 
 
 class AgentAdapter(ABC):
@@ -71,12 +75,20 @@ class AgentAdapter(ABC):
     def describe(self) -> dict[str, Any]:
         """Publishable identification of the agent under test (invariant 12)."""
 
+    def no_record_reason(self) -> str:
+        """Why auditability is not applicable, when the agent keeps no record."""
+        return (f"The '{self.name}' adapter has no agent record of its own: OPAAS ran the "
+                "loop, so auditing the record would audit OPAAS.")
+
     @abstractmethod
     def run(self, environment: MockEnvironment, *, max_turns: int) -> AgentRun:
         """Runs the scenario's task against its mock tools."""
 
     def actor_chain(self) -> list[dict[str, str]]:
         return [{"role": "user", "id": "opaas-smith"}, {"role": "agent", "id": self.name}]
+
+    def close(self) -> None:  # noqa: B027 - optional hook, not an abstract one
+        """Releases what the adapter holds across scenarios. Nothing, by default."""
 
 
 # ------------------------------------------------------------------ bare model
@@ -260,11 +272,15 @@ def _traceparent(value: str | None) -> dict[str, str] | None:
 
 
 class _ToolServer:
-    """The mock tools on a loopback port, for the duration of one scenario run."""
+    """The mock tools on a port: a loopback one per run, or the operator's (D68)."""
 
-    def __init__(self, agent: HttpAgent | McpAgent) -> None:
-        handler = _mcp_handler_for(agent) if isinstance(agent, McpAgent) else _handler_for(agent)
-        self._server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    def __init__(self, agent: HttpAgent | McpAgent | None = None, *,
+                 handler: type[BaseHTTPRequestHandler] | None = None,
+                 host: str = "127.0.0.1", port: int = 0) -> None:
+        if handler is None:
+            handler = (_mcp_handler_for(agent.handle_mcp_request)
+                       if isinstance(agent, McpAgent) else _handler_for(agent))
+        self._server = ThreadingHTTPServer((host, port), handler)
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
 
@@ -336,53 +352,7 @@ class McpAgent(AgentAdapter):
 
     def handle_mcp_request(self, body: bytes, headers: dict[str, str]) -> tuple[int, Any]:
         """One JSON-RPC message or batch. Pure: the HTTP server only wraps it."""
-        try:
-            message = json.loads(body.decode("utf-8") or "null")
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            return 400, _rpc_error(None, -32700, "Parse error.")
-        lowered = {k.lower(): v for k, v in headers.items()}
-        if isinstance(message, list):
-            replies = [r for r in (self._answer(m, lowered) for m in message) if r is not None]
-            return (200, replies) if replies else (202, None)
-        reply = self._answer(message, lowered)
-        return (200, reply) if reply is not None else (202, None)
-
-    def _answer(self, message: Any, headers: dict[str, str]) -> dict[str, Any] | None:
-        if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
-            return _rpc_error(None, -32600, "Invalid request.")
-        method, request_id = message.get("method"), message.get("id")
-        if request_id is None:
-            return None  # a notification (initialized, cancelled): nothing to answer
-        params = message.get("params") or {}
-        environment = self._environment
-        if method == "initialize":
-            return _rpc_result(request_id, {
-                "protocolVersion": params.get("protocolVersion") or MCP_PROTOCOL,
-                "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "opaas-smith-mock-tools", "version": "1"},
-            })
-        if method == "ping":
-            return _rpc_result(request_id, {})
-        if environment is None:
-            return _rpc_error(request_id, -32002, "No scenario is running.")
-        if method == "tools/list":
-            return _rpc_result(request_id, {"tools": [
-                {"name": t.name, "description": t.description, "inputSchema": t.parameters}
-                for t in environment.scenario.tools]})
-        if method == "tools/call":
-            raw_chain = headers.get("x-opaas-actor-chain")
-            chain = parse_actor_chain(raw_chain) if raw_chain else None
-            result = environment.call(str(params.get("name")), params.get("arguments") or {},
-                                      actor_chain=chain,
-                                      trace=_traceparent(headers.get("traceparent")))
-            if result.error is not None:
-                return _rpc_result(request_id, {"isError": True, "content": [
-                    {"type": "text", "text": result.error}]})
-            text = result.output if isinstance(result.output, str) else json.dumps(
-                result.output, ensure_ascii=False)
-            return _rpc_result(request_id, {"isError": False,
-                                            "content": [{"type": "text", "text": text}]})
-        return _rpc_error(request_id, -32601, f"Method not found: {method}.")
+        return handle_mock_tools_request(self._environment, body, headers)
 
     # -- OPAAS as the MCP client of the agent
 
@@ -440,6 +410,66 @@ class McpAgent(AgentAdapter):
         return response
 
 
+def handle_mock_tools_request(environment: MockEnvironment | None, body: bytes,
+                              headers: dict[str, str]) -> tuple[int, Any]:
+    """OPAAS's MCP server of the mock tools: one JSON-RPC message or batch.
+
+    Shared by every adapter whose agent reaches the mock tools over MCP: the
+    `mcp` adapter, which hands the agent this server's URL with the task, and
+    the adapters whose agent was configured beforehand to use it (D68).
+    """
+    try:
+        message = json.loads(body.decode("utf-8") or "null")
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return 400, _rpc_error(None, -32700, "Parse error.")
+    lowered = {k.lower(): v for k, v in headers.items()}
+    if isinstance(message, list):
+        replies = [r for r in (_answer(environment, m, lowered) for m in message)
+                   if r is not None]
+        return (200, replies) if replies else (202, None)
+    reply = _answer(environment, message, lowered)
+    return (200, reply) if reply is not None else (202, None)
+
+
+def _answer(environment: MockEnvironment | None, message: Any,
+            headers: dict[str, str]) -> dict[str, Any] | None:
+    if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
+        return _rpc_error(None, -32600, "Invalid request.")
+    method, request_id = message.get("method"), message.get("id")
+    if request_id is None:
+        return None  # a notification (initialized, cancelled): nothing to answer
+    params = message.get("params") or {}
+    if method == "initialize":
+        return _rpc_result(request_id, {
+            "protocolVersion": params.get("protocolVersion") or MCP_PROTOCOL,
+            "capabilities": {"tools": {"listChanged": False}},
+            "serverInfo": {"name": "opaas-smith-mock-tools", "version": "1"},
+        })
+    if method == "ping":
+        return _rpc_result(request_id, {})
+    if environment is None:
+        return _rpc_error(request_id, -32002, "No scenario is running.")
+    if method == "tools/list":
+        environment.listed = True
+        return _rpc_result(request_id, {"tools": [
+            {"name": t.name, "description": t.description, "inputSchema": t.parameters}
+            for t in environment.scenario.tools]})
+    if method == "tools/call":
+        raw_chain = headers.get("x-opaas-actor-chain")
+        chain = parse_actor_chain(raw_chain) if raw_chain else None
+        result = environment.call(str(params.get("name")), params.get("arguments") or {},
+                                  actor_chain=chain,
+                                  trace=_traceparent(headers.get("traceparent")))
+        if result.error is not None:
+            return _rpc_result(request_id, {"isError": True, "content": [
+                {"type": "text", "text": result.error}]})
+        text = result.output if isinstance(result.output, str) else json.dumps(
+            result.output, ensure_ascii=False)
+        return _rpc_result(request_id, {"isError": False,
+                                        "content": [{"type": "text", "text": text}]})
+    return _rpc_error(request_id, -32601, f"Method not found: {method}.")
+
+
 def _rpc_result(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
@@ -491,12 +521,13 @@ def _run_from_tool_result(result: dict[str, Any]) -> AgentRun:
     )
 
 
-def _mcp_handler_for(agent: McpAgent) -> type[BaseHTTPRequestHandler]:
+def _mcp_handler_for(
+    handle: Callable[[bytes, dict[str, str]], tuple[int, Any]],
+) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802 - http.server's naming
             length = int(self.headers.get("Content-Length") or 0)
-            status, body = agent.handle_mcp_request(self.rfile.read(length),
-                                                    dict(self.headers.items()))
+            status, body = handle(self.rfile.read(length), dict(self.headers.items()))
             data = b"" if body is None else json.dumps(body).encode("utf-8")
             self.send_response(status)
             if data:
@@ -541,5 +572,6 @@ __all__ = [
     "McpAgent",
     "agent_keeps_record",
     "available_agents",
+    "handle_mock_tools_request",
     "parse_reply",
 ]

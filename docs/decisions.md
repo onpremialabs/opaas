@@ -50,6 +50,22 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D68 — An agent OPAAS does not own is driven only when its tools are OPAAS's mock server
+
+**Status:** applied · **Revises:** the pending adapters of [D63](#d63--opaas-identifies-a-systems-agents-and-the-models-they-use), and step 1 of the work plan's phase 11 · **Affects:** [`smith/rerouted.py`](../src/opaas/smith/rerouted.py), [`smith/agents.py`](../src/opaas/smith/agents.py), [`system/manifest.py`](../src/opaas/system/manifest.py), [`system/orchestrate.py`](../src/opaas/system/orchestrate.py), `smith run --agent a2a|open-webui|langgraph`, `--tools-listen`
+
+`discover` identifies A2A agents, Open WebUI and LangGraph servers (D63), and the system audit could only list them as pending. smith measures behaviour against mock tools that record every call (N3). The `http` and `mcp` adapters hand the agent those tools' address with each task. An agent built on a framework takes no such thing: its tools are configured beforehand by whoever runs it, and they are real.
+
+**Ground truth by rerouting.** The operator configures the agent's tools to be OPAAS's mock MCP server, at an address they choose (`--tools-listen`, `tools_listen` in the manifest). OPAAS serves the current scenario's tools there for the whole run, and drives the agent through its own conversation API: A2A `message/send` (blocking), Open WebUI `/api/chat/completions`, LangGraph `/runs/wait`. Every call reaches the instrumented environment, so behaviour is measured as for any other adapter. The report says the rerouting is declared (`tools.rerouted: "declared"`): OPAAS cannot see that the agent has no other tool. An agent that never lists the tools in a run gets a note, and if it then calls a tool the scenario does not have, the run is an error for a stale tool list rather than a forbidden call: it is the agent's configuration, not its judgement.
+
+**An agent whose tools cannot be rerouted is not driven.** The work plan proposed driving such an agent through its conversation endpoint and observing it through sentinel, with ACR and GB declared not measured. That is not what is done: its tools are real, and a destructive or injection scenario sent to it would delete, send or leak on the very system under audit. There would also be nothing to judge against. The end states, canaries and confirmations live in the mock tools, so every behaviour cell would be unmeasurable anyway. Such an agent stays pending with that reason. Its records, if the operator names them, are audited by `inquest` as before.
+
+**No record of their own.** These protocols answer with the conversation, not with a record of tool calls, so `keeps_record` is False. Auditability in the smith report is not applicable, and says why in the adapter's words. The agent's own logs are audited on the row of the component that keeps them.
+
+**What is lost:** behaviour of an agent that cannot be rerouted is never measured by smith. Whether the agent had other tools besides OPAAS's is declared, not observed: a call to a tool OPAAS does not serve is invisible to it. Each agent needs one manual configuration step before the audit, and that step must point it at a test server, not production tools. An agent that caches its tool list across conversations does not work with a scenario set unless it is configured to list tools per session. LangServe, Dify, Flowise and the rest of D63's list are still pending.
+
+---
+
 ## D67 — The ceremony's token profile, and how the signer finds the token's key
 
 **Status:** applied (phase 10, step 3 prepared; the ceremony itself pending) · **Implements:** [D65](#d65--an-offline-root-on-two-tokens-delegates-to-an-issuing-key-issuances-stay-on-the-published-hash-chain) · **Revises:** the token signer of [D66](#d66--the-delegation-walk-and-the-revocation-list-as-built) · **Affects:** [`credential/signers.py`](../src/opaas/core/credential/signers.py), [`cli/root.py`](../src/opaas/cli/root.py), [`docs/ceremony.md`](ceremony.md), [`scripts/rehearse_ceremony.py`](../scripts/rehearse_ceremony.py), `root-document`
