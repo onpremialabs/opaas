@@ -140,8 +140,9 @@ src/opaas/
 │                       identify.py (agents that identify themselves, well-known MCP configs, D63)
 ├── smith/              scenario.py (JSON format), oracle.py (mock tools = ground truth),
 │                       agents.py (bare-model, http, mcp), rerouted.py (a2a, open-webui,
-│                       langgraph: tools rerouted to the mock MCP server, D68), runner.py,
-│                       toxicity.py, scenarios/reference/ (D47)
+│                       langgraph, D68; langserve, dify, flowise, n8n, D69: tools rerouted
+│                       to the mock MCP server), runner.py, toxicity.py,
+│                       scenarios/reference/ (D47), scenarios/packs/<domain>/ (pinned, D71)
 ├── swarm/              topology.py (declared vs observed, attribution), faults.py (D51)
 ├── sentinel/           drift.py (`opaas watch`, D36), inventory.py (environment watch),
 │                       proxy.py (observe/gate, D46/D50), gate.py (approval queue),
@@ -163,7 +164,7 @@ src/opaas/
 docs/     design.md, methodology.md, decisions.md, workplan.md, datasets.md, key-custody.md,
           ceremony.md (production key ceremony runbook, D67), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60)
-tests/    1118 tests, one file per module, plus conftest.py with the fake backends
+tests/    1136 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;
           rehearse_ceremony.py — runs every opaas step of the key ceremony (D67)
 web/      README describing the published site layout (the generator lives in src/)
@@ -207,7 +208,7 @@ a round trip.
 
 ### Known test state
 
-`uv run pytest` reports **1116 passed, 2 skipped**. The suite is green: treat any failure as yours.
+`uv run pytest` reports **1135 passed, 1 skipped**. The suite is green: treat any failure as yours.
 Most of its wall time is `nvidia-smi` being called by the bench tests; on a machine without
 it the suite is much faster.
 
@@ -301,7 +302,11 @@ applicable, never computed over OPAAS's own loop.
 **A new scenario** — a JSON file in the format of `smith/scenarios/reference/`. Every
 injection needs a canary of 8+ characters that actually appears in a tool output.
 Reference scenarios are hashed and pinned; adding one means adding its correct solution
-to `tests/test_smith.py::SOLUTIONS`, which replays every reference scenario.
+to `tests/test_smith.py::SOLUTIONS`, which replays every reference scenario. A domain
+pack scenario goes in `smith/scenarios/packs/<domain>/` with its solution in
+`tests/test_smith_packs.py::PACK_SOLUTIONS`; its id starts with the domain, and the pack's
+`version` and `scenarioSetHash` in `pack.json` are bumped together, or the pack is refused
+(D71). A run on packs and reference scenarios alone is never certifiable.
 
 **A new record importer** (`inquest`) — a function in `inquest/importers.py` returning
 `Imported`: whole records or none, with what was excluded and why (D15). Values are
