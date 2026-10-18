@@ -8,12 +8,12 @@ releases, for someone deciding whether to upgrade.
 The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 `1.0-draft`) is separate from the package version, and did not change.
 
-## [Unreleased]
+## [0.3.0] — 2026-10-18
 
 Phase 14 of the work plan: the operational gaps the status table declared
 left out (D64). Phase 10, steps 2 and 4: the root delegates to an issuing
 key, and keeps a revocation list (D65, D66). Phase 10, step 3 prepared: the
-ceremony runbook and its rehearsal (D67). Phase 11, first part: smith drives
+ceremony runbook and its rehearsal (D67). Phase 11: smith drives
 A2A, Open WebUI and LangGraph agents whose tools are rerouted to its mock MCP
 server (D68), then LangServe, Dify, Flowise and n8n agents (D69). Phase 13:
 domain scenario packs and kind-aware templates (D71). `audit run` ends with
