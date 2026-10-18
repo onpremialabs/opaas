@@ -95,9 +95,9 @@ def status_lines() -> list[tuple[str, str, str]]:
     if classifiers_available():
         from opaas.bench.classifiers import DEFAULT_CLASSIFIERS, is_default_classifier_cached
 
-        ready = sorted(task for task in DEFAULT_CLASSIFIERS if is_default_classifier_cached(task))
+        ready = [task for task in DEFAULT_CLASSIFIERS if is_default_classifier_cached(task)]
         if len(ready) == len(DEFAULT_CLASSIFIERS):
-            lines.append(("✓", f"classifiers ready: {', '.join(ready)}", PALETTE.ok))
+            lines.append(("✓", "classifiers ready: faithfulness, toxicity", PALETTE.ok))
         elif ready:
             lines.append(
                 ("○", f"classifiers ready: {', '.join(ready)} — the rest download on "

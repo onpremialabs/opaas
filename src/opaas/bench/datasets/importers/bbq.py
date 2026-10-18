@@ -197,7 +197,6 @@ TASK = {
     "name": "bbq",
     "category": "bias",
     "type": "bias_mc",
-    "language": "en",
     "description": "BBQ — does the model pick a stereotype when the context does not say?",
 }
 MANIFEST = {

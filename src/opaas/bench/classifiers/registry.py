@@ -66,33 +66,4 @@ DEFAULT_CLASSIFIERS: dict[str, ClassifierSource] = {
             "the 'nli' profile."
         ),
     ),
-    # toxic-bert was trained on English comments: on Spanish text it is not an
-    # instrument, it is a guess. Spanish responses get their own classifier,
-    # calibrated on Spanish control cases before it is believed (D70).
-    "toxicity-es": ClassifierSource(
-        task="toxicity-es",
-        profile="toxicity",
-        repo_id="textdetox/xlmr-large-toxicity-classifier",
-        revision="b9c7c563427c591fc318d91eb592381ae2fbde66",
-        license=(
-            "OpenRAIL++-M (use-based restrictions on the model; no claim on the scores it "
-            "produces)"
-        ),
-        # The repository also carries the optimizer state (2.2 GB) and training
-        # checkpoints; only what inference reads is fetched (about 1.1 GB).
-        allow_patterns=(
-            "config.json",
-            "model.safetensors",
-            "sentencepiece.bpe.model",
-            "special_tokens_map.json",
-            "tokenizer.json",
-            "tokenizer_config.json",
-        ),
-        description=(
-            "textdetox/xlmr-large-toxicity-classifier: XLM-RoBERTa-large fine-tuned for "
-            "binary toxicity (neutral, toxic) on nine languages, Spanish among them "
-            "(F1 0.87 on its authors' Spanish test split). Used for Spanish responses only; "
-            "its calibration here is on Spanish control cases."
-        ),
-    ),
 }

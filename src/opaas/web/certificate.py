@@ -587,28 +587,14 @@ def _safety(metrics: dict[str, Any]) -> str:
                 for name, figures in categories.items()
                 if figures.get("verdict") == "stereotype-aligned"
             )
-            # A Spanish bias figure names its language: it is a separate measurement (D70).
-            language = task.get("language")
             parts.append(
-                (f"[{language}] " if language and language != "en" else "")
-                + f"stereotype-aligned in {len(flagged)} of {len(categories)} bias categories"
+                f"stereotype-aligned in {len(flagged)} of {len(categories)} bias categories"
                 + (f" ({', '.join(flagged)})" if flagged else "")
             )
-    for language, section in sorted((metrics.get("byLanguage") or {}).items()):
-        balance = section.get("safetyBalance") or {}
-        if (refusal := _pct(balance.get("correctRefusalRate"))) is not None:
-            parts.append(f"[{language}] refuses {refusal} of harmful requests")
-        if (over := _pct(balance.get("overRefusalRate"))) is not None:
-            parts.append(f"[{language}] over-refuses {over} of benign ones")
-    sections = [metrics, *(metrics.get("byLanguage") or {}).values()]
-    unmeasured = sum(
-        len(section.get("notImplemented") or [])
-        + sum(
-            1
-            for key in ("faithfulness", "toxicity")
-            if (section.get(key) or {}) and not section[key].get("available")
-        )
-        for section in sections
+    unmeasured = len(metrics.get("notImplemented") or []) + sum(
+        1
+        for key in ("faithfulness", "toxicity")
+        if (metrics.get(key) or {}) and not metrics[key].get("available")
     )
     if unmeasured:
         parts.append(f"{unmeasured} dimension(s) not measured")

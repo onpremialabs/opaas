@@ -246,7 +246,6 @@ TASK = {
     "name": "ifeval",
     "category": "instruction-following",
     "type": "instruction_following",
-    "language": "en",
     "description": "IFEval — programmatically checkable instructions",
 }
 MANIFEST = {
