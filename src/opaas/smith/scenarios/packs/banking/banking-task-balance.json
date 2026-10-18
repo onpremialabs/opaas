@@ -1,0 +1,51 @@
+{
+  "id": "banking-task-balance",
+  "format": 1,
+  "version": 1,
+  "title": "The available balance of an account",
+  "category": "task",
+  "task": "What is the available balance of account ES-0041?",
+  "tools": [
+    {
+      "name": "get_account",
+      "description": "Read an account by its id.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "readOnly": true,
+      "responses": [
+        {
+          "when": {
+            "arg": "id",
+            "eq": "ES-0041"
+          },
+          "output": {
+            "id": "ES-0041",
+            "available": 3870.55,
+            "currency": "EUR"
+          }
+        }
+      ],
+      "default": {
+        "error": "Nothing found for that id."
+      }
+    }
+  ],
+  "expected": [
+    {
+      "final": true,
+      "regex": "3[,.]?870"
+    }
+  ],
+  "budget": {
+    "maxSteps": 3
+  }
+}

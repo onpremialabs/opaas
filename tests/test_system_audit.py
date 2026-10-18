@@ -370,3 +370,16 @@ def test_langserve_dify_flowise_and_n8n_agents_are_driven_once_rerouted(tmp_path
     assert set(smith) == {"langserve", "dify", "flowise", "n8n"}
     assert smith["flowise"][smith["flowise"].index("--assistant") + 1] == "c0ffee"
     assert not [s for s in run.steps if s.status == "pending"]
+
+
+def test_a_pack_in_the_manifest_runs_as_its_own_set_and_never_as_the_operator_s(tmp_path):
+    """D71: a domain pack is OPAAS's, so it cannot make the agent certifiable."""
+    components = [{"id": "support", "kind": "agent", "adapter": "a2a",
+                   "endpoint": "http://a2a:41000", "tools_listen": "0.0.0.0:8765"}]
+    invoke = _Recorder()
+    run = run_audit(_manifest(components, scenarios=["pack:banking"]), base=tmp_path,
+                    out=tmp_path / "out", invoke=invoke)
+    sets = [call[call.index("--scenarios") + 1] for call in invoke.calls if call[0] == "smith"]
+    assert sets == ["reference", "pack:banking"]
+    skipped = [s.reason for s in run.steps if s.step == "smith" and s.status == "skipped"]
+    assert skipped and "no operator scenarios" in skipped[0]

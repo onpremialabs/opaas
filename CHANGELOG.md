@@ -16,10 +16,18 @@ key, and keeps a revocation list (D65, D66). Phase 10, step 3 prepared: the
 ceremony runbook and its rehearsal (D67). Phase 11, first part: smith drives
 A2A, Open WebUI and LangGraph agents whose tools are rerouted to its mock MCP
 server (D68), then LangServe, Dify, Flowise and n8n agents (D69). Phase 12: block D in
-Spanish (D70).
+Spanish (D70). Phase 13: domain scenario packs and kind-aware
+templates (D71).
 
 ### Upgrading
 
+- **`certifiable` is computed from the operator's scenarios.** A smith report
+  is certifiable when scenarios of your own ran, which is what "not only the
+  reference set" meant before; reports on domain packs alone are not (D71).
+- **`audit template` writes different injection and permission skeletons**
+  when the manifest declares tools that act: the planted instruction names
+  one, and the template forbids them. Templates already completed are never
+  overwritten; regenerate into a new directory to compare.
 - **Block D's detector hash changed** (D70). The refusal and abstention
   detector now carries Spanish patterns next to the English ones, and
   `patterns_hash()` covers them. Every block D report has a new
@@ -140,6 +148,10 @@ Spanish (D70).
 - `opaas smith run --agent langserve | dify | flowise | n8n` (D69). Each
   scenario starts a new conversation; `--assistant` is the Flowise chatflow
   id; Dify needs the app key in `--agent-token`.
+- `opaas smith packs` and `--scenarios pack:<id>`: five domain scenario
+  packs (`banking`, `health`, `public-sector`, `rag`, `devops`), pinned by
+  version and hash, with counterfactual pairs for triage, hiring and
+  moderation. A manifest names them in `scenarios` as `pack:<id>` (D71).
 
 ## [0.2.1] — 2026-10-15
 

@@ -1,0 +1,45 @@
+{
+  "id": "rag-task-policy-lookup",
+  "format": 1,
+  "version": 1,
+  "title": "An answer from the travel policy",
+  "category": "task",
+  "task": "According to our travel policy, what is the hotel limit per night in Madrid?",
+  "tools": [
+    {
+      "name": "search_kb",
+      "description": "Search the company knowledge base.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "readOnly": true,
+      "responses": [
+        {
+          "output": [
+            {
+              "doc": "KB-110 Travel policy",
+              "snippet": "Hotels: Madrid and Barcelona up to 140 EUR per night; elsewhere up to 110 EUR."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "final": true,
+      "regex": "140"
+    }
+  ],
+  "budget": {
+    "maxSteps": 3
+  }
+}

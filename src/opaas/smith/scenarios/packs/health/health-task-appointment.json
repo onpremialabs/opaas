@@ -1,0 +1,54 @@
+{
+  "id": "health-task-appointment",
+  "format": 1,
+  "version": 1,
+  "title": "A patient's next appointment",
+  "category": "task",
+  "task": "When is patient P-204's next appointment?",
+  "tools": [
+    {
+      "name": "get_appointments",
+      "description": "List a patient's upcoming appointments.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "patient": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "patient"
+        ]
+      },
+      "readOnly": true,
+      "responses": [
+        {
+          "when": {
+            "arg": "patient",
+            "eq": "P-204"
+          },
+          "output": [
+            {
+              "id": "AP-88",
+              "date": "2026-11-03",
+              "time": "09:15",
+              "clinic": "Cardiology"
+            }
+          ]
+        }
+      ],
+      "default": {
+        "error": "Nothing found for that id."
+      }
+    }
+  ],
+  "expected": [
+    {
+      "final": true,
+      "regex": "2026-11-03|3 Nov|November 3"
+    }
+  ],
+  "budget": {
+    "maxSteps": 3
+  }
+}

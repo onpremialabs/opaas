@@ -24,6 +24,16 @@ tools' outputs), and the agent's actions are compared across values: the same
 task, one attribute changed, should get the same actions. The block itself
 is not substituted, and every variant keeps the scenario's id.
 
+**Domain packs** (phase 13, D71). Scenarios for one domain (banking,
+health, public sector, corporate RAG, DevOps) ship apart from the reference
+set, under `scenarios/packs/<id>/`, and load as `pack:<id>`. A pack is
+versioned and pinned like a dataset: its `pack.json` carries the hash of its
+scenario set, and a pack whose scenarios no longer match it is refused, so a
+scenario edited without bumping the pack cannot pass as the pinned one. Like
+the reference set, a pack tests a domain's generic behaviour, not this
+deployment's tasks: a run on packs and reference scenarios alone is not
+certifiable.
+
 Mock-tool responses are rules tried in order. `when` is a predicate over the
 call's arguments (`{"arg": "path", "eq": "/x"}`) or the current state
 (`{"state": ["files", "/x"], "exists": true}`); `output` is a value, where
@@ -57,6 +67,15 @@ CATEGORIES = ("task", "injection", "permission", "destructive", "loop", "schema"
 #: flagged, as `opaas-smoke` is: they test generic behaviour, not this
 #: deployment's tasks.
 REFERENCE_DIR = Path(__file__).parent / "scenarios" / "reference"
+
+#: Where the domain packs ship, one directory per pack with its `pack.json`.
+PACKS_DIR = Path(__file__).parent / "scenarios" / "packs"
+
+#: `--scenarios pack:<id>` names a domain pack.
+PACK_PREFIX = "pack:"
+
+#: The file in a pack directory that describes and pins it; never a scenario.
+PACK_FILE = "pack.json"
 
 _MISSING = object()
 
@@ -406,8 +425,54 @@ def load_scenario(path: Path, *, source: str = "operator") -> Scenario:
     return parse_scenario(raw, source=source, where=str(path.name))
 
 
+@dataclass(frozen=True, slots=True)
+class Pack:
+    id: str
+    version: int
+    title: str
+    description: str
+    #: The scenario set hash the pack is pinned to (`scenario_set_hash`).
+    hash: str
+    directory: Path
+
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "version": self.version, "hash": self.hash}
+
+
+def available_packs() -> list[str]:
+    return sorted(p.name for p in PACKS_DIR.iterdir() if (p / PACK_FILE).is_file())
+
+
+def get_pack(pack_id: str) -> Pack:
+    directory = PACKS_DIR / pack_id
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", pack_id) or not (directory / PACK_FILE).is_file():
+        raise ScenarioError(f"No scenario pack '{pack_id}'. Packs: "
+                            f"{', '.join(available_packs())}.")
+    meta = json.loads((directory / PACK_FILE).read_text(encoding="utf-8"))
+    return Pack(id=pack_id, version=int(meta["version"]), title=str(meta["title"]),
+                description=str(meta.get("description", "")), hash=str(meta["scenarioSetHash"]),
+                directory=directory)
+
+
+def load_pack(pack_id: str) -> tuple[Pack, list[Scenario]]:
+    """The pack and its scenarios, refused if they no longer match the pinned hash."""
+    pack = get_pack(pack_id)
+    source = f"{PACK_PREFIX}{pack.id}"
+    paths = sorted(p for p in pack.directory.glob("*.json") if p.name != PACK_FILE)
+    scenarios = sorted((load_scenario(p, source=source) for p in paths), key=lambda s: s.id)
+    actual = scenario_set_hash(scenarios)
+    if actual != pack.hash:
+        raise ScenarioError(
+            f"Pack '{pack.id}' version {pack.version} is pinned to {pack.hash}, but its "
+            f"scenarios hash to {actual}. A pack scenario changed without the pack being "
+            "bumped: bump its version and its scenarioSetHash together, deliberately.")
+    return pack, scenarios
+
+
 def load_scenarios(target: str | Path) -> list[Scenario]:
-    """`reference`, a directory of `*.json`, or one file. Sorted by id."""
+    """`reference`, `pack:<id>`, a directory of `*.json`, or one file. Sorted by id."""
+    if str(target).startswith(PACK_PREFIX):
+        return load_pack(str(target)[len(PACK_PREFIX):])[1]
     if str(target) == "reference":
         paths, source = sorted(REFERENCE_DIR.glob("*.json")), "reference"
     else:
@@ -433,14 +498,21 @@ def scenario_set_hash(scenarios: list[Scenario]) -> str:
 
 __all__ = [
     "CATEGORIES",
+    "PACKS_DIR",
+    "PACK_FILE",
+    "PACK_PREFIX",
     "REFERENCE_DIR",
     "SCENARIO_FORMAT_VERSION",
     "TEMPLATE_MARKER",
     "MockTool",
+    "Pack",
     "Scenario",
     "ScenarioError",
     "apply_effects",
+    "available_packs",
+    "get_pack",
     "holds",
+    "load_pack",
     "load_scenario",
     "load_scenarios",
     "parse_scenario",

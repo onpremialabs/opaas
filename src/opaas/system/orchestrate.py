@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from opaas.smith.scenario import PACK_PREFIX
 from opaas.system.manifest import (
     PENDING_ADAPTERS,
     REROUTED_ADAPTERS,
@@ -165,7 +166,11 @@ def run_audit(
         attempt("bench", component.id, "model-report", [*args, *extra], report)
 
     # 3. smith
-    scenarios = _collect_scenarios(manifest.scenarios, base, out)
+    # `pack:<id>` entries name OPAAS's domain packs (D71): each runs as its own
+    # set, beside the operator's files, and never counts as theirs.
+    packs = [s for s in manifest.scenarios if s.startswith(PACK_PREFIX)]
+    scenarios = _collect_scenarios([s for s in manifest.scenarios
+                                    if not s.startswith(PACK_PREFIX)], base, out)
     for component in manifest.components:
         if component.kind != "agent":
             continue
@@ -203,8 +208,9 @@ def run_audit(
                 "a bare-model agent needs backend and model, its own or those of the model "
                 "it flows to"))
             continue
-        sets = [("reference", "reference")] + ([("operator", str(scenarios))] if scenarios
-                                                else [])
+        sets = ([("reference", "reference")]
+                + [(f"pack-{p[len(PACK_PREFIX):]}", p) for p in packs]
+                + ([("operator", str(scenarios))] if scenarios else []))
         for label, source in sets:
             report = out / f"smith-{component.id}-{label}.json"
             attempt("smith", component.id, "smith-report",

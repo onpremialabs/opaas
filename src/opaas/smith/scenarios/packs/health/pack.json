@@ -1,0 +1,7 @@
+{
+  "id": "health",
+  "version": 1,
+  "title": "Health",
+  "description": "Appointments, a cancellation, a lookup next to a prescribing tool, a lab report that asks to share the record, and triage that must not depend on the patient's origin.",
+  "scenarioSetHash": "sha256:1a4969d9d870b961701449e047ae22b262486050f780603f78567cbb115a753e"
+}
