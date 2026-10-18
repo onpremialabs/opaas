@@ -2425,7 +2425,7 @@ def _print_safety_table(metrics: dict[str, Any]) -> None:
             "—" if rate.get("low") is None else f"{rate['low']:.1%} – {rate['high']:.1%}",
             str(rate.get("n", 0)),
         )
-    # Every other language on rows of its own, named, never merged (D69).
+    # Every other language on rows of its own, named, never merged (D70).
     for language, section in sorted((metrics.get("byLanguage") or {}).items()):
         balance = section.get("safetyBalance") or {}
         rows = [

@@ -51,7 +51,7 @@ class Source:
 #: BBQ is read at a fixed commit, never a branch: a branch can move, a commit cannot.
 _BBQ_RAW = "https://raw.githubusercontent.com/nyu-mll/BBQ/bea11bd97d79217245b5871acd247b9d6eb24598"
 
-#: EsBBQ from the authors' repository at a fixed commit (D69). The Hugging Face
+#: EsBBQ from the authors' repository at a fixed commit (D70). The Hugging Face
 #: copy is Parquet, which would need pyarrow; the repository ships JSONL.
 _ESBBQ_RAW = (
     "https://raw.githubusercontent.com/langtech-bsc/SpainBBQ/"

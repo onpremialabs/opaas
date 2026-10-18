@@ -23,7 +23,7 @@ default is fetched once into the cache and reused (see `classifiers.cache`).
 Without either, those dimensions are declared unmeasured instead of
 publishing a figure that does not hold up.
 
-**Per language (D69).** Each task declares its language. Every figure is
+**Per language (D70).** Each task declares its language. Every figure is
 computed within one language and never across them: English at the top level,
 every other language under `byLanguage`, each scored by its own toxicity
 classifier, calibrated on that language's control cases. A language with no
@@ -89,7 +89,7 @@ _BIAS_TEMPLATE = (
     "Reply only with the letter of the correct option, with no explanation.\nAnswer:"
 )
 
-#: The same demand in Spanish, for Spanish items (D69). An English instruction
+#: The same demand in Spanish, for Spanish items (D70). An English instruction
 #: wrapped around a Spanish vignette would measure a code-switching model, not
 #: one answering in the language its users write in.
 _BIAS_TEMPLATE_ES = (
@@ -126,7 +126,7 @@ _DIMENSION_REQUIREMENTS = {
 }
 
 #: The language of a task that declares none: the instruments block D had
-#: before D69 were all English, and an undeclared task is scored with them.
+#: before D70 were all English, and an undeclared task is scored with them.
 DEFAULT_LANGUAGE = "en"
 
 #: The toxicity classifier task for each language. A language missing here has
@@ -134,7 +134,7 @@ DEFAULT_LANGUAGE = "en"
 #: a classifier that was never trained on it.
 _TOXICITY_TASKS = {"en": "toxicity", "es": "toxicity-es"}
 
-#: What is missing in Spanish, and why (D69). Each reason says what was looked
+#: What is missing in Spanish, and why (D70). Each reason says what was looked
 #: for and could not be pinned, so the gap is the dataset's, not an oversight.
 _SPANISH_GAPS = {
     "refusal": {
@@ -218,7 +218,7 @@ class SafetyOptions:
     toxicity_model: str | None = None
     toxicity_profile: str = "toxicity"
     toxicity_threshold: float | None = None
-    #: The Spanish toxicity classifier (D69): its own weights and threshold,
+    #: The Spanish toxicity classifier (D70): its own weights and threshold,
     #: since a threshold set for the English instrument says nothing about it.
     toxicity_es_model: str | None = None
     toxicity_es_threshold: float | None = None
@@ -262,7 +262,7 @@ class _Outcome:
     #: own toxicity, which the adversarial figure is broken down by.
     category: str = ""
     #: The task's language, or DEFAULT_LANGUAGE when it declares none. Outcomes
-    #: of different languages are never scored or counted together (D69).
+    #: of different languages are never scored or counted together (D70).
     language: str = ""
 
 
@@ -284,7 +284,7 @@ class SafetySuite(Suite):
                 "toxicity_prompt tasks: block D has nothing to evaluate. See docs/datasets.md."
             )
 
-        # English and Spanish are different categories (invariant 1, D69): every
+        # English and Spanish are different categories (invariant 1, D70): every
         # figure below is computed within one language, never across them.
         languages = sorted({_language(task) for task in tasks})
         others = [language for language in languages if language != DEFAULT_LANGUAGE]
@@ -499,7 +499,7 @@ class SafetySuite(Suite):
                 # notImplemented with the reason, and a second entry would count it twice.
                 **({"adversarialToxicity": adversarial} if adversarial is not None else {}),
                 "notImplemented": [*NOT_IMPLEMENTED, *missing_dimensions],
-                # The figures of every other language, each on its own (D69). The
+                # The figures of every other language, each on its own (D70). The
                 # top-level ones above are English. Absent when only English ran.
                 **({"byLanguage": by_language} if by_language else {}),
             },
@@ -632,7 +632,7 @@ class SafetySuite(Suite):
         A BBQ answer is one letter and is scored by neither.
 
         `outcomes` are all of one language, and the classifier is that
-        language's, calibrated on that language's control cases (D69): a
+        language's, calibrated on that language's control cases (D70): a
         Spanish response scored by an English-only model would be a number with
         no instrument behind it.
         """
@@ -729,7 +729,7 @@ class SafetySuite(Suite):
             "name": task.name,
             "category": task.category,
             "type": task.type,
-            # Absent when the task declares none (D69): scored as English, and said so.
+            # Absent when the task declares none (D70): scored as English, and said so.
             **({"language": task.language} if task.language else {}),
             "items": len(scored),
             "correct": correct,
@@ -839,7 +839,7 @@ def _no_toxicity_instrument(language: str) -> str:
     return (
         f"No toxicity classifier is pinned or calibrated for language '{language}'. The "
         "English one is not used outside English: a classifier is believed only on the "
-        "language of its control cases (D18, D69)."
+        "language of its control cases (D18, D70)."
     )
 
 

@@ -154,7 +154,7 @@ def _explicit_letter(text: str, valid: set[str]) -> str | None:
     The letter has to stand alone: without the lookarounds, a word like
     "correct" contributes its last letter and the extraction returns garbage.
     """
-    # The Spanish words serve EsBBQ (D69): "La respuesta correcta es la B"
+    # The Spanish words serve EsBBQ (D70): "La respuesta correcta es la B"
     # would otherwise fall through to the loose strategy, where the Spanish
     # preposition "a" can pass for option A.
     matches = re.findall(

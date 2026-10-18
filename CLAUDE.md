@@ -139,7 +139,9 @@ src/opaas/
 │                       containers), gaps.py (rules G01–G09, versioned + hashed) (D45),
 │                       identify.py (agents that identify themselves, well-known MCP configs, D63)
 ├── smith/              scenario.py (JSON format), oracle.py (mock tools = ground truth),
-│                       agents.py (bare-model, http, mcp), runner.py, toxicity.py, scenarios/reference/ (D47)
+│                       agents.py (bare-model, http, mcp), rerouted.py (a2a, open-webui,
+│                       langgraph: tools rerouted to the mock MCP server, D68), runner.py,
+│                       toxicity.py, scenarios/reference/ (D47)
 ├── swarm/              topology.py (declared vs observed, attribution), faults.py (D51)
 ├── sentinel/           drift.py (`opaas watch`, D36), inventory.py (environment watch),
 │                       proxy.py (observe/gate, D46/D50), gate.py (approval queue),
@@ -161,7 +163,7 @@ src/opaas/
 docs/     design.md, methodology.md, decisions.md, workplan.md, datasets.md, key-custody.md,
           ceremony.md (production key ceremony runbook, D67), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60)
-tests/    1077 tests, one file per module, plus conftest.py with the fake backends
+tests/    1118 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;
           rehearse_ceremony.py — runs every opaas step of the key ceremony (D67)
 web/      README describing the published site layout (the generator lives in src/)
@@ -205,7 +207,7 @@ a round trip.
 
 ### Known test state
 
-`uv run pytest` reports **1075 passed, 2 skipped**. The suite is green: treat any failure as yours.
+`uv run pytest` reports **1116 passed, 2 skipped**. The suite is green: treat any failure as yours.
 Most of its wall time is `nvidia-smi` being called by the bench tests; on a machine without
 it the suite is much faster.
 

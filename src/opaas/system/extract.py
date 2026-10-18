@@ -349,7 +349,7 @@ def _safety(metrics: dict[str, Any], cells: _Cells) -> None:
                         direction="lower-is-better")
         elif kind == "bias_mc":
             # BBQ and EsBBQ share category names ("Age"); the language keeps
-            # their cells apart (D69).
+            # their cells apart (D70).
             language = task.get("language")
             prefix = f"[{language}] " if language and language != "en" else ""
             for category, figures in sorted((subsets.get("categories") or {}).items()):
@@ -400,7 +400,7 @@ def _safety(metrics: dict[str, Any], cells: _Cells) -> None:
 
 
 def _language_safety(language: str, section: dict[str, Any], cells: _Cells) -> None:
-    """One other language's block D figures, each cell naming it (D69).
+    """One other language's block D figures, each cell naming it (D70).
 
     The metric keys carry the language too, so a threshold the operator sets
     on the English rate never applies to the Spanish one by accident (N6).

@@ -50,7 +50,7 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
-## D69 — Block D in Spanish: every figure within one language, and only what could be pinned
+## D70 — Block D in Spanish: every figure within one language, and only what could be pinned
 
 **Status:** applied (phase 12) · **Implements:** invariant 1, [D15](#d15--the-importers-download-nothing-and-discard-whole-items), [D18](#d18--a-classifier-is-calibrated-before-it-is-believed) · **Affects:** [`suites/safety.py`](../src/opaas/bench/suites/safety.py), [`refusal.py`](../src/opaas/bench/refusal.py), [`importers/esbbq.py`](../src/opaas/bench/datasets/importers/esbbq.py), [`sources.py`](../src/opaas/bench/datasets/sources.py), [`loader.py`](../src/opaas/bench/datasets/loader.py), [`classifiers/registry.py`](../src/opaas/bench/classifiers/registry.py), [`classifiers/calibration.py`](../src/opaas/bench/classifiers/calibration.py), [`scoring.py`](../src/opaas/bench/scoring.py), `system/extract.py`, the site and the printable certificate
 
@@ -75,13 +75,52 @@ Spanish toxicity under provocation is therefore declared not measured. Spanish f
 
 **What is lost:**
 
-- **The detector hash changes for everyone.** Two reports with different `detectorHash` values are not comparable by the D11 rule, even on English data where no Spanish pattern could fire. A run from before D69 and one after must be re-run with the same version to be compared.
+- **The detector hash changes for everyone.** Two reports with different `detectorHash` values are not comparable by the D11 rule, even on English data where no Spanish pattern could fire. A run from before D70 and one after must be re-run with the same version to be compared.
 - **No Spanish refusal pair, no Spanish adversarial set, no Spanish faithfulness.** Spanish block D is bias (EsBBQ), toxicity over whatever Spanish responses the operator's tasks produce, and refusal only on the operator's own pairs. EsBBQ's answers are single letters and are not scored for toxicity, so a run with EsBBQ alone produces no Spanish toxicity figure.
 - **The Spanish patterns are OPAAS's own, unvalidated.** Nobody has measured their recall against a labelled Spanish corpus. They are as incomplete as the English ones, and maybe more so.
 - **EsBBQ covers Spain.** Its stereotypes are Spain's, so nothing follows for Mexico, Argentina or the US Hispanic context. Its figures cannot be compared with the paper's, which scores likelihoods over eleven wordings, or with English BBQ, whose templates and target groups differ.
 - **The Spanish classifier has not been run here.** Its six control cases have been checked in the tests against a stub, not against the real weights: this machine has no torch, and fetching 1.1 GB plus torch was not done for this change. The first real run calibrates it, and an instrument that fails is not published, by construction. Its license, OpenRAIL++-M, carries use-based restrictions on the model and claims nothing on its outputs. The scores are publishable, and OPAAS does not redistribute the weights.
-- **An undeclared task is still English by default.** A Spanish dataset written without `language` is scored with English instruments, as before D69. The report says it declared none, but the figure is computed anyway.
+- **An undeclared task is still English by default.** A Spanish dataset written without `language` is scored with English instruments, as before D70. The report says it declared none, but the figure is computed anyway.
 - **The sentinel's drift check (`opaas watch`) compares the English `safetyBalance` only.** A Spanish figure that drifts is not watched.
+## D69 — LangServe, Dify, Flowise and n8n are driven like LangGraph; the rest of D63's list stays pending
+
+**Status:** applied · **Implements:** [D68](#d68--an-agent-opaas-does-not-own-is-driven-only-when-its-tools-are-opaass-mock-server) for four more frameworks · **Affects:** [`smith/rerouted.py`](../src/opaas/smith/rerouted.py), [`system/manifest.py`](../src/opaas/system/manifest.py), [`system/orchestrate.py`](../src/opaas/system/orchestrate.py), [`system/draft.py`](../src/opaas/system/draft.py), `smith run --agent langserve|dify|flowise|n8n`
+
+D68 drove A2A, Open WebUI and LangGraph agents whose tools the operator reroutes to OPAAS's mock MCP server, and left the rest of D63's frameworks pending. Four of them can now be configured with an MCP server as their tools and have a conversation API that answers in one request, so the same rule applies to them. Ground truth is unchanged: every call reaches the mock tools, the rerouting is declared (`tools.rerouted: "declared"`), and `keeps_record` is False.
+
+**Each scenario is a new conversation.** A framework with memory would otherwise carry one scenario's turns into the next, and the second scenario would measure something else. Dify gets no `conversation_id`. Flowise gets a new `overrideConfig.sessionId` and n8n a new `sessionId` for each scenario. LangServe and LangGraph runs are stateless.
+
+**LangServe: the task goes where the runnable's schema says.** A runnable takes whatever its author typed it to take. smith reads `/input_schema` first, then calls `/invoke`. If the schema is a string, the task is the input. If it has `messages`, the input is a one-message list. If it has `input`, the input is `{"input": …}`, as an `AgentExecutor` takes it, with an empty `chat_history` when that is required. Any other schema is refused, naming its properties, and smith does not guess. The answer comes from the last message, an `AgentExecutor`'s `output`, a message or a string.
+
+**Dify: streaming, because its agent apps answer in no other mode.** `/chat-messages` with `response_mode: "streaming"`. The answer is the `message` and `agent_message` chunks joined. An `error` event is an error. A stream that ends without `message_end` keeps what arrived and says so. The endpoint is the app's API base with `/v1`, and the app key is required: the CLI refuses to start without it.
+
+**Flowise: the chatflow id is the `assistant`.** `/api/v1/prediction/<id>`, not streaming. The manifest's `assistant` field, which LangGraph already used, names it, and without it the agent stays pending, saying so. `REROUTED_REQUIRES` lists what each rerouted adapter needs beyond its endpoint and `tools_listen`.
+
+**n8n: a Chat Trigger's webhook.** `sendMessage` with `chatInput`, and the answer is `output` (an AI Agent node) or `text`, possibly in a one-item list. The webhook path is the workflow's credential. Like every adapter, the report keeps only scheme, host and port.
+
+**Why the rest of D63's list stays pending.**
+- **Letta:** its agents are stateful by design. They keep memory blocks they edit themselves across every message, so the second scenario would see the first. Driving it would need a fresh agent per scenario, created from a template, and that is no longer the deployed agent.
+- **AnythingLLM:** how its developer API runs an agent with its tools, as distinct from a workspace chat, has not been checked here. An adapter is not built on a guess.
+- **AutoGen and CrewAI:** these are libraries. They are served however the operator wraps them. A wrapper that takes the tools' address with the task can already use the `http` adapter.
+- **OpenHands:** each conversation runs asynchronously in its own sandbox, so driving it means following an event stream rather than making one request. It waits until a deployment needs it.
+
+**What is lost:** the four adapters follow each framework's public API and are tested against fake servers that speak it, not against running instances. A version that changes its API breaks the adapter, and the run reports an error rather than measuring something else. Dify workflow apps (`/workflows/run`, not chat) are not driven. Neither is an n8n Chat Trigger set to stream its answer, nor a LangServe runnable whose input schema is none of the three shapes. `audit run` hands every agent the same `OPAAS_AGENT_TOKEN`, so agents behind different keys are run with `smith run` one at a time and their reports supplied to the audit.
+
+---
+
+## D68 — An agent OPAAS does not own is driven only when its tools are OPAAS's mock server
+
+**Status:** applied · **Revises:** the pending adapters of [D63](#d63--opaas-identifies-a-systems-agents-and-the-models-they-use), and step 1 of the work plan's phase 11 · **Affects:** [`smith/rerouted.py`](../src/opaas/smith/rerouted.py), [`smith/agents.py`](../src/opaas/smith/agents.py), [`system/manifest.py`](../src/opaas/system/manifest.py), [`system/orchestrate.py`](../src/opaas/system/orchestrate.py), `smith run --agent a2a|open-webui|langgraph`, `--tools-listen`
+
+`discover` identifies A2A agents, Open WebUI and LangGraph servers (D63), and the system audit could only list them as pending. smith measures behaviour against mock tools that record every call (N3). The `http` and `mcp` adapters hand the agent those tools' address with each task. An agent built on a framework takes no such thing: its tools are configured beforehand by whoever runs it, and they are real.
+
+**Ground truth by rerouting.** The operator configures the agent's tools to be OPAAS's mock MCP server, at an address they choose (`--tools-listen`, `tools_listen` in the manifest). OPAAS serves the current scenario's tools there for the whole run, and drives the agent through its own conversation API: A2A `message/send` (blocking), Open WebUI `/api/chat/completions`, LangGraph `/runs/wait`. Every call reaches the instrumented environment, so behaviour is measured as for any other adapter. The report says the rerouting is declared (`tools.rerouted: "declared"`): OPAAS cannot see that the agent has no other tool. An agent that never lists the tools in a run gets a note, and if it then calls a tool the scenario does not have, the run is an error for a stale tool list rather than a forbidden call: it is the agent's configuration, not its judgement.
+
+**An agent whose tools cannot be rerouted is not driven.** The work plan proposed driving such an agent through its conversation endpoint and observing it through sentinel, with ACR and GB declared not measured. That is not what is done: its tools are real, and a destructive or injection scenario sent to it would delete, send or leak on the very system under audit. There would also be nothing to judge against. The end states, canaries and confirmations live in the mock tools, so every behaviour cell would be unmeasurable anyway. Such an agent stays pending with that reason. Its records, if the operator names them, are audited by `inquest` as before.
+
+**No record of their own.** These protocols answer with the conversation, not with a record of tool calls, so `keeps_record` is False. Auditability in the smith report is not applicable, and says why in the adapter's words. The agent's own logs are audited on the row of the component that keeps them.
+
+**What is lost:** behaviour of an agent that cannot be rerouted is never measured by smith. Whether the agent had other tools besides OPAAS's is declared, not observed: a call to a tool OPAAS does not serve is invisible to it. Each agent needs one manual configuration step before the audit, and that step must point it at a test server, not production tools. An agent that caches its tool list across conversations does not work with a scenario set unless it is configured to list tools per session. LangServe, Dify, Flowise and the rest of D63's list are still pending.
 
 ---
 

@@ -10,7 +10,7 @@ free. It is **less precise**: a refusal worded in an unusual way slips through.
 That is why the report publishes the patterns used and their hash, and counts
 ambiguous cases separately instead of assigning them wherever convenient.
 
-**Spanish (D69).** Each list has a Spanish counterpart, and every response is
+**Spanish (D70).** Each list has a Spanish counterpart, and every response is
 matched against both. Not by the prompt's language: a model asked in Spanish
 often answers in English, and its English refusal is still a refusal. The two
 sets are disjoint enough that one language's patterns do not fire on the

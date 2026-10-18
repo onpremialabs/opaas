@@ -775,7 +775,7 @@ def _safety(metrics: dict[str, Any]) -> str:
 
 
 def _language_rows(metrics: dict[str, Any]) -> list[tuple[str, str]]:
-    """Every other language's figures, each row naming its language (D69).
+    """Every other language's figures, each row naming its language (D70).
 
     They sit after the English rows, never merged into them: the same dimension
     in two languages is two measurements.
@@ -811,7 +811,7 @@ def _language_rows(metrics: dict[str, Any]) -> list[tuple[str, str]]:
 def _bias(metrics: dict[str, Any]) -> str:
     """BBQ per category: the three figures and the verdict, never pooled (D55).
 
-    One table per bias task: BBQ and EsBBQ (D69) differ in language, categories
+    One table per bias task: BBQ and EsBBQ (D70) differ in language, categories
     and social context, and a shared table would invite reading them as one.
     """
     tables = []

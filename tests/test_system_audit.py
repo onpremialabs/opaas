@@ -23,7 +23,8 @@ from .test_system import BENCH, DOCUMENTS, SMITH
 
 runner = CliRunner()
 RATE = {"point": 0.5, "low": 0.3, "high": 0.7, "n": 20}
-ADAPTERS = ("bare-model", "http", "mcp")
+ADAPTERS = ("a2a", "bare-model", "dify", "flowise", "http", "langgraph", "langserve", "mcp",
+            "n8n", "open-webui")
 
 
 def _manifest(components, flows=(), **extra):
@@ -310,3 +311,62 @@ def test_audit_run_end_to_end_with_fake_engines(tmp_path):
     assert report["coverage"]["agent"]["actionRecoverability"] == "not-applicable"
     assert {m["kind"] for m in report["members"]} == {"model-report", "smith-report"}
     assert "coverage" in result.output
+
+
+def test_a_system_with_a2a_and_langgraph_agents_runs_with_no_pending_behaviour(tmp_path):
+    """Phase 11's done-when: agents whose tools are OPAAS's mock server are measured (D68)."""
+    components = [
+        {"id": "support", "kind": "agent", "adapter": "a2a", "endpoint": "http://a2a:41000",
+         "tools_listen": "0.0.0.0:8765"},
+        {"id": "planner", "kind": "agent", "adapter": "langgraph",
+         "endpoint": "http://graph:2024", "tools_listen": "0.0.0.0:8766",
+         "assistant": "planner"},
+        {"id": "webui", "kind": "agent", "adapter": "open-webui", "endpoint": "http://ui:3000",
+         "model": "support-bot", "tools_listen": "0.0.0.0:8767"},
+    ]
+    invoke = _Recorder()
+    run = run_audit(_manifest(components), base=tmp_path, out=tmp_path / "out", invoke=invoke)
+    smith = {call[call.index("--agent") + 1]: call for call in invoke.calls
+             if call[0] == "smith"}
+    assert smith["a2a"][smith["a2a"].index("--tools-listen") + 1] == "0.0.0.0:8765"
+    assert smith["langgraph"][smith["langgraph"].index("--assistant") + 1] == "planner"
+    assert smith["open-webui"][smith["open-webui"].index("--model") + 1] == "support-bot"
+    assert not [s for s in run.steps if s.status == "pending"]
+
+
+def test_a_rerouted_agent_without_its_tools_address_is_not_driven(tmp_path):
+    """Driving it anyway would run destructive scenarios against its real tools."""
+    components = [{"id": "support", "kind": "agent", "adapter": "a2a",
+                   "endpoint": "http://a2a:41000"},
+                  {"id": "webui", "kind": "agent", "adapter": "open-webui",
+                   "endpoint": "http://ui:3000", "tools_listen": "0.0.0.0:8767"},
+                  {"id": "flows", "kind": "agent", "adapter": "flowise",
+                   "endpoint": "http://flowise:3000", "tools_listen": "0.0.0.0:8768"}]
+    invoke = _Recorder()
+    run = run_audit(_manifest(components), base=tmp_path, out=tmp_path / "out", invoke=invoke)
+    assert not [call for call in invoke.calls if call[0] == "smith"]
+    pending = {s.component: s.reason for s in run.steps if s.status == "pending"}
+    assert "tools_listen" in pending["support"] and "real tools" in pending["support"]
+    assert "'model'" in pending["webui"]
+    assert "'assistant'" in pending["flows"] and "chatflow" in pending["flows"]
+
+
+def test_langserve_dify_flowise_and_n8n_agents_are_driven_once_rerouted(tmp_path):
+    """D69: the framework adapters after LangGraph leave the pending set."""
+    components = [
+        {"id": "chain", "kind": "agent", "adapter": "langserve",
+         "endpoint": "http://serve:8000/agent", "tools_listen": "0.0.0.0:8765"},
+        {"id": "helpdesk", "kind": "agent", "adapter": "dify",
+         "endpoint": "http://dify/v1", "tools_listen": "0.0.0.0:8766"},
+        {"id": "triage", "kind": "agent", "adapter": "flowise", "endpoint": "http://flowise:3000",
+         "tools_listen": "0.0.0.0:8767", "assistant": "c0ffee"},
+        {"id": "ops", "kind": "agent", "adapter": "n8n",
+         "endpoint": "http://n8n:5678/webhook/abc/chat", "tools_listen": "0.0.0.0:8768"},
+    ]
+    invoke = _Recorder()
+    run = run_audit(_manifest(components), base=tmp_path, out=tmp_path / "out", invoke=invoke)
+    smith = {call[call.index("--agent") + 1]: call for call in invoke.calls
+             if call[0] == "smith"}
+    assert set(smith) == {"langserve", "dify", "flowise", "n8n"}
+    assert smith["flowise"][smith["flowise"].index("--assistant") + 1] == "c0ffee"
+    assert not [s for s in run.steps if s.status == "pending"]

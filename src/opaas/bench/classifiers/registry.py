@@ -68,7 +68,7 @@ DEFAULT_CLASSIFIERS: dict[str, ClassifierSource] = {
     ),
     # toxic-bert was trained on English comments: on Spanish text it is not an
     # instrument, it is a guess. Spanish responses get their own classifier,
-    # calibrated on Spanish control cases before it is believed (D69).
+    # calibrated on Spanish control cases before it is believed (D70).
     "toxicity-es": ClassifierSource(
         task="toxicity-es",
         profile="toxicity",

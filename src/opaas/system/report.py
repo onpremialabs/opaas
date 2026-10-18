@@ -247,7 +247,7 @@ def certifiability(
     by_component: dict[str, list[dict[str, Any]]] = {}
     for member in members:
         by_component.setdefault(member["component"], []).append(member)
-    pending = {s.component for s in steps if s.status == "pending"}
+    pending = {s.component: s.reason for s in steps if s.status == "pending"}
     for component in manifest.components:
         mine = by_component.get(component.id, [])
         if component.kind == "model":
@@ -265,8 +265,8 @@ def certifiability(
                 reasons.append(f"Agent {component.id} is known only from its records: no "
                                "adapter reaches it, so its behaviour was not measured.")
             elif component.id in pending:
-                reasons.append(f"Agent {component.id} could not be measured: smith has no "
-                               f"{component.fields.get('adapter')} adapter yet.")
+                reasons.append(f"Agent {component.id} could not be measured: "
+                               f"{pending[component.id]}.")
             elif not smith:
                 reasons.append(f"Agent {component.id} has no smith report.")
             elif not any(m.get("certifiable") for m in smith):

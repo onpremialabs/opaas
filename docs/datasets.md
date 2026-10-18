@@ -49,7 +49,7 @@ mmlu-pro-subset/
 
 `name`, `version` and `tasks` are required. `license` and `source` are not, but they end up on the certificate page: if they are empty, the certificate cannot document the dataset's provenance.
 
-Each task may declare its `language` as a tag (`"en"`, `"es"`). Block D reports every language on its own and never pools them (D69). A Spanish task is scored with the Spanish toxicity classifier, and its figures land in the report's `byLanguage.es`. A task with no `language` is scored as English, and the report says it declared none.
+Each task may declare its `language` as a tag (`"en"`, `"es"`). Block D reports every language on its own and never pools them (D70). A Spanish task is scored with the Spanish toxicity classifier, and its figures land in the report's `byLanguage.es`. A task with no `language` is scored as English, and the report says it declared none.
 
 ### `multiple_choice` items
 

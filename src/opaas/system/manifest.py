@@ -11,10 +11,18 @@ ignored: a misspelt `"scenario"` silently dropped would leave every agent
 uncertifiable with nothing saying why. A component kind decides what the
 component must name for OPAAS to reach it, and nothing more.
 
-**MCP agents are accepted before they can be measured.** `"adapter": "mcp"` is
-valid today; until the client adapter exists, that agent's cells read *not
-measured* with the reason, and the same manifest measures it once the adapter
-is registered (system-audit.md §10.5).
+**Agents are accepted before they can be measured.** An adapter smith does
+not have yet is valid; that agent's cells read *not measured* with the
+reason, and the same manifest measures it once the adapter is registered
+(system-audit.md §10.5). MCP landed that way in S4, and A2A, Open WebUI and
+LangGraph in phase 11 (D68), LangServe, Dify, Flowise and n8n after them (D69).
+
+**Rerouted agents name where their tools are.** An agent with one of the
+`REROUTED_ADAPTERS` is driven only once its tools are OPAAS's mock MCP server:
+`tools_listen` is the host:port OPAAS serves them on, the address the
+operator configured the agent with. Without it the agent is not driven, and
+says why: its scenarios would otherwise act on its real tools. Open WebUI
+needs its `model` and Flowise its `assistant` (the chatflow id) as well.
 """
 
 from __future__ import annotations
@@ -41,18 +49,31 @@ COMPONENT_FIELDS: dict[str, tuple[str, ...]] = {
 #: Fields a component may carry beyond `id` and `kind`.
 _OPTIONAL_FIELDS = frozenset({
     "backend", "model", "base_url", "num_ctx", "adapter", "endpoint", "via", "server",
-    "command", "name", "sentinel", "provider", "description",
+    "command", "name", "sentinel", "provider", "description", "tools_listen", "assistant",
 })
+
+#: Adapters whose agent was configured beforehand to use OPAAS's mock tools (D68).
+REROUTED_ADAPTERS: frozenset[str] = frozenset({
+    "a2a", "dify", "flowise", "langgraph", "langserve", "n8n", "open-webui",
+})
+
+#: Fields a rerouted agent cannot be driven without, beyond its endpoint and
+#: `tools_listen`, and what each one is.
+REROUTED_REQUIRES: dict[str, tuple[str, str]] = {
+    "open-webui": ("model", "the Open WebUI model or agent id"),
+    "flowise": ("assistant", "the Flowise chatflow id"),
+}
 
 #: Agent adapters the manifest accepts before smith can drive them, so that a
 #: system's description does not change the day the adapter lands (§10.5).
 #: Since D63 they are the agents `discover` identifies (A2A, Open WebUI, agent
 #: frameworks by their OpenAPI title) and `observed`, an agent known only from
 #: the records it left. Their behaviour is not measured until an adapter exists;
-#: their auditability is, from their records.
+#: their auditability is, from their records. A2A, Open WebUI and LangGraph
+#: left this set in phase 11 (D68); LangServe, Dify, Flowise and n8n after them
+#: (D69), which says why the rest are still here.
 PENDING_ADAPTERS: frozenset[str] = frozenset({
-    "a2a", "open-webui", "agent-api", "observed", "langgraph", "langserve", "flowise",
-    "dify", "n8n", "letta", "autogen", "crewai", "openhands", "anythingllm",
+    "agent-api", "observed", "letta", "autogen", "crewai", "openhands", "anythingllm",
 })
 
 _TOP_LEVEL = frozenset({
@@ -179,7 +200,7 @@ def _component(raw: Any, index: int, known_adapters: tuple[str, ...]) -> Compone
             raise SystemManifestError(
                 f"{where}: adapter must be one of {', '.join(accepted)}, got {adapter!r}."
             )
-        if adapter in ("http", "mcp") and not fields.get("endpoint"):
+        if adapter in ("http", "mcp", *REROUTED_ADAPTERS) and not fields.get("endpoint"):
             raise SystemManifestError(f"{where}: the {adapter} adapter needs an 'endpoint'.")
     return Component(id=component_id, kind=kind, fields=fields)
 
@@ -239,6 +260,8 @@ __all__ = [
     "COMPONENT_FIELDS",
     "FORMAT",
     "PENDING_ADAPTERS",
+    "REROUTED_ADAPTERS",
+    "REROUTED_REQUIRES",
     "Component",
     "SystemManifest",
     "SystemManifestError",

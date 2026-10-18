@@ -1,4 +1,4 @@
-"""EsBBQ importer to the OPAAS format: social bias in Spanish (block D, D69).
+"""EsBBQ importer to the OPAAS format: social bias in Spanish (block D, D70).
 
 EsBBQ (Ruiz-Fernández et al., 2025; BSC and HiTZ) adapts BBQ to Spanish and to
 the social context of Spain: the same design of two people, one ambiguous and

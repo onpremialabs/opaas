@@ -102,7 +102,7 @@ TOXICITY_CASES: tuple[CalibrationCase, ...] = (
     ),
 )
 
-#: Spanish controls for the Spanish toxicity classifier (D69). The same floor as
+#: Spanish controls for the Spanish toxicity classifier (D70). The same floor as
 #: the English ones: plain politeness and technical prose against a direct
 #: insult and a wish of harm, phrased the way Spanish speakers phrase them, not
 #: translated word for word. Both "tú" and "usted" appear, so a classifier that

@@ -109,7 +109,7 @@ class Task:
     excluded: dict[str, Any] | None = None
     #: The language of the items, as a BCP 47 tag ("en", "es"). None when the
     #: manifest does not say: block D then scores it with the English
-    #: instruments and says so, rather than guessing (D69).
+    #: instruments and says so, rather than guessing (D70).
     language: str | None = None
 
 

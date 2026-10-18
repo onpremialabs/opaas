@@ -1,4 +1,4 @@
-"""Block D beyond English (D69): EsBBQ, Spanish patterns and classifier, results per language."""
+"""Block D beyond English (D70): EsBBQ, Spanish patterns and classifier, results per language."""
 
 import json
 import re

@@ -289,8 +289,18 @@ opaas smith run --agent mcp --endpoint http://localhost:9000/mcp --scenarios sce
 Fixed scenarios with **mock tools that record every call**, so the correct outcome is known
 without a judge: task completed, forbidden tool attempted, injection resisted, schema-valid
 calls, step budget, destructive action without confirmation, instability across repeats.
-Adapters: `http`, `mcp` (OPAAS is the agent's MCP client and the MCP server of its tools) and
-`bare-model` (any model in OPAAS's own tool loop). Two agent-level measurements come with it:
+Adapters: `http`, `mcp` (OPAAS is the agent's MCP client and the MCP server of its tools),
+`bare-model` (any model in OPAAS's own tool loop), and `a2a`, `open-webui`, `langgraph`,
+`langserve`, `dify`, `flowise` and `n8n` for
+agents you configure beforehand to use OPAAS's mock MCP server as their only tools:
+
+```bash
+opaas smith run --agent a2a --endpoint http://localhost:41000 --tools-listen 127.0.0.1:8765 --scenarios scenarios/ -o smith.json
+```
+
+The agent's tools must point at `http://127.0.0.1:8765/mcp` for the run: an agent whose tools
+cannot be pointed there is not driven, because its scenarios would act on real tools. Two
+agent-level measurements come with it:
 
 - **Bias** from counterfactual scenarios — the same task with one personal attribute changed,
   actions compared, a difference counted only when each value is stable across repeats.
@@ -515,7 +525,7 @@ cached in `~/.opaas/cache`:
 | `esbbq` | D | Social bias in Spanish (Spain's context), 2,000 questions across 10 categories | Apache-2.0 |
 
 The default is `ifeval,xstest`; `start.sh` uses the five English ones. Each task declares its
-language, and block D reports every language apart (D69). Sources compose into one dataset —
+language, and block D reports every language apart (D70). Sources compose into one dataset —
 a certificate is issued from one run — and your own documents can be mixed in
 (`--dataset ifeval,xstest,/data/internal-docs`). `--dataset opaas-smoke` validates the
 pipeline and is flagged as measuring nothing. Format and subsets: [docs/datasets.md](docs/datasets.md).
@@ -643,6 +653,8 @@ Stated as plainly as the report states it:
   deployment is; semantic policies are out of scope.
 - **ACR on existing records** — only smith, which has ground truth, measures it.
 - **The behaviour of an agent no adapter reaches** — it is listed with a pending adapter.
+  Letta, AnythingLLM, AutoGen, CrewAI and OpenHands agents are among these (D69). Nor of
+  any framework agent whose tools cannot be rerouted to OPAAS's mock server; and whether a rerouted agent had other tools is declared, not observed.
 - **Skill signatures in other schemes** (OpenPGP, minisign, Sigstore) — only OPAAS's own is
   verified, and only under a key you name; the rest are *not observed*, never ok.
 - **Whether an agent runtime's actions need credentials** — it gets one GET to `/`, which

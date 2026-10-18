@@ -35,7 +35,7 @@ IMPORTERS = {
 #: by an older version is re-imported instead of being served with the
 #: provenance missing: a report that omits how many items were excluded is
 #: worse than a slower first run.
-#: 3: tasks declare their language (D69).
+#: 3: tasks declare their language (D70).
 MANIFEST_VERSION = 3
 
 

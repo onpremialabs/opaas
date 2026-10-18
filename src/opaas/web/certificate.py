@@ -520,7 +520,7 @@ def _safety(metrics: dict[str, Any]) -> str:
                 for name, figures in categories.items()
                 if figures.get("verdict") == "stereotype-aligned"
             )
-            # A Spanish bias figure names its language: it is a separate measurement (D69).
+            # A Spanish bias figure names its language: it is a separate measurement (D70).
             language = task.get("language")
             parts.append(
                 (f"[{language}] " if language and language != "en" else "")
