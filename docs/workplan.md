@@ -226,11 +226,12 @@ This is the paper's missing end-to-end audit. The ground truth comes from instru
 
 ### Release scope
 
-**The next release is in English.** It ships and supports what the phases above delivered in English: the reference scenarios, the five English domain packs, and the English block D instruments, which are the instruments its documentation describes.
+**The next release is entirely in English.** It ships and supports what the phases above delivered in English: the 21 reference scenarios, the five English domain packs (`banking`, `health`, `public-sector`, `rag`, `devops`; 23 scenarios with the triage, hiring and moderation counterfactual pairs), and block D's English instruments. Nothing in Spanish is in its scope.
 
 **Deferred to the release after it:**
 
 - **Phase 10, step 3:** the production key ceremony on the two hardware tokens and the anchor bundled in `core/credential/anchors/`. It is left for last on purpose. Until then a certificate verifies only with the key or DID document handed over separately (invariant 6), and `audit run`'s draft certificate stays unsigned (D72).
+- **Block D in Spanish** (phase 12, D70): EsBBQ, the Spanish toxicity classifier and its calibration, the Spanish refusal and abstention patterns, and results under `byLanguage`. They are in `develop`, but outside this release's scope.
 - **The Spanish domain packs** (D73): `banking-es`, `health-es`, `public-sector-es`, `rag-es` and `devops-es`. They are in `develop` and replay in the tests, but are outside this release's scope. Before they ship, the translation needs the review by domain experts that D73 says it has not had.
 
 **Open questions (§6), as settled:** 1 — `observe` changes nothing and `gate` is opt-in (D46, D50). 2 — digests by default, the operator adds fields with `--keep` and declares retention on the card; whether a third party may require fields stays open. 3 — yes: a report on reference scenarios alone is `certifiable: false` (D47). 4 — yes, specified once in `smith`: counterfactual scenarios compared on the agent's actions (D60, S4).
