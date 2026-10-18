@@ -139,6 +139,7 @@ TASK = {
     "name": "squad2",
     "category": "hallucination",
     "type": "grounded_qa",
+    "language": "en",
     "description": "SQuAD 2.0 — answer from the passage, or say it is not there",
 }
 MANIFEST = {

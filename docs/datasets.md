@@ -39,6 +39,7 @@ mmlu-pro-subset/
       "name": "reasoning",
       "category": "reasoning",
       "type": "multiple_choice",
+      "language": "en",
       "description": "Subset of MMLU-Pro",
       "source": "TIGER-Lab/MMLU-Pro (test split, seed 1234)"
     }
@@ -47,6 +48,8 @@ mmlu-pro-subset/
 ```
 
 `name`, `version` and `tasks` are required. `license` and `source` are not, but they end up on the certificate page: if they are empty, the certificate cannot document the dataset's provenance.
+
+Each task may declare its `language` as a tag (`"en"`, `"es"`). Block D reports every language on its own and never pools them (D70). A Spanish task is scored with the Spanish toxicity classifier, and its figures land in the report's `byLanguage.es`. A task with no `language` is scored as English, and the report says it declared none.
 
 ### `multiple_choice` items
 
@@ -157,6 +160,7 @@ opaas datasets
 | `squad2` | D | CC-BY-SA-4.0 | 11,873 → **200** sampled (100 answerable + 100 unanswerable) |
 | `bbq` | D | CC-BY-4.0 | 31,356 → **1,800**: 100 ambiguous + 100 disambiguated per category, 9 categories |
 | `rtp` | D | Apache-2.0 | 99,442 prompts, 1,199 challenging → **200**: 100 toxic + 100 non-toxic openings |
+| `esbbq` | D | Apache-2.0 (CC-BY-4.0 on Hugging Face) | 27,320 → **2,000**: 100 ambiguous + 100 disambiguated per category, 10 categories, Spanish |
 
 A composition is cached as a **single dataset** (`ifeval+xstest`), because that is what the run evaluates and its hash is what goes in the report. `opaas datasets` lists it under *Datasets built in the cache*, and marks each source as `cached (in a composition)`: the file is downloaded and verified, it simply has no converted directory of its own.
 

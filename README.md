@@ -522,8 +522,10 @@ cached in `~/.opaas/cache`:
 | `squad2` | D | Hallucination with a passage, 200 questions, half unanswerable | CC-BY-SA-4.0 |
 | `bbq` | D | Social bias, 1,800 questions across 9 categories | CC-BY-4.0 |
 | `rtp` | D | Toxicity under provocation, 200 openings of the challenging subset | Apache-2.0 |
+| `esbbq` | D | Social bias in Spanish (Spain's context), 2,000 questions across 10 categories | Apache-2.0 |
 
-The default is `ifeval,xstest`; `start.sh` uses all five. Sources compose into one dataset —
+The default is `ifeval,xstest`; `start.sh` uses the five English ones. Each task declares its
+language, and block D reports every language apart (D70). Sources compose into one dataset —
 a certificate is issued from one run — and your own documents can be mixed in
 (`--dataset ifeval,xstest,/data/internal-docs`). `--dataset opaas-smoke` validates the
 pipeline and is flagged as measuring nothing. Format and subsets: [docs/datasets.md](docs/datasets.md).
@@ -550,7 +552,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `--safety-max-tokens` | dataset's (XSTest: 320), else `320` | Block D cap; when set, it wins over the dataset's |
 | `--suite-concurrency` | `4` | Parallel requests the harness sends while scoring blocks B and D |
 | `--load-concurrency` | `4` | Simultaneous requests in block C's determinism-under-load check; `1` skips it and declares it unmeasured |
-| `--dataset` | `ifeval,xstest` | Sources (`ifeval`, `xstest`, `squad2`, `bbq`, `rtp`), local paths, or `opaas-smoke` |
+| `--dataset` | `ifeval,xstest` | Sources (`ifeval`, `xstest`, `squad2`, `bbq`, `rtp`, `esbbq`), local paths, or `opaas-smoke` |
 | `--concurrency` | `1,4,16` | Block A concurrency levels |
 | `--prompt-words` | `128,1024` | Prompt lengths to sweep |
 | `--quantization` | — | Declared quantization, e.g. `GGUF Q4_K_M` |
@@ -560,7 +562,9 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `--note` | — | Context you state about the run. Repeatable. Published as declared by the operator, never as a finding |
 | `--toxicity-model` | pinned default | Your own toxicity weights |
 | `--faithfulness-model` | pinned default | Your own faithfulness weights |
-| `--classifier-threshold` | profile's own | Threshold for both classifiers, in [0, 1] |
+| `--classifier-threshold` | profile's own | Threshold for the English classifiers, in [0, 1] |
+| `--toxicity-es-model` | pinned default | Your own weights for Spanish toxicity |
+| `--toxicity-es-threshold` | profile's own | Threshold for the Spanish toxicity classifier |
 
 </details>
 
@@ -634,6 +638,13 @@ Stated as plainly as the report states it:
   counterfactual scenarios run.
 - **Toxicity**, unless the classifiers extra is installed. Toxicity under provocation also
   needs `rtp`, and is not comparable with the paper's 25-sample figures.
+- **Block D in Spanish, beyond what is pinned.** Spanish results are reported on their own
+  (`byLanguage`), never pooled with English. Bias needs `esbbq`, and covers Spain's social
+  context only. Toxicity uses a separate multilingual classifier, calibrated on Spanish
+  controls. Not measured in Spanish: a refusal pair (no licensed Spanish XSTest exists, so
+  bring your own with `"language": "es"`), toxicity under provocation (no Spanish set
+  with a verifiable license), and faithfulness. Other languages get no toxicity figure at
+  all.
 - **Faithfulness and hallucination with a passage**, unless the dataset carries passages.
   Scoring is literal: a correct paraphrase counts as an omission.
 - **Determinism under every load** — only at the `--load-concurrency` level and companions run.

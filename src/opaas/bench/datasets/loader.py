@@ -107,6 +107,10 @@ class Task:
     #: Items the import left out, and why. `{"count": 0, "byReason": {}}` when
     #: nothing was dropped; None when the manifest predates this field.
     excluded: dict[str, Any] | None = None
+    #: The language of the items, as a BCP 47 tag ("en", "es"). None when the
+    #: manifest does not say: block D then scores it with the English
+    #: instruments and says so, rather than guessing (D70).
+    language: str | None = None
 
 
 @dataclass(slots=True)
@@ -151,6 +155,8 @@ class Dataset:
                     "itemsAvailable": task.items_available,
                     "itemsImported": task.items_imported,
                     "excluded": task.excluded,
+                    # Absent, not defaulted, when the manifest does not declare it.
+                    **({"language": task.language} if task.language else {}),
                 }
                 for task in self.tasks
             ],
@@ -351,11 +357,24 @@ def _load_task(root: Path, entry: dict[str, Any], *, limit: int | None) -> Task:
         items_available=entry.get("itemsAvailable"),
         items_imported=entry.get("itemsImported"),
         excluded=entry.get("excluded"),
+        language=_language(entry, path),
         items=stratified_sample(items, limit, seed=1234, key=lambda item: item.category),
         # The hash is of the whole file, not the selection, and of the content,
         # not the bytes: CRLF and LF describe the same dataset.
         file_hash=text_file_digest(path),
     )
+
+
+def _language(entry: dict[str, Any], path: Path) -> str | None:
+    value = entry.get("language")
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip() or " " in value.strip():
+        raise DatasetError(
+            f"Task for {path.name}: 'language' must be a language tag such as \"en\" or "
+            f"\"es\", received {value!r}"
+        )
+    return value.strip().lower()
 
 
 def _build_item(

@@ -226,6 +226,12 @@ def test_the_status_reports_which_default_classifiers_are_cached(monkeypatch):
     _with_classifiers_available(monkeypatch, cached={"toxicity", "faithfulness"})
     text = " ".join(message for _, message, _ in status_lines())
     assert "classifiers ready: faithfulness, toxicity" in text
+    # The Spanish classifier (D70) is one of the defaults: still to download.
+    assert "download on first use" in text
+
+    _with_classifiers_available(monkeypatch, cached={"toxicity", "faithfulness", "toxicity-es"})
+    text = " ".join(message for _, message, _ in status_lines())
+    assert "classifiers ready: faithfulness, toxicity, toxicity-es" in text
     assert "download on first use" not in text
 
 
