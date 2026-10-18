@@ -23,10 +23,11 @@ ends by writing `certificate-draft.html` next to the system report and
 opening it, so whoever ran the audit sees the certificate it will become. It
 is the same page over the same unsigned credential `opaas sign` would build
 with onpremIALabs as issuer, so its identifier is the one the issued
-certificate will carry, and its QR code is the address `opaas publish` gives
-that certificate under onpremIALabs's site. A band on every sheet, the title
-and the footer say it is a draft and unsigned: until onpremIALabs signs and
-publishes it, the QR leads nowhere and the page proves nothing.
+certificate will carry. It has no QR code unless the site it will be
+published on is named; then the code is the address `opaas publish` gives
+that certificate there. A band on every sheet, the title and the footer say
+it is a draft and unsigned: until onpremIALabs signs it, the page proves
+nothing.
 
 Rendered self-contained (inline CSS, inline SVG, no fonts or scripts from
 anywhere) so it prints the same offline and years later.
@@ -102,11 +103,15 @@ def draft_entry(report_path: Path) -> Entry:
                  credential=credential, report_bytes=report_bytes)
 
 
-def render_draft(report_path: Path, *, base_url: str = PUBLISH_BASE_URL) -> str:
-    """The certificate a system report will become, marked unsigned on every sheet."""
+def render_draft(report_path: Path, *, base_url: str | None = None) -> str:
+    """The certificate a system report will become, marked unsigned on every sheet.
+
+    With `base_url`, a QR code to the page it will be published at; without it,
+    none: a code to a page that does not exist yet would only mislead.
+    """
     entry = draft_entry(report_path)
-    return _render_system_printable(entry, verify_url=certificate_url(entry, base_url),
-                                    draft=True)
+    url = certificate_url(entry, base_url) if base_url else None
+    return _render_system_printable(entry, verify_url=url, draft=True)
 
 
 def render_printable(
@@ -221,7 +226,8 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None,
     issued = str(credential.get("issuanceDate", ""))[:10]
     expires = str(credential.get("expirationDate", ""))[:10]
 
-    qr_html, verify_text = "", "Verify offline with:"
+    qr_html = ""
+    verify_text = "Once issued, verify offline with:" if draft else "Verify offline with:"
     if verify_url is not None:
         caption = ("Where onpremIALabs will publish it once issued" if draft
                    else "Scan to verify the signature")

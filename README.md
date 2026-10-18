@@ -127,8 +127,8 @@ opaas audit run system.json -o out/
 ```
 
 The audit ends by opening `out/certificate-draft.html`: the certificate this report will
-become, marked **draft, not signed**, with a QR code to the page onpremIALabs will publish it
-at once issued (`--certificate-base-url`, default `https://onpremialabs.com`).
+become, marked **draft, not signed**. It carries no QR code unless you name the site it will
+be published on (`--certificate-base-url https://…`).
 
 ```bash
 opaas sign --input out/system-report.json --key keys/opaas-root-ed25519.pem --out out/credential.json
