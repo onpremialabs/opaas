@@ -126,6 +126,10 @@ opaas audit draft -o system.json --records events.jsonl
 opaas audit run system.json -o out/
 ```
 
+The audit ends by opening `out/certificate-draft.html`: the certificate this report will
+become, marked **draft, not signed**, with a QR code to the page onpremIALabs will publish it
+at once issued (`--certificate-base-url`, default `https://onpremialabs.com`).
+
 ```bash
 opaas sign --input out/system-report.json --key keys/opaas-root-ed25519.pem --out out/credential.json
 ```
@@ -606,7 +610,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas evidence sign` / `verify` | Sign and verify any evidence document |
 | `opaas audit draft` | Draft a system manifest: models, agents, tools and flows the host and records show |
 | `opaas audit template` | Scenario templates for the manifest's tools; you write the answers |
-| `opaas audit run` | Audit a system from its manifest and write the system report |
+| `opaas audit run` | Audit a system from its manifest; write the system report and open its draft certificate |
 | `opaas audit validate` / `extract` | Check a system manifest; read any document into measurements |
 
 </details>

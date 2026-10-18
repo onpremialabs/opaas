@@ -164,3 +164,16 @@ def _isolate_registries():
     adapters._REGISTRY.update(backends)
     suites._REGISTRY.clear()
     suites._REGISTRY.update(suite_registry)
+
+
+@pytest.fixture(autouse=True)
+def _no_browser(monkeypatch):
+    """No test may open a browser: `audit run` opens its draft certificate (D72).
+
+    Yields the URLs a test's code asked to open.
+    """
+    import webbrowser
+
+    opened: list[str] = []
+    monkeypatch.setattr(webbrowser, "open", lambda url, *args, **kwargs: opened.append(url))
+    return opened

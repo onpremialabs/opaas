@@ -17,7 +17,8 @@ ceremony runbook and its rehearsal (D67). Phase 11, first part: smith drives
 A2A, Open WebUI and LangGraph agents whose tools are rerouted to its mock MCP
 server (D68), then LangServe, Dify, Flowise and n8n agents (D69). Phase 12: block D in
 Spanish (D70). Phase 13: domain scenario packs and kind-aware
-templates (D71).
+templates (D71). `audit run` ends with the draft certificate its report will
+become (D72).
 
 ### Upgrading
 
@@ -148,6 +149,11 @@ templates (D71).
 - `opaas smith run --agent langserve | dify | flowise | n8n` (D69). Each
   scenario starts a new conversation; `--assistant` is the Flowise chatflow
   id; Dify needs the app key in `--agent-token`.
+- `audit run` writes and opens `certificate-draft.html`: the system
+  certificate over its report, unsigned and marked a draft on every sheet,
+  with a QR code to `<base>/cert/<id>/index.html`, where the issued
+  certificate will be published (`--certificate-base-url`, default
+  `https://onpremialabs.com`; `--open/--no-open`) (D72).
 - `opaas smith packs` and `--scenarios pack:<id>`: five domain scenario
   packs (`banking`, `health`, `public-sector`, `rag`, `devops`), pinned by
   version and hash, with counterfactual pairs for triage, hiring and
