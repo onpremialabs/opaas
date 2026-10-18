@@ -1,4 +1,4 @@
-"""Domain scenario packs (phase 13, D70): pinned, replayable, never certifiable alone."""
+"""Domain scenario packs (phase 13, D71): pinned, replayable, never certifiable alone."""
 
 import json
 import shutil

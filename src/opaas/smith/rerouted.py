@@ -2,7 +2,8 @@
 
 The `http` and `mcp` adapters hand the agent the mock tools' address with
 each task: the agent was written, or wrapped, to take it. An agent built on
-A2A, Open WebUI or LangGraph takes no such thing. Its tools are configured
+A2A, Open WebUI, LangGraph, LangServe, Dify, Flowise or n8n takes no such
+thing. Its tools are configured
 beforehand, by whoever runs it. So the ground truth (N3) survives in one way
 only: **the operator configures the agent's tools to be OPAAS's mock MCP
 server**, at an address they choose (`--tools-listen`), and OPAAS serves the
@@ -35,6 +36,7 @@ drive a fake agent that reaches the mock tools through
 
 from __future__ import annotations
 
+import json
 import os
 import uuid
 from abc import abstractmethod
@@ -305,7 +307,172 @@ def _message_text(message: Any) -> str | None:
     return None
 
 
-_REGISTRY.update({"a2a": A2aAgent, "langgraph": LangGraphAgent,
+# ------------------------------------------------------------------- langserve
+
+
+class LangServeAgent(ReroutedAgent):
+    """A LangServe runnable: `/invoke`, with the input shaped by its `/input_schema`.
+
+    A runnable takes whatever its author typed it to take, so the schema is
+    read first and the task placed where it says: the whole input when it is a
+    string, a one-message list under `messages`, or the `input` key an
+    `AgentExecutor` takes (with an empty `chat_history` when one is required).
+    A schema that says none of these is refused rather than guessed at.
+    """
+
+    name: ClassVar[str] = "langserve"
+
+    def converse(self, client: httpx.Client, task: str) -> AgentRun:
+        response = client.get(f"{self.endpoint}/input_schema", headers=self._headers())
+        if response.status_code != 200:
+            raise AgentError(f"its /input_schema answered HTTP {response.status_code}")
+        try:
+            schema = response.json()
+        except ValueError:
+            raise AgentError("its /input_schema is not JSON") from None
+        body = _post_json(client, f"{self.endpoint}/invoke",
+                          {"input": _langserve_input(schema, task), "config": {}, "kwargs": {}},
+                          self._headers())
+        output = body.get("output") if isinstance(body, dict) else None
+        if isinstance(output, dict) and isinstance(output.get("messages"), list):
+            messages = output["messages"]
+            return AgentRun(final=_message_text(messages[-1]) if messages else None,
+                            turns=sum(1 for m in messages if _role(m) in ("ai", "assistant")))
+        return AgentRun(final=_output_text(output), turns=1)
+
+
+def _langserve_input(schema: Any, task: str) -> Any:
+    if not isinstance(schema, dict):
+        raise AgentError("its /input_schema is not a JSON schema object")
+    if schema.get("type") == "string":
+        return task
+    properties = schema.get("properties") or {}
+    required = set(schema.get("required") or ())
+    if "messages" in properties:
+        return {"messages": [{"type": "human", "content": task}]}
+    if "input" in properties:
+        return {"input": task, **({"chat_history": []} if "chat_history" in required else {})}
+    raise AgentError(
+        "its input schema takes neither a string, 'messages' nor 'input' "
+        f"(it takes {', '.join(sorted(properties)) or 'nothing named'}): smith does not "
+        "guess where the task goes")
+
+
+def _output_text(output: Any) -> str | None:
+    if isinstance(output, str):
+        return output
+    if isinstance(output, list) and output:  # a list of messages
+        return _message_text(output[-1])
+    if isinstance(output, dict):
+        if isinstance(output.get("output"), str):  # AgentExecutor
+            return output["output"]
+        return _message_text(output)
+    return None
+
+
+# ------------------------------------------------------------------------ dify
+
+
+class DifyAgent(ReroutedAgent):
+    """A Dify agent or chatflow app: `/chat-messages`, one new conversation per scenario.
+
+    The endpoint is the app's API base, `/v1` included; the app key comes from
+    OPAAS_AGENT_TOKEN. Streaming is asked for because Dify's agent apps answer
+    in no other mode; the answer is the `message` and `agent_message` chunks
+    joined. No `conversation_id` is sent, so no scenario sees another's turns.
+    """
+
+    name: ClassVar[str] = "dify"
+
+    def converse(self, client: httpx.Client, task: str) -> AgentRun:
+        response = client.post(f"{self.endpoint}/chat-messages", json={
+            "inputs": {}, "query": task, "response_mode": "streaming", "user": "opaas-smith",
+        }, headers={"Accept": "text/event-stream", **self._headers()})
+        if response.status_code != 200:
+            raise AgentError(f"the agent answered HTTP {response.status_code}")
+        chunks: list[str] = []
+        ended = False
+        for line in response.text.splitlines():
+            if not line.startswith("data:"):
+                continue
+            try:
+                event = json.loads(line[5:])
+            except ValueError:
+                raise AgentError("the agent's stream carries an event that is not JSON") from None
+            kind = event.get("event") if isinstance(event, dict) else None
+            if kind in ("message", "agent_message"):
+                chunks.append(str(event.get("answer") or ""))
+            elif kind == "error":
+                raise AgentError(f"the agent answered error {event.get('code')}: "
+                                 f"{event.get('message')}")
+            elif kind == "message_end":
+                ended = True
+        if not ended:
+            return AgentRun(final="".join(chunks) or None,
+                            notes=["The Dify stream closed without message_end."])
+        return AgentRun(final="".join(chunks) or None, turns=1)
+
+
+# --------------------------------------------------------------------- flowise
+
+
+class FlowiseAgent(ReroutedAgent):
+    """A Flowise chatflow or agentflow: `/api/v1/prediction/<id>`.
+
+    The id is the `assistant`. Each scenario gets its own `sessionId`, so a
+    flow with memory does not carry one scenario's turns into the next.
+    """
+
+    name: ClassVar[str] = "flowise"
+
+    def __init__(self, endpoint: str, *, assistant: str, **kwargs: Any) -> None:
+        super().__init__(endpoint, **kwargs)
+        self.assistant = assistant
+
+    def _describe_extra(self) -> dict[str, Any]:
+        return {"assistant": self.assistant}
+
+    def converse(self, client: httpx.Client, task: str) -> AgentRun:
+        body = _post_json(client, f"{self.endpoint}/api/v1/prediction/{self.assistant}", {
+            "question": task, "streaming": False,
+            "overrideConfig": {"sessionId": uuid.uuid4().hex},
+        }, self._headers())
+        text = body.get("text") if isinstance(body, dict) else None
+        if text is not None and not isinstance(text, str):
+            raise AgentError("the answer's 'text' is not a string")
+        return AgentRun(final=text, turns=1)
+
+
+# ------------------------------------------------------------------------- n8n
+
+
+class N8nAgent(ReroutedAgent):
+    """An n8n workflow behind a Chat Trigger: its webhook URL, `sendMessage`.
+
+    Each scenario gets its own `sessionId`, so a memory node keeps nothing
+    across scenarios. The answer is the `output` an AI Agent node returns, or
+    `text`; n8n may wrap it in a one-item list. The webhook URL's path is its
+    credential, so only scheme, host and port are reported, as for every adapter.
+    """
+
+    name: ClassVar[str] = "n8n"
+
+    def converse(self, client: httpx.Client, task: str) -> AgentRun:
+        body = _post_json(client, self.endpoint, {
+            "action": "sendMessage", "sessionId": uuid.uuid4().hex, "chatInput": task,
+        }, self._headers())
+        if isinstance(body, list) and len(body) == 1:
+            body = body[0]
+        if not isinstance(body, dict):
+            raise AgentError("the workflow's answer is not a JSON object")
+        text = body.get("output", body.get("text"))
+        if text is not None and not isinstance(text, str):
+            raise AgentError("the workflow's 'output' is not a string")
+        return AgentRun(final=text, turns=1)
+
+
+_REGISTRY.update({"a2a": A2aAgent, "dify": DifyAgent, "flowise": FlowiseAgent,
+                  "langgraph": LangGraphAgent, "langserve": LangServeAgent, "n8n": N8nAgent,
                   "open-webui": OpenWebUiAgent})
 
 
@@ -313,7 +480,11 @@ __all__ = [
     "DEFAULT_TOOLS_LISTEN",
     "TOKEN_ENV",
     "A2aAgent",
+    "DifyAgent",
+    "FlowiseAgent",
     "LangGraphAgent",
+    "LangServeAgent",
+    "N8nAgent",
     "OpenWebUiAgent",
     "ReroutedAgent",
     "parse_listen",

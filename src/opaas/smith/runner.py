@@ -403,7 +403,7 @@ def build_report(scenarios: list[Scenario], agent: AgentAdapter, outcomes: list[
             f"{', '.join(p['id'] for p in packs)}"
             + (" and the reference set" if "reference" in sources else "")
             + "). A pack tests a domain's generic behaviour, not this deployment's tasks: "
-            "the result is not certifiable for a specific deployment (D70)."
+            "the result is not certifiable for a specific deployment (D71)."
         )
     if not agent.keeps_record:
         limitations.append(
@@ -420,7 +420,7 @@ def build_report(scenarios: list[Scenario], agent: AgentAdapter, outcomes: list[
                            "hash": s.hash, "policiesHash": policies_hash(list(s.policies))}
                           for s in scenarios],
         },
-        # Only the operator's own scenarios test this deployment (D47, D70).
+        # Only the operator's own scenarios test this deployment (D47, D71).
         "certifiable": "operator" in sources,
         # Digests by default; the text only when the operator kept it (N4).
         "finalAnswers": "kept" if keep_finals else "digest",

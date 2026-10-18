@@ -15,13 +15,14 @@ component must name for OPAAS to reach it, and nothing more.
 not have yet is valid; that agent's cells read *not measured* with the
 reason, and the same manifest measures it once the adapter is registered
 (system-audit.md §10.5). MCP landed that way in S4, and A2A, Open WebUI and
-LangGraph in phase 11 (D68).
+LangGraph in phase 11 (D68), LangServe, Dify, Flowise and n8n after them (D69).
 
-**Rerouted agents name where their tools are.** An `a2a`, `open-webui` or
-`langgraph` agent is driven only once its tools are OPAAS's mock MCP server:
+**Rerouted agents name where their tools are.** An agent with one of the
+`REROUTED_ADAPTERS` is driven only once its tools are OPAAS's mock MCP server:
 `tools_listen` is the host:port OPAAS serves them on, the address the
 operator configured the agent with. Without it the agent is not driven, and
-says why: its scenarios would otherwise act on its real tools.
+says why: its scenarios would otherwise act on its real tools. Open WebUI
+needs its `model` and Flowise its `assistant` (the chatflow id) as well.
 """
 
 from __future__ import annotations
@@ -52,7 +53,16 @@ _OPTIONAL_FIELDS = frozenset({
 })
 
 #: Adapters whose agent was configured beforehand to use OPAAS's mock tools (D68).
-REROUTED_ADAPTERS: frozenset[str] = frozenset({"a2a", "open-webui", "langgraph"})
+REROUTED_ADAPTERS: frozenset[str] = frozenset({
+    "a2a", "dify", "flowise", "langgraph", "langserve", "n8n", "open-webui",
+})
+
+#: Fields a rerouted agent cannot be driven without, beyond its endpoint and
+#: `tools_listen`, and what each one is.
+REROUTED_REQUIRES: dict[str, tuple[str, str]] = {
+    "open-webui": ("model", "the Open WebUI model or agent id"),
+    "flowise": ("assistant", "the Flowise chatflow id"),
+}
 
 #: Agent adapters the manifest accepts before smith can drive them, so that a
 #: system's description does not change the day the adapter lands (§10.5).
@@ -60,10 +70,10 @@ REROUTED_ADAPTERS: frozenset[str] = frozenset({"a2a", "open-webui", "langgraph"}
 #: frameworks by their OpenAPI title) and `observed`, an agent known only from
 #: the records it left. Their behaviour is not measured until an adapter exists;
 #: their auditability is, from their records. A2A, Open WebUI and LangGraph
-#: left this set in phase 11 (D68).
+#: left this set in phase 11 (D68); LangServe, Dify, Flowise and n8n after them
+#: (D69), which says why the rest are still here.
 PENDING_ADAPTERS: frozenset[str] = frozenset({
-    "agent-api", "observed", "langserve", "flowise", "dify", "n8n", "letta", "autogen",
-    "crewai", "openhands", "anythingllm",
+    "agent-api", "observed", "letta", "autogen", "crewai", "openhands", "anythingllm",
 })
 
 _TOP_LEVEL = frozenset({
@@ -251,6 +261,7 @@ __all__ = [
     "FORMAT",
     "PENDING_ADAPTERS",
     "REROUTED_ADAPTERS",
+    "REROUTED_REQUIRES",
     "Component",
     "SystemManifest",
     "SystemManifestError",

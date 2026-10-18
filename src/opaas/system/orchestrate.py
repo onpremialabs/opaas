@@ -32,7 +32,12 @@ from pathlib import Path
 from typing import Any
 
 from opaas.smith.scenario import PACK_PREFIX
-from opaas.system.manifest import PENDING_ADAPTERS, REROUTED_ADAPTERS, SystemManifest
+from opaas.system.manifest import (
+    PENDING_ADAPTERS,
+    REROUTED_ADAPTERS,
+    REROUTED_REQUIRES,
+    SystemManifest,
+)
 from opaas.system.report import SYSTEM_ROW, Member, StepOutcome, flow_edge
 
 STEPS = ("discover", "bench", "smith", "sentinel", "inquest", "swarm")
@@ -161,7 +166,7 @@ def run_audit(
         attempt("bench", component.id, "model-report", [*args, *extra], report)
 
     # 3. smith
-    # `pack:<id>` entries name OPAAS's domain packs (D70): each runs as its own
+    # `pack:<id>` entries name OPAAS's domain packs (D71): each runs as its own
     # set, beside the operator's files, and never counts as theirs.
     packs = [s for s in manifest.scenarios if s.startswith(PACK_PREFIX)]
     scenarios = _collect_scenarios([s for s in manifest.scenarios
@@ -189,11 +194,12 @@ def run_audit(
                 "rerouted is not driven, since its scenarios would act on its real tools "
                 "(D68)"))
             continue
-        if adapter == "open-webui" and not component.fields.get("model"):
+        field, meaning = REROUTED_REQUIRES.get(adapter, (None, ""))
+        if field and not component.fields.get(field):
             run.steps.append(StepOutcome(
                 "smith", component.id, "pending",
-                "an open-webui agent needs its 'model': the Open WebUI model or agent id "
-                "whose tools are OPAAS's mock server"))
+                f"the {adapter} agent needs its '{field}': {meaning} whose tools are "
+                "OPAAS's mock server"))
             continue
         target = _agent_args(manifest, component)
         if target is None:
@@ -265,7 +271,7 @@ def _agent_args(manifest: SystemManifest, component: Any) -> list[str] | None:
                 "--tools-listen", str(component.fields["tools_listen"])]
         if adapter == "open-webui":
             args += ["--model", str(component.fields["model"])]
-        if adapter == "langgraph" and component.fields.get("assistant"):
+        if adapter in ("langgraph", "flowise") and component.fields.get("assistant"):
             args += ["--assistant", str(component.fields["assistant"])]
         return args
     backend, model = component.fields.get("backend"), component.fields.get("model")

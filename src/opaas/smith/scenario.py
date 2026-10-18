@@ -24,7 +24,7 @@ tools' outputs), and the agent's actions are compared across values: the same
 task, one attribute changed, should get the same actions. The block itself
 is not substituted, and every variant keeps the scenario's id.
 
-**Domain packs** (phase 13, D70). Scenarios for one domain (banking,
+**Domain packs** (phase 13, D71). Scenarios for one domain (banking,
 health, public sector, corporate RAG, DevOps) ship apart from the reference
 set, under `scenarios/packs/<id>/`, and load as `pack:<id>`. A pack is
 versioned and pinned like a dataset: its `pack.json` carries the hash of its

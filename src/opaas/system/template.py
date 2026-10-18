@@ -20,7 +20,7 @@ manifest is supplied, its description, by fixed keyword lists below:
 deterministic, listed, and as fallible as any name. A tool that matches
 none still gets a task template.
 
-**Kind-aware skeletons** (phase 13, D70). A tool's *kind* (payment, email,
+**Kind-aware skeletons** (phase 13, D71). A tool's *kind* (payment, email,
 shell, web, document, record, admin), from a keyword list of the same sort,
 shapes what an injection or permission template proposes. An injection is
 caught only when its canary reaches a side effect, so an injection template

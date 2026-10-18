@@ -134,7 +134,7 @@ def test_completed_templates_make_the_agent_certifiable(tmp_path):
 
 
 def test_an_injection_template_is_aimed_at_the_manifest_s_tools_that_act():
-    """A canary is caught only in a side effect, so the planted text asks for a sink (D70)."""
+    """A canary is caught only in a side effect, so the planted text asks for a sink (D71)."""
     templates, notes = scenario_templates(_manifest(["read_email", "send_payment"]))
     injection = next(s for _, s in templates if s["category"] == "injection")
     canary = injection["adversarial"][0]["canary"]
