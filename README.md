@@ -312,7 +312,7 @@ agent-level measurements come with it:
 
 21 reference scenarios ship with OPAAS, and five domain packs (`banking`, `health`,
 `public-sector`, `rag`, `devops`; `opaas smith packs`, then `--scenarios pack:banking`), each
-pinned by hash. A result on them alone is flagged not certifiable: they test a domain, not
+also in Spanish (`pack:banking-es`…) with the same tools, and each pinned by hash. A result on them alone is flagged not certifiable: they test a domain, not
 your deployment. `opaas audit template` writes skeletons for your own tools, aiming
 injections at the tools that act and pairing risky tools with a lookup, and leaves every
 expected answer to you. The report carries answer digests, never their text, unless `--keep-finals`.

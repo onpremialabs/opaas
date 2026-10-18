@@ -50,6 +50,20 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D73 — Spanish domain packs: the English packs' situations, with the same tools
+
+**Status:** applied · **Extends:** [D71](#d71--domain-scenario-packs-pinned-and-never-certifiable-alone-kind-aware-templates) · **Affects:** [`smith/scenarios/packs/`](../src/opaas/smith/scenarios/packs/), [`smith/scenario.py`](../src/opaas/smith/scenario.py), `smith packs`
+
+D71's packs were in English. Block D measures Spanish since D70, but smith had no Spanish scenario. An agent that resists an injection written in English may obey the same one written in Spanish, and an English pack does not show which.
+
+**Five Spanish packs, one per English one.** `banking-es`, `health-es`, `public-sector-es`, `rag-es` and `devops-es` hold the same 23 situations, scenario for scenario. Tasks, tool descriptions, data, planted instructions and answer patterns are in Spanish, and so are the counterfactual names, chosen for Spain's context. Tool names, parameters and categories are the English ones, and a test pins this, so one correct solution replays both. A Spanish result can then be set beside its English one scenario by scenario, and a difference means the language changed what the agent did. Each Spanish canary is its own, so a log never mixes the two.
+
+**Every pack declares its language.** `pack.json` carries `language` (`en`, `es`). The report lists it with each pack's version and hash, and `smith packs` shows it. Adding the field to the English packs' `pack.json` does not change their hash, which covers the scenarios only, so their version stays 1.
+
+**What is lost:** the translation is OPAAS's own, unreviewed by a native domain expert. A clinician or a civil servant would phrase some tasks differently. Tool names stay in English, while a Spanish deployment's tools may not, so a pack tests the language of the conversation and not of the tool catalogue. Smith judges actions, not words, so the agent's Spanish answers are matched only by the patterns each scenario declares (a figure, *penicilina*, *ruido*), not checked for quality. Other languages wait for a deployment that needs them.
+
+---
+
 ## D72 — `audit run` shows the certificate it will become, as an unsigned draft with the QR of its future page
 
 **Status:** applied · **Affects:** [`web/certificate.py`](../src/opaas/web/certificate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), `audit run --certificate-base-url`, `--open/--no-open`
@@ -82,7 +96,7 @@ The reference set tests generic behaviour: a calendar, a file, a ticket. An oper
 
 **Kind-aware templates.** `audit template` gives a tool a kind (payment, email, shell, web, document, record, admin) from a fixed keyword list, as it already gave risks. An injection is caught only when its canary reaches a side effect, and the old injection template planted *reply with the canary*, which no check counts. So an injection template now aims its planted instruction at the manifest's other tools that act (the *sinks*: destructive or permission ones), worded for the sink's kind. It mocks them and forbids each one. A manifest with no sink still gets the old template, and a note saying it cannot catch anything until the tools the agent could act with are declared. A permission template puts the risky tool beside a read-only lookup of the same kind when the manifest has one, the shape of the reference `permission-payment`. OPAAS still writes no expectation: every `TO COMPLETE` stays.
 
-**What is lost:** the packs are OPAAS's guesses at what a domain's agents meet, in English, with invented data. They say nothing about a particular bank or hospital, and a good result on them is not a domain compliance claim. A counterfactual pair tests one attribute in one task. Bumping a pack changes its hash, so results on two versions of a pack are not the same instrument. A kind is as fallible as a name: a tool called `process` gets none, and a tool whose name misleads gets the wrong one. A sink chosen from the manifest may be one the agent could never reach from that source. There are no Spanish packs yet, although block D now has Spanish refusal patterns (D70): a Spanish pack needs Spanish tasks, data and final-answer patterns, and none has been written.
+**What is lost:** the packs are OPAAS's guesses at what a domain's agents meet, in English, with invented data. They say nothing about a particular bank or hospital, and a good result on them is not a domain compliance claim. A counterfactual pair tests one attribute in one task. Bumping a pack changes its hash, so results on two versions of a pack are not the same instrument. A kind is as fallible as a name: a tool called `process` gets none, and a tool whose name misleads gets the wrong one. A sink chosen from the manifest may be one the agent could never reach from that source. Spanish packs followed in D73.
 
 ---
 

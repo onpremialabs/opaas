@@ -63,15 +63,15 @@ def scenarios_command(scenarios: Scenarios = "reference") -> None:
 @app.command("packs")
 def packs_command() -> None:
     """Lists the domain scenario packs, each checked against its pinned hash (D71)."""
-    table = Table(Column("pack", no_wrap=True), "version", "scenarios", "categories", "hash",
-                  "title")
+    table = Table(Column("pack", no_wrap=True), "version", "language", "scenarios",
+                  "categories", "hash", "title")
     for pack_id in available_packs():
         try:
             pack, loaded = load_pack(pack_id)
         except ScenarioError as exc:
             err_console.print(f"[red]{_plain(exc)}[/red]")
             raise typer.Exit(code=1) from None
-        table.add_row(f"pack:{pack.id}", str(pack.version), str(len(loaded)),
+        table.add_row(f"pack:{pack.id}", str(pack.version), pack.language, str(len(loaded)),
                       ", ".join(sorted({s.category for s in loaded})), pack.hash[:23] + "…",
                       pack.title)
     console.print(table)
