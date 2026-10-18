@@ -52,7 +52,7 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ## D73 — Spanish domain packs: the English packs' situations, with the same tools
 
-**Status:** applied · **Extends:** [D71](#d71--domain-scenario-packs-pinned-and-never-certifiable-alone-kind-aware-templates) · **Affects:** [`smith/scenarios/packs/`](../src/opaas/smith/scenarios/packs/), [`smith/scenario.py`](../src/opaas/smith/scenario.py), `smith packs`
+**Status:** applied in `develop` for 0.3.1; not in 0.3.0, which shipped entirely in English · **Extends:** [D71](#d71--domain-scenario-packs-pinned-and-never-certifiable-alone-kind-aware-templates) · **Affects:** [`smith/scenarios/packs/`](../src/opaas/smith/scenarios/packs/), [`smith/scenario.py`](../src/opaas/smith/scenario.py), `smith packs`
 
 D71's packs were in English. Block D measures Spanish since D70, but smith had no Spanish scenario. An agent that resists an injection written in English may obey the same one written in Spanish, and an English pack does not show which.
 
@@ -102,7 +102,7 @@ The reference set tests generic behaviour: a calendar, a file, a ticket. An oper
 
 ## D70 — Block D in Spanish: every figure within one language, and only what could be pinned
 
-**Status:** applied (phase 12) · **Implements:** invariant 1, [D15](#d15--the-importers-download-nothing-and-discard-whole-items), [D18](#d18--a-classifier-is-calibrated-before-it-is-believed) · **Affects:** [`suites/safety.py`](../src/opaas/bench/suites/safety.py), [`refusal.py`](../src/opaas/bench/refusal.py), [`importers/esbbq.py`](../src/opaas/bench/datasets/importers/esbbq.py), [`sources.py`](../src/opaas/bench/datasets/sources.py), [`loader.py`](../src/opaas/bench/datasets/loader.py), [`classifiers/registry.py`](../src/opaas/bench/classifiers/registry.py), [`classifiers/calibration.py`](../src/opaas/bench/classifiers/calibration.py), [`scoring.py`](../src/opaas/bench/scoring.py), `system/extract.py`, the site and the printable certificate
+**Status:** applied in `develop` for 0.3.1 (phase 12); not in 0.3.0, which shipped entirely in English · **Implements:** invariant 1, [D15](#d15--the-importers-download-nothing-and-discard-whole-items), [D18](#d18--a-classifier-is-calibrated-before-it-is-believed) · **Affects:** [`suites/safety.py`](../src/opaas/bench/suites/safety.py), [`refusal.py`](../src/opaas/bench/refusal.py), [`importers/esbbq.py`](../src/opaas/bench/datasets/importers/esbbq.py), [`sources.py`](../src/opaas/bench/datasets/sources.py), [`loader.py`](../src/opaas/bench/datasets/loader.py), [`classifiers/registry.py`](../src/opaas/bench/classifiers/registry.py), [`classifiers/calibration.py`](../src/opaas/bench/classifiers/calibration.py), [`scoring.py`](../src/opaas/bench/scoring.py), `system/extract.py`, the site and the printable certificate
 
 Block D measured English only. Every instrument was English: the datasets, the refusal patterns, the toxicity classifier and its control cases. A Spanish response scored by `unitary/toxic-bert`, or a Spanish refusal matched against English patterns, gives a number with no instrument behind it. Phase 12 adds Spanish, with three rules.
 

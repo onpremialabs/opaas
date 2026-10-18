@@ -8,27 +8,14 @@ releases, for someone deciding whether to upgrade.
 The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 `1.0-draft`) is separate from the package version, and did not change.
 
-## [0.3.0] — 2026-10-18
+## [Unreleased]
 
-Phase 14 of the work plan: the operational gaps the status table declared
-left out (D64). Phase 10, steps 2 and 4: the root delegates to an issuing
-key, and keeps a revocation list (D65, D66). Phase 10, step 3 prepared: the
-ceremony runbook and its rehearsal (D67). Phase 11: smith drives
-A2A, Open WebUI and LangGraph agents whose tools are rerouted to its mock MCP
-server (D68), then LangServe, Dify, Flowise and n8n agents (D69). Phase 12: block D in
-Spanish (D70). Phase 13: domain scenario packs and kind-aware
-templates (D71), and their Spanish versions (D73). `audit run` ends with the
-draft certificate its report will become (D72).
+For 0.3.1: everything in Spanish that 0.3.0 left out so that it shipped
+entirely in English. Block D in Spanish (D70) and the Spanish domain packs
+(D73).
 
 ### Upgrading
 
-- **`certifiable` is computed from the operator's scenarios.** A smith report
-  is certifiable when scenarios of your own ran, which is what "not only the
-  reference set" meant before; reports on domain packs alone are not (D71).
-- **`audit template` writes different injection and permission skeletons**
-  when the manifest declares tools that act: the planted instruction names
-  one, and the template forbids them. Templates already completed are never
-  overwritten; regenerate into a new directory to compare.
 - **Block D's detector hash changed** (D70). The refusal and abstention
   detector now carries Spanish patterns next to the English ones, and
   `patterns_hash()` covers them. Every block D report has a new
@@ -46,6 +33,58 @@ draft certificate its report will become (D72).
 - **`--classifier-threshold` applies to the English classifiers only.** The
   Spanish toxicity classifier has its own `--toxicity-es-threshold`.
 
+### Added — block D in Spanish (D70)
+
+- **`esbbq`**: EsBBQ, Spanish social-bias questions for Spain's social
+  context, pinned at a commit of the authors' repository with ten hashed
+  files. 2,000 items over ten categories, asked in Spanish, the options
+  reordered by item id so the unknown option is not always C.
+- **Results per language.** Every block D figure is computed within one
+  language. English stays at the top level, and every other language gets
+  `byLanguage.<tag>` with its own refusal pair, toxicity and `notImplemented`.
+  The CLI, the site, the printable certificate and the system cells show the
+  language on every row.
+- **A Spanish toxicity classifier**: `textdetox/xlmr-large-toxicity-classifier`
+  pinned at a full commit, safetensors only (about 1.1 GB), calibrated on six
+  Spanish control cases and unpublished when it does not separate them.
+  `--toxicity-es-model` and `--toxicity-es-threshold` override it. The
+  English classifier never scores a Spanish response.
+- **Spanish refusal, abstention, compliance and dissuasion patterns**, matched
+  on every response alongside the English ones.
+- **Not measured in Spanish, and declared:** a refusal pair (no licensed
+  Spanish XSTest exists), toxicity under provocation (no Spanish set with a
+  verifiable license), and faithfulness.
+
+### Added
+
+- Spanish versions of the five packs, `pack:banking-es` and so on: the same
+  situations and tools, with Spanish tasks, data, injections and answer
+  patterns. Every `pack.json` declares its `language`, and reports list it
+  beside each pack's version and hash (D73).
+
+## [0.3.0] — 2026-10-18
+
+Phase 14 of the work plan: the operational gaps the status table declared
+left out (D64). Phase 10, steps 2 and 4: the root delegates to an issuing
+key, and keeps a revocation list (D65, D66). Phase 10, step 3 prepared: the
+ceremony runbook and its rehearsal (D67). Phase 11: smith drives
+A2A, Open WebUI and LangGraph agents whose tools are rerouted to its mock MCP
+server (D68), then LangServe, Dify, Flowise and n8n agents (D69). Phase 13:
+domain scenario packs and kind-aware templates (D71). `audit run` ends with
+the draft certificate its report will become (D72).
+
+This release is entirely in English. Block D in Spanish (D70) and the
+Spanish domain packs (D73) are built, but wait for the next release.
+
+### Upgrading
+
+- **`certifiable` is computed from the operator's scenarios.** A smith report
+  is certifiable when scenarios of your own ran, which is what "not only the
+  reference set" meant before; reports on domain packs alone are not (D71).
+- **`audit template` writes different injection and permission skeletons**
+  when the manifest declares tools that act: the planted instruction names
+  one, and the template forbids them. Templates already completed are never
+  overwritten; regenerate into a new directory to compare.
 - **`verify` prints new checks.** Every verification against a DID document
   or an anchor now begins with `anchor`. A credential carrying a delegation
   adds `delegation`, `delegation-validity`, `revocation` and `delegated-key`.
@@ -92,28 +131,6 @@ draft certificate its report will become (D72).
   response, so streamed tool calls keep their names under the defaults; a
   non-JSON body that is not a stream no longer records `streamed: true`.
 
-### Added — block D in Spanish (D70)
-
-- **`esbbq`**: EsBBQ, Spanish social-bias questions for Spain's social
-  context, pinned at a commit of the authors' repository with ten hashed
-  files. 2,000 items over ten categories, asked in Spanish, the options
-  reordered by item id so the unknown option is not always C.
-- **Results per language.** Every block D figure is computed within one
-  language. English stays at the top level, and every other language gets
-  `byLanguage.<tag>` with its own refusal pair, toxicity and `notImplemented`.
-  The CLI, the site, the printable certificate and the system cells show the
-  language on every row.
-- **A Spanish toxicity classifier**: `textdetox/xlmr-large-toxicity-classifier`
-  pinned at a full commit, safetensors only (about 1.1 GB), calibrated on six
-  Spanish control cases and unpublished when it does not separate them.
-  `--toxicity-es-model` and `--toxicity-es-threshold` override it. The
-  English classifier never scores a Spanish response.
-- **Spanish refusal, abstention, compliance and dissuasion patterns**, matched
-  on every response alongside the English ones.
-- **Not measured in Spanish, and declared:** a refusal pair (no licensed
-  Spanish XSTest exists), toxicity under provocation (no Spanish set with a
-  verifiable license), and faithfulness.
-
 ### Added
 
 - `opaas delegate`: the root signs a delegation to an issuing key, from a
@@ -158,10 +175,6 @@ draft certificate its report will become (D72).
   packs (`banking`, `health`, `public-sector`, `rag`, `devops`), pinned by
   version and hash, with counterfactual pairs for triage, hiring and
   moderation. A manifest names them in `scenarios` as `pack:<id>` (D71).
-- Spanish versions of the five packs, `pack:banking-es` and so on: the same
-  situations and tools, with Spanish tasks, data, injections and answer
-  patterns. Every `pack.json` declares its `language`, and reports list it
-  beside each pack's version and hash (D73).
 
 ## [0.2.1] — 2026-10-15
 

@@ -1,6 +1,6 @@
 # Work plan: from model certification to auditable agents
 
-**Status:** implemented, phases 0–7 (D40–D52), with the system audit (8, D60), agent identification (9, D63), the smith adapters for pending agents (11, D68, D69), block D beyond English (12, D70), the domain scenario packs (13, D71) and the declared operational gaps (14, D64); phase 10 is in progress, 15 is planned. The [status table](#status) says what each phase delivered and what was left out, and the [release scope](#release-scope) says what ships in the next release and what waits for the one after. This plan splits OPAAS into modules (`discover`, `smith`, `swarm`, `sentinel`, `inquest`, `card`) around one shared evidence core. Each phase lands as its own pull requests with `D<n>` entries. Nothing here changes an invariant in [CLAUDE.md](../CLAUDE.md); where a module needs a new one, it is listed under [New invariants](#new-invariants).
+**Status:** implemented, phases 0–7 (D40–D52), with the system audit (8, D60), agent identification (9, D63), the smith adapters for pending agents (11, D68, D69), block D beyond English (12, D70), the domain scenario packs (13, D71) and the declared operational gaps (14, D64); phase 10 is in progress, 15 is planned. The [status table](#status) says what each phase delivered and what was left out, and the [release scope](#release-scope) says what shipped in 0.3.0 and what comes in 0.3.1. This plan splits OPAAS into modules (`discover`, `smith`, `swarm`, `sentinel`, `inquest`, `card`) around one shared evidence core. Each phase lands as its own pull requests with `D<n>` entries. Nothing here changes an invariant in [CLAUDE.md](../CLAUDE.md); where a module needs a new one, it is listed under [New invariants](#new-invariants).
 
 ---
 
@@ -226,13 +226,14 @@ This is the paper's missing end-to-end audit. The ground truth comes from instru
 
 ### Release scope
 
-**The next release is entirely in English.** It ships and supports what the phases above delivered in English: the 21 reference scenarios, the five English domain packs (`banking`, `health`, `public-sector`, `rag`, `devops`; 23 scenarios with the triage, hiring and moderation counterfactual pairs), and block D's English instruments. Nothing in Spanish is in its scope.
+**0.3.0, released on 2026-10-18, is entirely in English.** It ships what the phases above delivered in English: the 21 reference scenarios, the five English domain packs (`banking`, `health`, `public-sector`, `rag`, `devops`; 23 scenarios with the triage, hiring and moderation counterfactual pairs), and block D's English instruments. Its branch, `release/0.3.0`, reverts block D in Spanish and the Spanish packs; `develop` keeps both.
 
-**Deferred to the release after it:**
+**0.3.1 brings the Spanish work:**
 
-- **Phase 10, step 3:** the production key ceremony on the two hardware tokens and the anchor bundled in `core/credential/anchors/`. It is left for last on purpose. Until then a certificate verifies only with the key or DID document handed over separately (invariant 6), and `audit run`'s draft certificate stays unsigned (D72).
-- **Block D in Spanish** (phase 12, D70): EsBBQ, the Spanish toxicity classifier and its calibration, the Spanish refusal and abstention patterns, and results under `byLanguage`. They are in `develop`, but outside this release's scope.
-- **The Spanish domain packs** (D73): `banking-es`, `health-es`, `public-sector-es`, `rag-es` and `devops-es`. They are in `develop` and replay in the tests, but are outside this release's scope. Before they ship, the translation needs the review by domain experts that D73 says it has not had.
+- **Block D in Spanish** (phase 12, D70): EsBBQ, the Spanish toxicity classifier (calibrated on its real weights: 6 of 6, margin 0.999), the Spanish refusal and abstention patterns, and results under `byLanguage`.
+- **The Spanish domain packs** (D73): `banking-es`, `health-es`, `public-sector-es`, `rag-es` and `devops-es`. Before they ship, their translation needs the review by domain experts that D73 says it has not had.
+
+**Left for last:** phase 10, step 3, the production key ceremony on the two hardware tokens and the anchor bundled in `core/credential/anchors/`. Until then a certificate verifies only with the key or DID document handed over separately (invariant 6), and `audit run`'s draft certificate stays unsigned (D72).
 
 **Open questions (§6), as settled:** 1 — `observe` changes nothing and `gate` is opt-in (D46, D50). 2 — digests by default, the operator adds fields with `--keep` and declares retention on the card; whether a third party may require fields stays open. 3 — yes: a report on reference scenarios alone is `certifiable: false` (D47). 4 — yes, specified once in `smith`: counterfactual scenarios compared on the agent's actions (D60, S4).
 
