@@ -164,7 +164,7 @@ src/opaas/
 docs/     design.md, methodology.md, decisions.md, workplan.md, datasets.md, key-custody.md,
           ceremony.md (production key ceremony runbook, D67), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60)
-tests/    1099 tests, one file per module, plus conftest.py with the fake backends
+tests/    1145 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;
           rehearse_ceremony.py — runs every opaas step of the key ceremony (D67)
 web/      README describing the published site layout (the generator lives in src/)
@@ -208,7 +208,7 @@ a round trip.
 
 ### Known test state
 
-`uv run pytest` reports **1098 passed, 1 skipped**. The suite is green: treat any failure as yours.
+`uv run pytest` reports **1144 passed, 1 skipped**. The suite is green: treat any failure as yours.
 Most of its wall time is `nvidia-smi` being called by the bench tests; on a machine without
 it the suite is much faster.
 
