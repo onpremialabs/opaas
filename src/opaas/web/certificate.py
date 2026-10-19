@@ -44,7 +44,11 @@ from urllib.parse import urlparse
 import segno
 
 from opaas.core.credential.keys import ONPREMIALABS_DID
-from opaas.core.credential.vc import build_system_credential, public_identifier
+from opaas.core.credential.vc import (
+    build_credential,
+    build_system_credential,
+    public_identifier,
+)
 from opaas.core.hashing import file_digest, short_hash
 from opaas.core.report import describe_scored_dataset
 from opaas.web.site import (
@@ -94,32 +98,49 @@ def certificate_url(entry: Entry, base_url: str = PUBLISH_BASE_URL) -> str:
 
 
 def draft_entry(report_path: Path) -> Entry:
-    """The system report with the unsigned credential onpremIALabs would sign over it."""
+    """A report with the unsigned credential onpremIALabs would sign over it.
+
+    A system report gets a system credential; a model report, a model one. A
+    report no credential can be built over (a cloud baseline, invariant 10)
+    raises `ValueError`, exactly as `opaas sign` would refuse it.
+    """
     report_bytes = report_path.read_bytes()
     report = json.loads(report_bytes.decode("utf-8"))
-    credential = build_system_credential(report, file_digest(report_path),
-                                         issuer=ONPREMIALABS_DID, key_id="")
+    build = build_system_credential if report.get("kind") == "system-report" else build_credential
+    credential = build(report, file_digest(report_path), issuer=ONPREMIALABS_DID, key_id="")
     return Entry(report_path=report_path, credential_path=Path(), report=report,
                  credential=credential, report_bytes=report_bytes)
 
 
 def render_draft(report_path: Path, *, base_url: str | None = None) -> str:
-    """The certificate a system report will become, marked unsigned on every sheet.
+    """The certificate a report will become, marked unsigned on every sheet.
 
     With `base_url`, a QR code to the page it will be published at; without it,
     none: a code to a page that does not exist yet would only mislead.
     """
     entry = draft_entry(report_path)
     url = certificate_url(entry, base_url) if base_url else None
-    return _render_system_printable(entry, verify_url=url, draft=True)
+    if entry.is_system:
+        return _render_system_printable(entry, verify_url=url, draft=True)
+    return render_printable(entry, verify_url=url, draft=True)
+
+
+def template_hash() -> str:
+    """Hash of the code that lays a certificate out, recorded beside every draft (D77).
+
+    Two drafts of one report can differ only if this differs: the report hash
+    pins the content, this pins the rendering.
+    """
+    return file_digest(Path(__file__))
 
 
 def render_printable(
-    entry: Entry, *, verify_url: str | None = None, now: datetime | None = None
+    entry: Entry, *, verify_url: str | None = None, now: datetime | None = None,
+    draft: bool = False,
 ) -> str:
     """The certificate as a standalone HTML document ready to print."""
     if entry.is_system:
-        return _render_system_printable(entry, verify_url=verify_url)
+        return _render_system_printable(entry, verify_url=verify_url, draft=draft)
     report, credential = entry.report, entry.credential
     subject = credential.get("credentialSubject", {})
     configuration = subject.get("configuration", {})
@@ -130,10 +151,19 @@ def render_printable(
         qr_html = f"""<figure class="qr">{_qr_svg(check_verify_url(verify_url))}
       <figcaption>Scan to verify the signature</figcaption></figure>"""
         verify_text = (
-            f"Verify at <span class='mono'>{esc(verify_url)}</span>, or offline with:"
+            f"{'Once issued, verify' if draft else 'Verify'} at "
+            f"<span class='mono'>{esc(verify_url)}</span>, or offline with:"
         )
     else:
-        verify_text = "Verify offline with:"
+        verify_text = "Once issued, verify offline with:" if draft else "Verify offline with:"
+    band = ("<p class='draft-band'>Draft — not issued. Pending signature and issuance by "
+            "onpremIALabs. Not a certificate until then.</p>" if draft else "")
+    issuer_key = ("none: this draft is not signed" if draft
+                  else esc(proof.get("verificationMethod")))
+    note = ("This draft is unsigned, and anyone can edit an HTML page. The certificate is the "
+            "credential onpremIALabs signs over the report whose hash is above." if draft
+            else "This page is a rendering. The certificate is the signed credential: if "
+            "anything here differs from it, the credential is right and this page is not.")
 
     partial_html = ""
     if not entry.complete:
@@ -153,14 +183,15 @@ def render_printable(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OPAAS Certificate</title>
+<title>{"OPAAS Draft Certificate" if draft else "OPAAS Certificate"}</title>
 <style>{_CSS}</style>
 </head>
 <body>
-<main class="sheet">
+<main class="sheet{" draft" if draft else ""}">
+  {band}
   <header>
     <p class="issuer">onpremIALabs · OPAAS — On-Prem AI Audit Suite</p>
-    <h1>Certificate of Evaluation</h1>
+    <h1>{"Draft Certificate of Evaluation" if draft else "Certificate of Evaluation"}</h1>
     <p class="identifier mono">{esc(public_identifier(credential))}</p>
   </header>
 
@@ -204,10 +235,9 @@ def render_printable(
         <dt>Deployment</dt><dd><span class="mono">{esc(configuration.get("deploymentHash")
           or "not recorded")}</span>{_fingerprint_html(report)}</dd>
         <dt>Credential</dt><dd class="mono">{esc(credential.get("id"))}</dd>
-        <dt>Issuer key</dt><dd class="mono">{esc(proof.get("verificationMethod"))}</dd>
+        <dt>Issuer key</dt><dd class="mono">{issuer_key}</dd>
       </dl>
-      <p class="note">This page is a rendering. The certificate is the signed credential:
-      if anything here differs from it, the credential is right and this page is not.</p>
+      <p class="note">{note}</p>
     </div>
   </footer>
 </main>
