@@ -238,7 +238,7 @@ This is the paper's missing end-to-end audit. The ground truth comes from instru
 
 **0.3.0, released on 2026-10-18, is entirely in English.** It ships what the phases above delivered in English: the 21 reference scenarios, the five English domain packs (`banking`, `health`, `public-sector`, `rag`, `devops`; 23 scenarios with the triage, hiring and moderation counterfactual pairs), and block D's English instruments. Its branch, `release/0.3.0`, reverts block D in Spanish and the Spanish packs; `develop` keeps both.
 
-**0.3.1 brings the Spanish work:**
+**0.3.1 brings the Spanish work.** It is not released yet: it has no tag and no GitHub release, and `pyproject.toml` still says 0.3.0. The work is in `develop`, listed under *Unreleased* in the CHANGELOG, and ships through [phases 16 and 17](#releases-031-and-040):
 
 - **Block D in Spanish** (phase 12, D70): EsBBQ, the Spanish toxicity classifier (calibrated on its real weights: 6 of 6, margin 0.999), the Spanish refusal and abstention patterns, and results under `byLanguage`.
 - **The Spanish domain packs** (D73): `banking-es`, `health-es`, `public-sector-es`, `rag-es` and `devops-es`. Before they ship, their translation needs the review by domain experts that D73 says it has not had.
