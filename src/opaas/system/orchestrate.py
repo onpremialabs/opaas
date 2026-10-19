@@ -88,6 +88,7 @@ def run_audit(
     skip: Sequence[str] = (),
     bench_args: str = "",
     repeats: int = 3,
+    force: bool = False,
 ) -> AuditRun:
     """Runs the plan. `supplied`: (component, path, kind) the operator already has.
 
@@ -123,8 +124,11 @@ def run_audit(
         if (reason := wanted(step)) is not None:
             run.steps.append(StepOutcome(step, component, "skipped", reason))
             return False
-        code = invoke(args)
-        if output.is_file():
+        # A document left by an earlier audit in the same directory is not this
+        # step's result: only a file this invocation wrote counts (D76).
+        before = output.stat().st_mtime_ns if output.is_file() else None
+        code = invoke([*args, "--force"] if force else args)
+        if output.is_file() and output.stat().st_mtime_ns != before:
             run.members.append(Member(component=component, step=step, path=output))
             run.steps.append(StepOutcome(step, component, "ran",
                                          None if code == 0 else f"exit code {code}"))

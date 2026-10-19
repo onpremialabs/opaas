@@ -152,6 +152,19 @@ def _no_discovery(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _isolate_run_store(tmp_path_factory, monkeypatch):
+    """No test may write into the user's run store (D76).
+
+    Every command records its result in `~/.opaas/runs`; a test that ran one
+    would leave runs in the developer's real history, mixed with their own.
+    Yields the store the test writes into instead.
+    """
+    store = tmp_path_factory.mktemp("runs")
+    monkeypatch.setenv("OPAAS_RUNS_DIR", str(store))
+    return store
+
+
+@pytest.fixture(autouse=True)
 def _isolate_registries():
     """The registries are global: a test that registers a backend must not leak it."""
     from opaas import adapters

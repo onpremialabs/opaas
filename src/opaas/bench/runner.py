@@ -30,7 +30,9 @@ from opaas.core.report import (
 from opaas.discover import inventory as discovery
 from opaas.sentinel.drift import capture_baseline
 
-#: Where runs are stored when `--output` is not given.
+#: Where a library caller's report goes when it names no output. `opaas run`
+#: always names one, inside its run in the store (`core.store`, D76): only a
+#: command records a run, so a direct call to `execute` keeps this old default.
 DEFAULT_RUNS_DIR = Path("runs")
 
 #: A local run measures your own deployment; a cloud baseline measures the same

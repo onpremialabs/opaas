@@ -50,6 +50,49 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D76 — Every result is recorded in a run store, written once
+
+**Status:** applied (phase 18 of the work plan) · **Implements:** the run store of [D75](#d75--a-local-dashboard-that-reads-files-and-launches-the-cli-and-measures-nothing) and [`dashboard.md`](dashboard.md) §4 · **Affects:** [`core/store.py`](../src/opaas/core/store.py), [`cli/runs.py`](../src/opaas/cli/runs.py), every command that writes a result
+
+A report used to land wherever the command ran. `./runs/<run-id>/` was relative to the working directory, so a user's history was scattered. `--output`, `-o` and `audit run -o` replaced an existing file or directory without a word. For a tool whose output is evidence, losing the earlier evidence that way is not acceptable.
+
+**One store, one directory per run.** Every command that produces a result records it in `~/.opaas/runs/<run-id>/`, or `$OPAAS_RUNS_DIR`. That covers `run`, `smith run`, `audit run`, `discover scan` and `gaps`, `inquest audit`, `swarm analyze`, `card build` and `manifest`, `sentinel overhead` and `compare`.
+
+- The id keeps the `YYYYMMDD-NNN` form, but it is claimed with an exclusive `mkdir`, so two runs started at once never share it.
+- A bench report's `runId` is the store's id, unless `--run-id` names another.
+
+**Written once.** Files enter a run only by exclusive creation, and closing the run makes them read-only. `run.json` is opened when the command starts and closed when it ends, and it records:
+
+- the command, rebuilt from its parsed options, with secret parameters (`api_key`, tokens, passphrases, PINs, by whole words of the name) replaced by `***`, and URLs stripped of credentials and query strings (N4);
+- the OPAAS and spec versions, the times and the status;
+- the endpoint, when there is one;
+- the hash of every file.
+
+An error closes the run `failed`, keeping what it wrote. An interrupt leaves it `running` with its pid, and a reader concludes `interrupted` once the process is gone. A field the command did not have is absent.
+
+**No silent overwrites.** An existing output path is refused unless `--force`, as `compliance` and `audit draft` already did. Even with `--force`, the store keeps the earlier result. With `--force`, `audit run` passes `--force` to every step it invokes. It also counts a step's document only when that step wrote it, never a file left in the directory by an earlier audit.
+
+**`opaas runs` only looks.**
+
+- `list` lists the runs;
+- `show` checks every file against its recorded hash and exits 1 on a mismatch;
+- `path` prints the run's directory;
+- `import` lists old `./runs` directories, and copies them in with `--copy`, never moving them. An imported run has no `command`, because it is not known, and says where it came from.
+
+Nothing in OPAAS deletes a run.
+
+**Tests never touch the user's store.** An autouse fixture points `OPAAS_RUNS_DIR` at a temporary directory.
+
+**What is lost:**
+
+- Disk space grows without bound, and removing a run is a manual act outside OPAAS.
+- Every result now exists twice when `--output` is given: once where the user asked, once in the store.
+- Scripts that ran a command twice into the same path now fail with exit 2 until they pass `--force` or use another path.
+- The recorded command omits options left at their default. With the same OPAAS version it reproduces the run, but across versions a default may have changed.
+- `RunRequest` without `output` is library use, not a command: it still writes `./runs/<run-id>/report.json` and records no run.
+
+---
+
 ## D75 — A local dashboard that reads files and launches the CLI, and measures nothing
 
 **Status:** proposed; built by phases 18–24 for 0.4.0 · **Design:** [`dashboard.md`](dashboard.md) · **Builds on:** [D72](#d72--audit-run-shows-the-certificate-it-will-become-as-an-unsigned-draft), [D74](#d74--a-release-is-kept-never-replaced)

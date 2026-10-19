@@ -123,7 +123,8 @@ src/opaas/
 │   ├── policy.py       Structural policy language, three-valued verdicts (D43)
 │   ├── metrics.py      ACR, RF, LPC, GB, SPDR, ADL, AC, ACD, IS, VC; thresholds (D44)
 │   ├── integrity.py    IS level a log file demonstrates, and VC
-│   └── evidence.py     Evidence-document envelope, canonical write, environment binding
+│   ├── evidence.py     Evidence-document envelope, canonical write, environment binding
+│   └── store.py        The run store: one directory per run, files written once, run.json (D76)
 ├── bench/              model certification (D41)
 │   ├── runner.py       RunRequest → execute() → RunOutcome; progress events
 │   ├── scoring.py      Block B prompt templates (direct/cot) + answer extraction
@@ -159,14 +160,15 @@ src/opaas/
 ├── web/                Static site + badge generation, printable certificate (certificate.py),
 │                       assets/verify.js (browser verify)
 └── cli/                main.py (bench commands + group registration), common.py (consoles,
-                        signing key), one file per module group, menu.py, banner.py, sprite.py
+                        signing key, recorded_run/refuse_overwrite), one file per module group,
+                        runs.py (`opaas runs`, read-only), menu.py, banner.py, sprite.py
 
 docs/     design.md, methodology.md, decisions.md, workplan.md, datasets.md, key-custody.md,
           ceremony.md (production key ceremony runbook, D67), releasing.md (how a release
           is cut; releases are never replaced, D74), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60),
           dashboard.md (proposal: `opaas ui`, the local dashboard, and its file contract, D75)
-tests/    1145 tests, one file per module, plus conftest.py with the fake backends
+tests/    1168 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;
           rehearse_ceremony.py — runs every opaas step of the key ceremony (D67)
 web/      README describing the published site layout (the generator lives in src/)
@@ -210,7 +212,7 @@ a round trip.
 
 ### Known test state
 
-`uv run pytest` reports **1144 passed, 1 skipped**. The suite is green: treat any failure as yours.
+`uv run pytest` reports **1167 passed, 1 skipped**. The suite is green: treat any failure as yours.
 Most of its wall time is `nvidia-smi` being called by the bench tests; on a machine without
 it the suite is much faster.
 
@@ -224,6 +226,8 @@ it the suite is much faster.
     real weights or downloads ~800 MB mid-`pytest`. Tests that exercise the default opt back
     in by patching it.
   - `_isolate_registries` snapshots and restores the global backend and suite registries.
+  - `_isolate_run_store` points `OPAAS_RUNS_DIR` at a temporary directory, so no test
+    writes into the developer's `~/.opaas/runs`. It returns that directory.
   - `_no_discovery` replaces `discover.inventory.discover_environment` and
     `listening_ports` and the container runner, so no test probes the host's ports or
     asks its docker what runs. Discovery tests inject an `httpx.MockTransport` into
@@ -261,6 +265,11 @@ it the suite is much faster.
   `_plain` and key loading come from `cli/common.py`. Bench commands keep their
   top-level names (D41). Module results are written with `core.evidence.write_document`
   (canonical bytes) and wrapped with `envelope(kind, …)`.
+- **A command that produces a result records it in the run store** (D76): it takes
+  `ctx: typer.Context` and `force: Force`, calls `refuse_overwrite(out, force)` before any
+  work, and does that work inside `with recorded_run(ctx, kind) as recorded:`, calling
+  `recorded.keep(out)` for each output written outside the run directory. Never write into a
+  run directory by hand, and never delete a run.
 - CLI options are declared as module-level `Annotated[...]` type aliases in
   `cli/main.py`, grouped just before the command that uses them and reused across
   commands; each command validates its inputs itself and exits with
@@ -335,6 +344,7 @@ naming what is missing, rather than breaking mid-evaluation.
 | `OPAAS_ANCHOR_DIR` | Overrides `~/.opaas/anchors` for `verify` trust anchors |
 | `OPAAS_KEY_PASSPHRASE` | Non-interactive passphrase for `keygen`/`sign` |
 | `OPAAS_TOKEN_PIN` | Non-interactive PIN of the root's hardware token for `delegate`/`revoke` |
+| `OPAAS_RUNS_DIR` | Overrides `~/.opaas/runs`, the run store every result is recorded in |
 
 ## Documentation duties
 

@@ -14,11 +14,14 @@ from typing import Annotated
 import typer
 
 from opaas.cli.common import (
+    Force,
     _load_signing_key,
     _plain,
     console,
     err_console,
     read_json,
+    recorded_run,
+    refuse_overwrite,
     write_json,
 )
 from opaas.core.events import EventLog
@@ -226,12 +229,14 @@ def inventory_command(
 
 @app.command("overhead")
 def overhead_command(
+    ctx: typer.Context,
     requests: Annotated[int, typer.Option("--requests", "-n", min=10)] = 500,
     policies: Policies = None,
     inventory: Annotated[Path | None, typer.Option(
         "--inventory", help="`discover scan` document to bind the result to (N5): the "
         "overhead is this host's.")] = None,
     out: Annotated[Path, typer.Option("--out", "-o")] = Path("sentinel-overhead.json"),
+    force: Force = False,
 ) -> None:
     """Benchmarks the proxy's own added latency (p50/p95/p99)."""
     try:
@@ -241,9 +246,12 @@ def overhead_command(
     except (PolicyError, EvidenceError, OSError, ValueError) as exc:
         err_console.print(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
-    result = benchmark_overhead(requests=requests, policies=loaded)
-    digest = write_document(out, envelope("sentinel-overhead", result,
-                                          environment=environment))
+    refuse_overwrite(out, force)
+    with recorded_run(ctx, "sentinel") as recorded:
+        result = benchmark_overhead(requests=requests, policies=loaded)
+        digest = write_document(out, envelope("sentinel-overhead", result,
+                                              environment=environment))
+        recorded.keep(out)
     o = result["overhead"]
     console.print(f"overhead p50 {o['p50']} ms · p95 {o['p95']} ms · p99 {o['p99']} ms "
                   f"({requests} requests, {len(loaded)} policies)")

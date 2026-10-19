@@ -384,6 +384,31 @@ when those could not decide. On a system certificate it re-checks every componen
 the one that moved. Exit `0` current, `1` drifted or expired, `3` inconclusive, `2` bad
 inputs. Nothing is published; `--log` keeps a hash-chained history.
 
+### Every result is kept
+
+Every command that produces a result also records it in the **run store**:
+`~/.opaas/runs/<run-id>/`, or `$OPAAS_RUNS_DIR`. A run directory holds the command's
+documents and a `run.json` that records:
+
+- the exact command, with secrets replaced;
+- the OPAAS version, the start and end times, and the status;
+- the hash of every file.
+
+Files are written once and made read-only. An existing `--output` path is refused unless you
+pass `--force`, and even then the store keeps the earlier result.
+
+```bash
+opaas runs list
+```
+
+```bash
+opaas runs show 20261019-003
+```
+
+`show` checks every file against the hash the run recorded. Runs written to `./runs` by
+earlier versions are listed by `opaas runs import`, and copied in with `--copy`; the originals
+are never moved. Nothing in OPAAS deletes a run.
+
 ---
 
 ## Methodology
@@ -552,7 +577,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `--backend` | `vllm` | `vllm`, `ollama` or `openai` |
 | `--suite` | `performance` | Repeatable, or `all` |
 | `--base-url` | adapter's own | Your server endpoint |
-| `--output` | `runs/<run-id>/report.json` | Report file |
+| `--output` | the run store | Report file, written beside the store's copy (`~/.opaas/runs/<run-id>/report.json`). An existing file is refused without `--force` |
 | `--num-ctx` | server's default | Context window the engine must serve (Ollama) |
 | `--max-concurrency` | — | What the engine is configured to serve at once. Declared by you, cross-checked by block A |
 | `--capability-max-tokens` | dataset's (IFEval: 700), else `400` | Block B cap; when set, it wins over the dataset's. Cut answers are counted and declared |
@@ -612,6 +637,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas audit template` | Scenario templates for the manifest's tools; you write the answers |
 | `opaas audit run` | Audit a system from its manifest; write the system report and open its draft certificate |
 | `opaas audit validate` / `extract` | Check a system manifest; read any document into measurements |
+| `opaas runs list` / `show` / `path` / `import` | The run store: every result, with its command and hashes; copy old `./runs` in |
 
 </details>
 

@@ -8,6 +8,38 @@ releases, for someone deciding whether to upgrade.
 The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 `1.0-draft`) is separate from the package version, and did not change.
 
+## [Unreleased]
+
+For 0.4.0: the run store, first of the pieces behind the local dashboard
+(D75, D76).
+
+### Upgrading
+
+- **Results are now recorded in `~/.opaas/runs`** (or `$OPAAS_RUNS_DIR`).
+  `opaas run` without `--output` writes its report there, no longer into
+  `./runs` in the working directory. With `--output`, and for every other
+  command's `-o`, the file is still written where you asked, and the store
+  keeps a copy.
+- **An existing output path is refused** with exit 2, by `run`, `smith run`,
+  `audit run`, `discover scan`/`gaps`, `inquest audit`, `swarm analyze`,
+  `card build`/`manifest`, `sentinel overhead` and `compare`. Pass `--force`
+  to write over it; the store keeps the earlier result regardless. Scripts
+  that write to the same path twice need one or the other.
+- **Old `./runs` directories** are listed by `opaas runs import`, and copied
+  into the store with `--copy`. The originals are not moved.
+
+### Added — the run store (D76)
+
+- Every result is kept in its own run directory, claimed atomically, with
+  files written once and made read-only. `run.json` records:
+  - the command, with secrets and URL credentials or query strings removed;
+  - the OPAAS version, the times and the status;
+  - the hash of every file.
+- `opaas runs list | show | path | import`. `show` checks each file against
+  its recorded hash.
+- `docs/dashboard.md`: the design of the local dashboard `opaas ui`, and the
+  file contract between it and the CLI (D75).
+
 ## [0.3.1] — 2026-10-19
 
 Everything in Spanish that 0.3.0 left out so that it shipped entirely in

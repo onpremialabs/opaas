@@ -89,11 +89,13 @@ These files are the interface between the CLI and the dashboard. Each carries a 
 }
 ```
 
-- `kind` takes one of these values: `bench`, `smith`, `audit`, `discover`, `inquest`, `swarm`, `compare`, `certificate`.
+- `kind` takes one of these values: `bench`, `smith`, `audit`, `discover`, `inquest`, `swarm`, `sentinel`, `card`, `compare`, `certificate`.
 - `status` takes one of these values: `running`, `completed`, `partial`, `failed`, `interrupted`.
   - `interrupted` is what a reader concludes from a `running` run whose process no longer exists. It is never written by the run itself.
 - `command` has secrets replaced the way `_publishable_config` replaces them (invariant 12).
 - `endpoint` is present for commands that talk to an engine or an agent, and absent otherwise. A field the producer did not have is absent, never defaulted.
+- `pid` is present only while the run is `running`. It is how a reader tells a run in progress from one whose process is gone. Closing the run removes it.
+- An imported run (`opaas runs import`) has no `command`. It carries `importedFrom` and, when the old report had one, `originalRunId`.
 
 **`progress.jsonl`** has one line per event, appended while the run goes.
 

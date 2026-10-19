@@ -21,7 +21,15 @@ from rich.table import Table
 
 from opaas.bench.declaration import DECLARED_REQUIREMENTS, DeclarationError, load_declaration
 from opaas.bench.suites.compliance import declared_item
-from opaas.cli.common import _plain, console, err_console, read_json
+from opaas.cli.common import (
+    Force,
+    _plain,
+    console,
+    err_console,
+    read_json,
+    recorded_run,
+    refuse_overwrite,
+)
 from opaas.core.evidence import envelope, write_document
 from opaas.core.hashing import file_digest
 from opaas.smith.agents import available_agents
@@ -46,6 +54,7 @@ _STATUS_MARK = {"measured": "[green]●[/green]", "not-measured": "[yellow]○[/
 
 @app.command("run")
 def run_command(
+    ctx: typer.Context,
     system: Annotated[Path, typer.Argument(help="System manifest (JSON).")],
     out: Annotated[Path, typer.Option("--out", "-o", help="Directory for every document.")]
     = Path("system-audit"),
@@ -68,6 +77,7 @@ def run_command(
     open_draft: Annotated[bool | None, typer.Option(
         "--open/--no-open", help="Open the draft certificate in the browser. By default only "
         "when run from a terminal.")] = None,
+    force: Force = False,
 ) -> None:
     """Audits a system: runs only what its manifest calls for, then writes the system report
     and the draft certificate it would become."""
@@ -95,23 +105,31 @@ def run_command(
         err_console.print(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
-    try:
-        run = run_audit(manifest, base=base, out=out, invoke=_invoke, supplied=supplied,
-                        only=only or [], skip=skip or [], bench_args=bench_args,
-                        repeats=repeats)
-        body = build_report(manifest, manifest_hash=file_digest(system), members=run.members,
-                            steps=run.steps, thresholds=thresholds, declared_items=declared)
-    except (AuditPlanError, SystemReportError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
-        raise typer.Exit(code=2) from None
-    inventory = read_json(run.inventory)["inventory"] if run.inventory else None
-    report = out / "system-report.json"
-    digest = write_document(report, envelope(
-        "system-report", body, environment={"inventory": inventory} if inventory else None))
-    _print_summary(body)
-    console.print(f"\n{report} ({digest}). Sign it with `opaas evidence sign`.")
-    _write_draft(report, out / "certificate-draft.html", certificate_base, open_draft)
-    failed = [s for s in body["steps"] if s["status"] == "failed"]
+    refuse_overwrite(out, force)
+    # Each step it invokes records its own run; this one keeps the whole
+    # directory: members, system report and draft, as they were (D76).
+    with recorded_run(ctx, "audit") as recorded:
+        try:
+            run = run_audit(manifest, base=base, out=out, invoke=_invoke, supplied=supplied,
+                            only=only or [], skip=skip or [], bench_args=bench_args,
+                            repeats=repeats, force=force)
+            body = build_report(manifest, manifest_hash=file_digest(system),
+                                members=run.members, steps=run.steps, thresholds=thresholds,
+                                declared_items=declared)
+        except (AuditPlanError, SystemReportError) as exc:
+            err_console.print(f"[red]{_plain(exc)}[/red]")
+            raise typer.Exit(code=2) from None
+        inventory = read_json(run.inventory)["inventory"] if run.inventory else None
+        report = out / "system-report.json"
+        digest = write_document(report, envelope(
+            "system-report", body, environment={"inventory": inventory} if inventory else None))
+        _print_summary(body)
+        console.print(f"\n{report} ({digest}). Sign it with `opaas evidence sign`.")
+        _write_draft(report, out / "certificate-draft.html", certificate_base, open_draft)
+        recorded.keep(out, "system-audit")
+        failed = [s for s in body["steps"] if s["status"] == "failed"]
+        if failed:
+            recorded.status = "partial"
     if failed:
         raise typer.Exit(code=1)
 

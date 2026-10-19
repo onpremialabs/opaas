@@ -11,12 +11,18 @@ import getpass
 import json
 import os
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+from urllib.parse import urlsplit, urlunsplit
 
+import typer
 from rich.console import Console
 from rich.markup import escape
 
+from opaas import OPAAS_SPEC_VERSION, __version__
 from opaas.core.credential import (
     Pkcs11Signer,
     Signer,
@@ -26,6 +32,7 @@ from opaas.core.credential import (
     resolve_trust,
 )
 from opaas.core.credential.keys import DID_DOCUMENT_FILENAME, public_key_multibase
+from opaas.core.store import Run, StoreError, open_run
 
 # emoji=False: Rich turns ":key:" into a key emoji, so "did:key:z6Mk…" printed
 # as "did🔑z6Mk…". A tool that prints identifiers must print them verbatim.
@@ -164,3 +171,150 @@ def write_json(path: Path, document: dict[str, Any]) -> None:
 
 def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+# --- The run store (D76) ---------------------------------------------------
+
+Force = Annotated[
+    bool,
+    typer.Option(
+        "--force",
+        help="Write over an existing output path. The run store keeps its own copy of every "
+        "earlier result regardless.",
+    ),
+]
+
+#: Words that make a parameter secret: its value never reaches `run.json`. The
+#: report is public (invariant 12), and so is the record of how it was produced.
+#: Whole words of the name, not substrings: `max_tokens` is not a token.
+_SECRET_WORDS = frozenset({"passphrase", "password", "secret", "pin", "token"})
+
+
+def refuse_overwrite(path: Path | None, force: bool) -> None:
+    """An existing output is not replaced unless the user says so (D76).
+
+    A directory counts as existing only when it holds something: `-o out/`
+    on an empty directory overwrites nothing.
+    """
+    if path is None or force:
+        return
+    occupied = path.is_file() or (path.is_dir() and any(path.iterdir()))
+    if occupied:
+        err_console.print(
+            f"[red]{path} already exists.[/red] A result is never replaced without asking: "
+            "choose another path, or pass --force (the run store keeps the earlier one)."
+        )
+        raise typer.Exit(code=2)
+
+
+def _is_secret(name: str) -> bool:
+    words = name.lower().split("_")
+    return bool(_SECRET_WORDS & set(words)) or name.lower().endswith("api_key")
+
+
+def _publishable_value(name: str, value: Any) -> str:
+    if _is_secret(name):
+        return "***"
+    text = str(value)
+    if "://" in text:
+        # N4: never a URL query string or credentials in a URL.
+        parts = urlsplit(text)
+        netloc = parts.hostname or ""
+        if parts.port:
+            netloc = f"{netloc}:{parts.port}"
+        text = urlunsplit((parts.scheme, netloc, parts.path, "", ""))
+    return text
+
+
+def command_line(ctx: typer.Context) -> list[str]:
+    """The command as it ran, rebuilt from its parsed options, secrets replaced.
+
+    Rebuilt rather than copied from `sys.argv`: the arguments are already
+    parsed, so a secret is recognised by its parameter's name, not guessed
+    from text. Options left at their default are omitted; with the same OPAAS
+    version they produce the same run.
+    """
+    # The subcommand names, not `command_path`: under `python -m opaas.cli.main`
+    # the root's name is the interpreter's invocation, not `opaas`.
+    names: list[str] = []
+    current: Any = ctx
+    while current is not None and current.parent is not None:
+        names.insert(0, current.info_name)
+        current = current.parent
+    words = ["opaas", *names]
+    for param in ctx.command.params:
+        value = ctx.params.get(param.name)
+        if value is None or value == param.default:
+            continue
+        flags = [opt for opt in getattr(param, "opts", []) if opt.startswith("--")]
+        values = value if isinstance(value, list | tuple) else [value]
+        if param.param_type_name == "argument":
+            words.extend(_publishable_value(param.name, item) for item in values)
+            continue
+        flag = flags[0] if flags else param.opts[0]
+        if isinstance(value, bool):
+            if value:
+                words.append(flag)
+            elif getattr(param, "secondary_opts", None):
+                words.append(param.secondary_opts[0])
+            continue
+        for item in values:
+            words.extend([flag, _publishable_value(param.name, item)])
+    return words
+
+
+@dataclass(slots=True)
+class RecordedRun:
+    """A command's run in the store, and what it decided about how it ended."""
+
+    run: Run
+    #: Set by the command when the result is weaker than a clean completion.
+    status: str = "completed"
+    kept: list[Path] = field(default_factory=list)
+
+    def keep(self, path: Path, name: str | None = None) -> None:
+        """Records an output the command wrote outside the run directory."""
+        self.run.keep(path, name)
+        self.kept.append(path)
+
+    @property
+    def directory(self) -> Path:
+        return self.run.directory
+
+
+@contextmanager
+def recorded_run(ctx: typer.Context, kind: str, *,
+                 endpoint: str | None = None) -> Iterator[RecordedRun]:
+    """Opens a run in the store for a command, and closes it however it ends.
+
+    A clean end closes it `completed` (or whatever the command set); an error
+    or a non-zero exit closes it `failed`, keeping what was written. An
+    interrupt leaves it `running`: a reader then sees `interrupted`, because
+    the process is gone (`docs/dashboard.md` §4).
+    """
+    try:
+        run = open_run(
+            kind,
+            command=command_line(ctx),
+            opaas_version=__version__,
+            spec_version=OPAAS_SPEC_VERSION,
+            endpoint=_publishable_value("endpoint", endpoint) if endpoint else None,
+        )
+    except (StoreError, OSError) as exc:
+        err_console.print(f"[red]Cannot record the run:[/red] {exc}")
+        raise typer.Exit(code=1) from None
+    recorded = RecordedRun(run=run)
+    try:
+        yield recorded
+    except KeyboardInterrupt:
+        raise
+    except typer.Exit as exc:
+        code = getattr(exc, "exit_code", 0)
+        run.close(recorded.status if code == 0 or recorded.status == "partial" else "failed")
+        raise
+    except BaseException:
+        run.close("failed")
+        raise
+    else:
+        run.close(recorded.status)
+    console.print(f"[dim]Recorded as run {run.run_id} in {run.directory.parent}[/dim]")
