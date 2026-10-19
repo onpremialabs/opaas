@@ -44,6 +44,18 @@ version.
    Do not create the release by hand: the workflow refuses a release that
    already has files.
 
+## Titles and order
+
+- **The title is `OPAAS X.Y.Z` and nothing else.** The workflow sets it. What
+  the release contains belongs in the CHANGELOG section, which becomes the
+  notes.
+- **GitHub lists releases by tag date, newest first, not by version.** A tag
+  cannot be moved or recreated, so its place in the list is permanent.
+  Release in version order. A patch for an older line, such as 0.2.2 after
+  0.3.0, will be listed above the newer versions. 0.2.1 already is: it was
+  tagged on 2026-10-19, after 0.3.0 (D74). The **Latest** label still goes to
+  the highest version.
+
 ## If something went wrong
 
 - **The workflow failed before publishing:** fix the cause on `develop`. Then

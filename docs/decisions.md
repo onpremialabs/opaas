@@ -71,7 +71,7 @@ It refuses a release that already has any asset, and it never passes `--clobber`
 
 **Earlier versions are backfilled, and say so.** 0.2.0 and 0.3.0 are built from their tags by a manual run of the same workflow. Its `BUILD-INFO.txt` says the archives were built after the release was published. 0.2.1 is tagged at `e20a404`, the release commit merged in #54, where `pyproject.toml` and `__version__` say 0.2.1. 0.1.0 was never tagged (see the 0.2.0 entry of the CHANGELOG) and stays that way: no commit can be named as what was released.
 
-**What is lost:** a release cannot be fixed in place. A wrong file, a typo in the notes' assets or a missing wheel means a new patch version. A backfilled archive is evidence of what the tag builds today with today's pinned backend, not of what users installed in October 2026: they installed from git. The same holds for 0.2.1's tag, placed four days after the fact on the commit the CHANGELOG describes. Built archives are attached to GitHub only; nothing is on PyPI.
+**What is lost:** a release cannot be fixed in place. A wrong file, a typo in the notes' assets or a missing wheel means a new patch version. A backfilled archive is evidence of what the tag builds today with today's pinned backend, not of what users installed in October 2026: they installed from git. The same holds for 0.2.1's tag, placed four days after the fact on the commit the CHANGELOG describes. GitHub lists releases by tag date, so 0.2.1 sits above 0.3.0 in the release list for good. Built archives are attached to GitHub only; nothing is on PyPI.
 
 ---
 
