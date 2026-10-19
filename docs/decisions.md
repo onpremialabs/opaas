@@ -50,6 +50,31 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D74 — A release is kept, never replaced
+
+**Status:** applied (phase 16 of the work plan) · **Affects:** [`.github/workflows/release.yml`](../.github/workflows/release.yml), [`.github/release/build-constraints.txt`](../.github/release/build-constraints.txt), [`docs/releasing.md`](releasing.md), the repository's tag ruleset and release settings
+
+A certificate names the OPAAS version that produced it. A third party who wants to reproduce it needs that version exactly as it was released. Until now that meant only a git tag: no release carried a built artifact, nothing stopped a tag from being moved or deleted, and 0.2.1 had a CHANGELOG entry but no tag at all.
+
+**Tags are protected.** A repository ruleset on `refs/tags/v*` refuses updates, force pushes and deletions with no bypass. Only administrators may create a `v*` tag. A tag that was pushed by mistake stays, and the mistake is superseded by the next version.
+
+**One workflow attaches artifacts, once.** A `v*` tag triggers `release.yml`, which:
+
+- checks that the tag, `pyproject.toml`, `opaas.__version__` and the CHANGELOG agree;
+- runs the full CI on the tag;
+- builds the wheel and the sdist;
+- creates the release from the version's CHANGELOG section, as a draft, attaches `SHA256SUMS` and `BUILD-INFO.txt`, and only then publishes it.
+
+It refuses a release that already has any asset, and it never passes `--clobber`. With GitHub's immutable releases turned on, a published release's assets and tag cannot change afterwards either.
+
+**Builds can be checked by rebuilding.** The frontend (`uv`) is pinned in the workflow. The build backend and its dependencies are pinned in `build-constraints.txt`. `SOURCE_DATE_EPOCH` comes from the tagged commit. Rebuilding a tag with the same pins gives byte-identical archives, so `SHA256SUMS` can be checked by anyone, not only trusted. `BUILD-INFO.txt` records the commit, the pins and the run that built the archives.
+
+**Earlier versions are backfilled, and say so.** 0.2.0 and 0.3.0 are built from their tags by a manual run of the same workflow. Its `BUILD-INFO.txt` says the archives were built after the release was published. 0.2.1 is tagged at `e20a404`, the release commit merged in #54, where `pyproject.toml` and `__version__` say 0.2.1. 0.1.0 was never tagged (see the 0.2.0 entry of the CHANGELOG) and stays that way: no commit can be named as what was released.
+
+**What is lost:** a release cannot be fixed in place. A wrong file, a typo in the notes' assets or a missing wheel means a new patch version. A backfilled archive is evidence of what the tag builds today with today's pinned backend, not of what users installed in October 2026: they installed from git. The same holds for 0.2.1's tag, placed four days after the fact on the commit the CHANGELOG describes. Built archives are attached to GitHub only; nothing is on PyPI.
+
+---
+
 ## D73 — Spanish domain packs: the English packs' situations, with the same tools
 
 **Status:** applied in `develop` for 0.3.1; not in 0.3.0, which shipped entirely in English · **Extends:** [D71](#d71--domain-scenario-packs-pinned-and-never-certifiable-alone-kind-aware-templates) · **Affects:** [`smith/scenarios/packs/`](../src/opaas/smith/scenarios/packs/), [`smith/scenario.py`](../src/opaas/smith/scenario.py), `smith packs`

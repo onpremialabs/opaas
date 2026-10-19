@@ -1,0 +1,173 @@
+name: Release
+
+# A release is kept, never replaced (D74). This workflow is the only thing that
+# attaches files to a GitHub release, and it refuses a release that already has
+# any: a broken release is superseded by a new patch version, never repaired in
+# place. Tags themselves are protected by a repository ruleset, so a `v*` tag
+# cannot be moved or deleted once pushed (docs/releasing.md).
+
+on:
+  # The normal path: a maintainer pushes `vX.Y.Z` from the release branch.
+  push:
+    tags: ["v*"]
+  # Backfill: build a tag that was released before this workflow existed and
+  # attach its artifacts to the release it already has. Nothing else about that
+  # release is touched.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build, e.g. v0.2.0"
+        required: true
+        type: string
+
+# Two runs for the same tag would race to upload: the second must wait, and
+# then find the assets and refuse.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  # Pinned so a rebuild of the same tag uses the same frontend. The build
+  # backend is pinned by .github/release/build-constraints.txt.
+  UV_VERSION: "0.13.0"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.versions.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+
+      # A tag whose version disagrees with the package would publish a wheel
+      # named after one version that reports another at runtime.
+      - name: Tag, package and changelog agree
+        id: versions
+        run: |
+          version="${TAG#v}"
+          grep -qx "version = \"$version\"" pyproject.toml \
+            || { echo "::error::pyproject.toml does not say version $version"; exit 1; }
+          grep -qx "__version__ = \"$version\"" src/opaas/__init__.py \
+            || { echo "::error::opaas.__version__ is not $version"; exit 1; }
+          grep -q "^## \[$version\]" CHANGELOG.md \
+            || { echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  # Only for a freshly pushed tag. A backfilled tag was tested when it was
+  # released; re-running today's suite against old code proves nothing about it.
+  test:
+    if: github.event_name == 'push'
+    needs: check
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          path: src
+
+      # The constraints come from the commit this workflow runs from, not from
+      # the tag: older tags predate the file, and every release is then built
+      # by the same, recorded backend.
+      - uses: actions/checkout@v4
+        with:
+          path: pipeline
+          sparse-checkout: .github/release
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      # SOURCE_DATE_EPOCH from the tagged commit makes the archives' timestamps
+      # a function of the source, so anyone can rebuild the tag and compare
+      # SHA256SUMS byte for byte.
+      - name: Build sdist and wheel
+        working-directory: src
+        run: |
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct HEAD)"
+          uv build --build-constraint ../pipeline/.github/release/build-constraints.txt --out-dir ../dist
+          {
+            echo "tag: $TAG"
+            echo "commit: $(git rev-parse HEAD)"
+            echo "source_date_epoch: $SOURCE_DATE_EPOCH"
+            echo "uv: $(uv --version)"
+            echo "build_constraints:"
+            sed 's/^/  /' ../pipeline/.github/release/build-constraints.txt
+            echo "built_by: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "built_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+              echo "note: built after the release was published, from its tag (D74)"
+            fi
+          } > ../dist/BUILD-INFO.txt
+
+      - name: Check metadata
+        run: uvx twine check dist/*.whl dist/*.tar.gz
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum *.whl *.tar.gz > SHA256SUMS && cat SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: [check, test, build]
+    # `test` is skipped on a backfill; skipped is fine, failed is not.
+    if: ${{ !cancelled() && needs.check.result == 'success' && needs.build.result == 'success' && needs.test.result != 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Attach, never replace
+        run: |
+          files=(dist/*.whl dist/*.tar.gz dist/SHA256SUMS dist/BUILD-INFO.txt)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            count="$(gh release view "$TAG" --json assets --jq '.assets | length')"
+            if [ "$count" != "0" ]; then
+              echo "::error::Release $TAG already has $count asset(s). A release is never replaced: publish a new patch version instead."
+              exit 1
+            fi
+            # Upload without --clobber: an asset that appeared meanwhile fails
+            # the upload rather than being overwritten.
+            gh release upload "$TAG" "${files[@]}"
+          else
+            # The notes are the version's CHANGELOG section, as reviewed.
+            awk -v v="$VERSION" '
+              index($0, "## [" v "]") == 1 { on = 1; next }
+              on && /^## \[/ { exit }
+              on { print }
+            ' CHANGELOG.md > notes.md
+            # Created as a draft, assets attached, then published: with
+            # immutable releases on, a published release can no longer gain them.
+            # A backfilled tag is older than the current release, and must not
+            # take its place as "Latest".
+            latest=true
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then latest=false; fi
+            gh release create "$TAG" --verify-tag --draft --latest="$latest" \
+              --title "OPAAS $VERSION" --notes-file notes.md "${files[@]}"
+            gh release edit "$TAG" --draft=false --latest="$latest"
+          fi
