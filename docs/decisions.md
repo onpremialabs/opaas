@@ -50,6 +50,36 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D77 — An unsigned draft of any stored report, as a new version each time
+
+**Status:** applied (phase 19 of the work plan) · **Extends:** [D72](#d72--audit-run-shows-the-certificate-it-will-become-as-an-unsigned-draft) · **Builds on:** [D76](#d76--every-result-is-recorded-in-a-run-store-written-once) · **Affects:** `opaas certificate`, [`web/certificate.py`](../src/opaas/web/certificate.py)
+
+D72 drafted the certificate only for system reports, and only at the end of `audit run`, into the audit's own directory. The dashboard needs a draft for any stored report, and the run store never lets a closed run gain a file.
+
+**`opaas certificate --run <run-id>`** renders the unsigned draft of that run's report (`report.json`, or a system audit's `system-report.json`). It takes no credential.
+
+- A model report now gets a model draft. It is the same page as the signed certificate, with the draft band, the watermark and *issuer key: none*.
+- A report no credential can be built over (a cloud baseline, invariant 10) gets no draft, exactly as `sign` refuses it.
+
+**Each draft is a run of its own.** It has `kind: certificate`, plus `sourceRun` and `version` in `run.json`. Its files are `certificate-v<N>.html` and `certificate-v<N>.json`. The JSON records:
+
+- the report hash;
+- the template hash, which is the hash of the module that lays certificates out;
+- the OPAAS version;
+- the generation time;
+- whether a QR code was drawn.
+
+N is one more than the drafts of that run already in the store, so v1 is never replaced by v2. `--out` writes an extra copy elsewhere.
+
+**The report is checked before it is drawn.** If `report.json` no longer matches the hash its run recorded, no draft is rendered, and the command exits 1. A draft of an edited report would show figures nobody measured under a real run id.
+
+**What is lost:**
+
+- Versions are counted from the store. Two drafts of one run started at the same instant can both be numbered N; they still land in different runs and neither replaces the other.
+- A draft is not regenerated when the template changes. An old version keeps the old layout, and its template hash says so.
+
+---
+
 ## D76 — Every result is recorded in a run store, written once
 
 **Status:** applied (phase 18 of the work plan) · **Implements:** the run store of [D75](#d75--a-local-dashboard-that-reads-files-and-launches-the-cli-and-measures-nothing) and [`dashboard.md`](dashboard.md) §4 · **Affects:** [`core/store.py`](../src/opaas/core/store.py), [`cli/runs.py`](../src/opaas/cli/runs.py), every command that writes a result

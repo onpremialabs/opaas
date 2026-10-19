@@ -271,6 +271,8 @@ class RecordedRun:
     #: Set by the command when the result is weaker than a clean completion.
     status: str = "completed"
     kept: list[Path] = field(default_factory=list)
+    #: Extra fields for `run.json`, set by the command (a draft's `sourceRun`).
+    fields: dict[str, Any] = field(default_factory=dict)
 
     def keep(self, path: Path, name: str | None = None) -> None:
         """Records an output the command wrote outside the run directory."""
@@ -310,11 +312,12 @@ def recorded_run(ctx: typer.Context, kind: str, *,
         raise
     except typer.Exit as exc:
         code = getattr(exc, "exit_code", 0)
-        run.close(recorded.status if code == 0 or recorded.status == "partial" else "failed")
+        run.close(recorded.status if code == 0 or recorded.status == "partial" else "failed",
+                  **recorded.fields)
         raise
     except BaseException:
-        run.close("failed")
+        run.close("failed", **recorded.fields)
         raise
     else:
-        run.close(recorded.status)
+        run.close(recorded.status, **recorded.fields)
     console.print(f"[dim]Recorded as run {run.run_id} in {run.directory.parent}[/dim]")

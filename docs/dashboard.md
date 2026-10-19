@@ -107,9 +107,11 @@ These files are the interface between the CLI and the dashboard. Each carries a 
 - It is an **operational log, not evidence.** It is not hash-chained, not signed and not cited by any report.
 - Under N4 a line never carries a prompt, a response, a tool argument, a URL query string or an environment value. A test checks every emitter against that rule.
 
-**`certificate-v<N>.html` and `certificate-v<N>.json`** are written by `opaas certificate --run <run-id>`, without a credential.
+**`certificate-v<N>.html` and `certificate-v<N>.json`** are written by `opaas certificate --run <run-id>`, without a credential (D77).
 
-- N is the next free number. An earlier version is never touched.
+- The source run is closed and read-only, so each draft is a run of its own: `kind: certificate`, with `sourceRun` and `version` in its `run.json`.
+- N is one more than the drafts of that run already in the store. An earlier version is never touched.
+- The report is checked against the hash its run recorded before anything is rendered.
 - The JSON records:
   - the report hash;
   - the OPAAS version;

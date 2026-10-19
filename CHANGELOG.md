@@ -40,6 +40,14 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
 - `docs/dashboard.md`: the design of the local dashboard `opaas ui`, and the
   file contract between it and the CLI (D75).
 
+### Added — versioned unsigned certificates (D77)
+
+- `opaas certificate --run <run-id>` renders the unsigned draft of a stored
+  run's report, model or system, without a credential. Each call is a new
+  version (`certificate-v1.html`, `-v2`…), kept as a run of its own. The
+  report is checked against the hash its run recorded first.
+- A model report now has a draft certificate page, like a system report.
+
 ## [0.3.1] — 2026-10-19
 
 Everything in Spanish that 0.3.0 left out so that it shipped entirely in

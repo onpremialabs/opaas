@@ -616,7 +616,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas sign` | Issues the signed credential from a model or system report; `--delegation` signs under the root's name with an issuing key |
 | `opaas verify` | Verifies a credential, offline, walking root → delegation → issuing key; `--revocations` names a list |
 | `opaas trust` | Lists pinned trust anchors, or pins one (or installs a revocation list) after showing what it is |
-| `opaas certificate` | Printable certificate (A4, to PDF) with a QR code to the published page |
+| `opaas certificate` | Printable certificate (A4, to PDF) with a QR code to the published page; `--run <run-id>` renders a stored run's unsigned draft, a new version each time |
 | `opaas publish` | Static certificate site with in-browser verification and badges |
 | `opaas watch` | Checks a certificate still describes the deployment, or every component of a system (exit 0/1/3) |
 | `opaas log-verify` | Checks the transparency log |
