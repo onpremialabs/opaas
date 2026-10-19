@@ -125,7 +125,7 @@ These files are the interface between the CLI and the dashboard. Each carries a 
 
 ## 5. Jobs
 
-**Launching.** Every form in the dashboard ends on a confirmation that shows the command line it is about to run. The job is that command, started as a child process with the user's environment. Its stdout and stderr go to `job.log` in the run directory, so a failure can be read after the fact.
+**Launching.** Every form in the dashboard ends on a confirmation that shows the command line it is about to run. The job is that command, started as a child process with the user's environment, in its own working directory `<store>/.jobs/<job-id>/`. Its stdout and stderr go to `job.log` there, so a failure can be read after the fact; the run directory itself is written only by the command (D76). The job's id reaches the run as `jobId` in `run.json` (D79).
 
 **One queue per endpoint.** Two measurements against the same engine at the same time contaminate each other: block A's latency and throughput, and the concurrency OPAAS believes it is sending. So jobs that name the same endpoint run one after another, in the order they were queued. Jobs on different endpoints, and jobs that touch no endpoint (`discover`, `inquest`, `compare`, `certificate`), run alongside. The queue is shown, and a queued job can be removed before it starts.
 

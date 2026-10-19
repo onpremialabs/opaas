@@ -23,6 +23,8 @@ DECLARED = {
     "torch": "torch", "transformers": "transformers", "huggingface_hub": "huggingface-hub",
     # The token extra: the root signs from a PKCS#11 hardware token (D65).
     "pkcs11": "python-pkcs11",
+    # The ui extra: the local dashboard, imported only by `opaas ui` (D79).
+    "starlette": "starlette", "uvicorn": "uvicorn", "jinja2": "jinja2",
     # The dev extra, used only by scripts/ to regenerate the sprite.
     "PIL": "pillow", "numpy": "numpy",
 }

@@ -226,9 +226,14 @@ def open_run(
     opaas_version: str,
     spec_version: str,
     endpoint: str | None = None,
+    job_id: str | None = None,
     root: Path | None = None,
 ) -> Run:
-    """Opens a run: claims its directory and writes the first `run.json`."""
+    """Opens a run: claims its directory and writes the first `run.json`.
+
+    `job_id` is set when the dashboard launched the command (D79): it is how
+    the dashboard finds the run its job produced while it is still running.
+    """
     if kind not in RUN_KINDS:
         raise StoreError(f"Unknown run kind {kind!r}: one of {sorted(RUN_KINDS)}.")
     directory = allocate_run_dir(root)
@@ -243,6 +248,8 @@ def open_run(
         record["command"] = command
     if endpoint is not None:
         record["endpoint"] = endpoint
+    if job_id is not None:
+        record["jobId"] = job_id
     record.update({"startedAt": _now(), "status": "running", "pid": os.getpid()})
     _write_json_once(directory / RUN_FILE, record)
     return Run(directory=directory, record=record)

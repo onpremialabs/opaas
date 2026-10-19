@@ -50,6 +50,53 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D79 — `opaas ui`: a loopback server that reads the store and launches the CLI
+
+**Status:** applied (phase 21 of the work plan) · **Implements:** [D75](#d75--a-local-dashboard-that-reads-files-and-launches-the-cli-and-measures-nothing), [`dashboard.md`](dashboard.md) §3, §5 and §6 · **Affects:** [`ui/`](../src/opaas/ui/), [`cli/ui.py`](../src/opaas/cli/ui.py), the `ui` extra
+
+D75 designed the dashboard; D76–D78 gave it a store, versioned drafts and progress to read. This builds the server.
+
+**`opaas ui`** serves the dashboard over `~/.opaas/runs` on `127.0.0.1:8765` by default. Starlette, uvicorn and Jinja2 come from the `ui` extra and are imported only by this command; without them it says what to install.
+
+**It measures nothing.** Pages are built by `ui.views` from `run.json`, `progress.jsonl` and the reports in the store. Jobs are `opaas` commands run as child processes (`python -m opaas …`), shown before they start. Each job runs in its own working directory under `<store>/.jobs/<id>/`, with its output in `job.log` there. `OPAAS_JOB_ID` is copied into the run's `run.json` as `jobId`, which is how the job page finds its run while it is still running.
+
+**Only measuring commands.** The allowlist covers:
+
+- `run`, `smith run` and `audit run`/`draft`;
+- `discover`, `inquest`, `swarm`, `card` and `compare`;
+- `sentinel overhead`;
+- `certificate --run`, the unsigned draft only.
+
+Signing, keys, delegation, revocation, the sentinel proxy, approvals and `ui` itself are refused, with a pointer to the terminal. A rerouted agent (D68) is refused until the request confirms that its tools point at the mock server.
+
+**One queue per endpoint.** A job's endpoint is its `--base-url` or `--endpoint`, or the backend's default address. A job waits while another job on the same endpoint runs. Jobs with no endpoint start at once. Cancelling a running job terminates it, and its run reads `interrupted`, as D76 defines. Job state is held in memory; runs are on disk.
+
+**Local, and narrowed.**
+
+- It binds loopback only, and refuses `--host 0.0.0.0`.
+- A random token is printed in the start URL and traded for an `HttpOnly`, `SameSite=Strict` cookie on the first request.
+- `Host` must match the address it was started on, against DNS rebinding.
+- Every POST carries the token in a header.
+- There is no CORS.
+- A strict Content-Security-Policy allows scripts, styles and requests only from the server itself. The pages have no inline script or style, and interval bars are SVG attributes.
+- A run's files are served under `sandbox` CSP, so a draft certificate renders as a document, scripts off.
+
+**Front:** server-rendered Jinja2 pages and one vanilla script (`static/app.js`), with no framework, no build step and no CDN.
+
+- Progress arrives by server-sent events (`/runs/{id}/events`), which follow `progress.jsonl` by offset.
+- The meerkat's head is the favicon and the header mark, drawn from `cli/sprite.py::MASCOT`.
+- The mob comes out on the job page when a run writes a report. A draft certificate gets a link instead, and a failed run only the sentinel.
+
+**Pages:** overview (`status_lines()` of the cover page, jobs, latest runs), new audit (model and machine scan, with the command previewed), runs with filters, run detail, job. The run detail shows per-category intervals, unmeasured items with their reasons, files checked against `run.json`, the progress log, and drafts to open or download.
+
+**What is lost:**
+
+- Job state does not survive a server restart: a job's run does, and reads `interrupted` if its process died with the server.
+- Phase 22's full guided flow (agents, system, sentinel live) and phase 23's comparison are not here yet.
+- Starlette's test client warns that it is moving away from `httpx`.
+
+---
+
 ## D78 — A running command writes its progress into its run, as a log and not as evidence
 
 **Status:** applied (phase 20 of the work plan) · **Implements:** `progress.jsonl` of [`dashboard.md`](dashboard.md) §4 · **Affects:** [`core/store.py`](../src/opaas/core/store.py), `cli/common.py::RecordedRun.progress`, `run`, `smith run`, `audit run`

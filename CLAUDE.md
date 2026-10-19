@@ -31,7 +31,7 @@ status are in [`docs/workplan.md`](docs/workplan.md).
 
 Python 3.10+, CLI built on Typer + Rich, reports modelled with Pydantic v2, signatures with
 `cryptography`. Runtime deps are deliberately few (`httpx`, `typer`, `pydantic`, `rich`,
-`cryptography`, `psutil`, `segno` for the certificate's QR code); torch/transformers live behind the optional `classifiers` extra.
+`cryptography`, `psutil`, `segno` for the certificate's QR code); torch/transformers live behind the optional `classifiers` extra, and the dashboard's Starlette, uvicorn and Jinja2 behind the `ui` extra.
 
 ## Non-negotiable invariants
 
@@ -158,6 +158,9 @@ src/opaas/
 │                       template.py (scenario templates from the manifest)
 ├── adapters/           InferenceBackend ABC + vllm, ollama, openai_compatible
 ├── telemetry/          gpu (nvidia-smi), system (psutil), network, sampler
+├── ui/                 `opaas ui` (D79): app.py (Starlette server, token/Host/CSP guard, SSE),
+│                       jobs.py (allowlisted CLI jobs, one queue per endpoint), views.py (pages
+│                       from the store, the meerkat), templates/, static/ (opaas.css, app.js)
 ├── web/                Static site + badge generation, printable certificate (certificate.py),
 │                       assets/verify.js (browser verify)
 └── cli/                main.py (bench commands + group registration), common.py (consoles,
@@ -169,7 +172,7 @@ docs/     design.md, methodology.md, decisions.md, workplan.md, datasets.md, key
           is cut; releases are never replaced, D74), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60),
           dashboard.md (proposal: `opaas ui`, the local dashboard, and its file contract, D75)
-tests/    1179 tests, one file per module, plus conftest.py with the fake backends
+tests/    1201 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;
           rehearse_ceremony.py — runs every opaas step of the key ceremony (D67)
 web/      README describing the published site layout (the generator lives in src/)
@@ -196,6 +199,7 @@ web/      README describing the published site layout (the generator lives in sr
 ```bash
 uv sync --extra dev                       # exactly what uv.lock pins
 uv sync --extra dev --extra classifiers   # add torch/transformers (large)
+uv run opaas ui                           # the local dashboard (dev includes the ui extra)
 uv run pytest                             # test suite; must not touch the network
 uv run ruff check src tests               # lint (E, F, I, UP, B, SIM; line-length 100)
 uv lock --check                           # fails if uv.lock drifted from pyproject.toml
@@ -213,7 +217,7 @@ a round trip.
 
 ### Known test state
 
-`uv run pytest` reports **1178 passed, 1 skipped**. The suite is green: treat any failure as yours.
+`uv run pytest` reports **1200 passed, 1 skipped**. The suite is green: treat any failure as yours.
 Most of its wall time is `nvidia-smi` being called by the bench tests; on a machine without
 it the suite is much faster.
 
@@ -233,6 +237,8 @@ it the suite is much faster.
     `listening_ports` and the container runner, so no test probes the host's ports or
     asks its docker what runs. Discovery tests inject an `httpx.MockTransport` into
     `inventory.scan` and a `runner` into `list_containers`.
+- The dashboard is tested through Starlette's in-process `TestClient`, with a fake job
+  launcher (`JobManager(launcher=...)`): no socket, no child process.
 - Network-shaped code takes an injectable transport: the sentinel proxy
   (`transport=`), the HTTP agent adapter (`transport=`, `serve=False` and
   `handle_tool_request`). Tests never open a socket.
@@ -346,6 +352,7 @@ naming what is missing, rather than breaking mid-evaluation.
 | `OPAAS_KEY_PASSPHRASE` | Non-interactive passphrase for `keygen`/`sign` |
 | `OPAAS_TOKEN_PIN` | Non-interactive PIN of the root's hardware token for `delegate`/`revoke` |
 | `OPAAS_RUNS_DIR` | Overrides `~/.opaas/runs`, the run store every result is recorded in |
+| `OPAAS_JOB_ID` | Set by `opaas ui` on the commands it launches; recorded as `jobId` in `run.json` |
 
 ## Documentation duties
 

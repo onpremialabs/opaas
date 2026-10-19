@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}New audit{% endblock %}
+{% block content %}
+<h1>New audit</h1>
+<p class="sub">Pick what to run. The exact command is shown before anything starts, and it is the one that runs. Jobs against the same engine wait their turn.</p>
+
+<form class="launch" id="launch-bench" data-kind="bench">
+  <h2>Measure a model <span class="dim">· blocks A–E</span></h2>
+  <div class="fields">
+    <label>Model <input name="model" placeholder="qwen2.5:7b-instruct" required></label>
+    <label>Backend
+      <select name="backend"><option>ollama</option><option>vllm</option><option>openai</option></select>
+    </label>
+    <label>Base URL <input name="base_url" placeholder="adapter's default"></label>
+    <label>Context window <input name="num_ctx" placeholder="8192" inputmode="numeric"></label>
+    <label>Dataset <input name="dataset" placeholder="ifeval,xstest"></label>
+  </div>
+  <fieldset class="suites"><legend>Blocks</legend>
+    <label><input type="checkbox" name="suite" value="all" checked> all</label>
+    <label><input type="checkbox" name="suite" value="performance"> A performance</label>
+    <label><input type="checkbox" name="suite" value="capability"> B capability</label>
+    <label><input type="checkbox" name="suite" value="consistency"> C consistency</label>
+    <label><input type="checkbox" name="suite" value="safety"> D safety</label>
+    <label><input type="checkbox" name="suite" value="compliance"> E compliance</label>
+  </fieldset>
+  <p class="warn hidden" data-warn="ollama-ctx">Ollama trims long prompts silently unless a context window is set.</p>
+  <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono" data-preview></code></div></div>
+  <p class="error hidden" data-error></p>
+  <button class="btn primary" type="submit">Queue run</button>
+</form>
+
+<form class="launch" id="launch-discover" data-kind="discover">
+  <h2>Look at this machine <span class="dim">· inventory and gaps</span></h2>
+  <label class="inline"><input type="checkbox" name="well_known" checked> Read the MCP configurations of known clients (names only)</label>
+  <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono" data-preview></code></div></div>
+  <p class="error hidden" data-error></p>
+  <button class="btn" type="submit">Queue scan</button>
+</form>
+{% endblock %}

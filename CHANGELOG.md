@@ -55,6 +55,25 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
   and the steps of `audit run`. It is an operational log, not evidence, and
   carries no prompt, response, key, URL credential or query string.
 
+### Added — `opaas ui`, the local dashboard (D79)
+
+- `opaas ui` serves a dashboard over your run store on `127.0.0.1:8765`.
+  Install it with the `ui` extra (`uv sync --extra ui`, or
+  `pip install "opaas[ui]"`). Open the address it prints: the token in it is
+  the session's key.
+- It shows:
+  - the machine's status;
+  - every run, with its command and files checked against their hashes;
+  - per-category intervals and what was not measured;
+  - live progress;
+  - versioned unsigned drafts, which you can open or download.
+- It launches measuring commands only: a model run or a machine scan from a
+  form, and a draft certificate from a run. Each shows its exact command
+  first. Jobs against one engine wait their turn. Signing and keys stay in
+  the terminal.
+- The meerkat stays: its head is the icon, and its mob comes out when a run
+  writes a report.
+
 ## [0.3.1] — 2026-10-19
 
 Everything in Spanish that 0.3.0 left out so that it shipped entirely in
