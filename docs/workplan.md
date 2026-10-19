@@ -586,9 +586,16 @@ The dashboard walks a newcomer through what the README describes:
 Every step shows its exact command, with a copy button, and the run it produced
 in the history.
 
+8. **The meerkat** ([`dashboard.md`](dashboard.md) §7, *The meerkat*): the
+   mascot's head, from `cli/sprite.py::MASCOT`, is the favicon, the header mark
+   and the app icon. When a report is generated, the mob rises from its
+   burrows once, without sound, and respects *reduce motion*. A failed run
+   brings out only the sentinel; an interrupted one, nothing.
+
 **Done when** someone who has read no documentation can go from a fresh install
 to a downloaded draft certificate, and every action they took is a command
-recorded in a run.
+recorded in a run. A test also checks that the dashboard's meerkat is drawn
+from the same grid as the CLI's.
 
 #### Phase 23: history and comparison
 

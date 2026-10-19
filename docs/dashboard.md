@@ -172,6 +172,33 @@ A server on `127.0.0.1` is still reachable by every local user and by any web pa
 - **Comparison checks comparability before comparing.** Runs whose detector hash, dataset hash, scenario-set hash or spec version differ show *not comparable* on that figure, with the reason. A cloud baseline never enters a performance table (D22).
 - **The interface is in English**, like the CLI and the documentation.
 
+### The meerkat
+
+The dashboard keeps OPAAS's mascot: the pixel meerkat of the cover page, whose tagline is *small sentinel, full audit*. It is drawn from the same grid as the CLI, `cli/sprite.py::MASCOT`, which `scripts/sprite_from_png.py` generates from `docs/img/mascot.png`. It is never redrawn by hand, so a change to the mascot reaches the terminal and the dashboard together, and `test_sprite_matches_png.py` keeps guarding it.
+
+**The icon is the meerkat's head:** the top 14 rows and 22 columns of the grid, from the ears to the neck. It is used, unchanged, as:
+
+- the favicon (one pixel per cell, 22×14);
+- the mark in the header beside "OPAAS";
+- the app icon.
+
+Pixel art stays legible at 16 px, so no simplified version is drawn.
+
+**The mob comes out when a report is generated.** When a run that writes a report ends `completed` or `partial`:
+
+1. Five meerkats from the same sprite rise out of their burrows, one after another. They are drawn at different sizes, adults and a pup, and some face the other way.
+2. The largest, the sentinel, turns its head to look around.
+3. The pup fidgets.
+4. The run's id and report hash appear: *Report ready*.
+
+The rules:
+
+- **It plays once, for about four seconds, with no sound.** It never loops, and it never covers the results: it sits above them and leaves them readable.
+- **Reduced motion is respected.** With the system's *reduce motion* setting, the mob is shown already standing, without moving.
+- **A failed run gets no celebration.** When a run ends `failed`, only the sentinel comes out and looks around, beside the error. When a run is `interrupted`, nothing comes out.
+- **The animation is the only decoration in the dashboard.** It runs on a `<canvas>` with a few lines of vendored script, and it needs no image file, font or network.
+- **It is a reaction to a file, not a verdict.** It celebrates that a report exists, never what the report says. The mob is the same for a model whose figures are low as for one whose figures are high (invariant 1).
+
 ---
 
 ## 8. What is lost
@@ -193,6 +220,7 @@ A server on `127.0.0.1` is still reachable by every local user and by any web pa
 5. No signing in the dashboard. Each generated unsigned certificate is a version, kept.
 6. The server is the optional `ui` extra. The interface is in English.
 7. Sentinel's live traffic is shown.
+8. The meerkat stays: its head is the icon, and its mob comes out when a report is generated (§7, *The meerkat*).
 
 ## 10. Open questions
 
@@ -212,6 +240,6 @@ The work plan's phases build this document. Each lands as its own pull request w
 | 19 | §4 versioned unsigned certificates |
 | 20 | §4 `progress.jsonl` from every long command, with the N4 test |
 | 21 | §3 the server, §5 jobs and the per-endpoint queue, §6 security |
-| 22 | §7 overview, new audit, live, run, sentinel |
+| 22 | §7 overview, new audit, live, run, sentinel; the meerkat icon and the mob |
 | 23 | §7 history and compare |
 | 24 | README, CHANGELOG, release |
