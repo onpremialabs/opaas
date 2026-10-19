@@ -50,6 +50,38 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D78 — A running command writes its progress into its run, as a log and not as evidence
+
+**Status:** applied (phase 20 of the work plan) · **Implements:** `progress.jsonl` of [`dashboard.md`](dashboard.md) §4 · **Affects:** [`core/store.py`](../src/opaas/core/store.py), `cli/common.py::RecordedRun.progress`, `run`, `smith run`, `audit run`
+
+The dashboard must show a command's progress without sharing a process with it (D75). Only `bench` reported progress, and only to its own terminal.
+
+**`progress.jsonl` in the run directory.** It is the one file of a run that grows, appended to while the run is open and read-only once it closes.
+
+- Every recorded command writes a `start` line and an `end` line with its final status.
+- `run` writes each `RunEvent`, with its block, position and percentage.
+- `smith run` writes one line per scenario.
+- `audit run` writes one line per step it invokes, naming the step only: its arguments may hold a key (`--bench-args`).
+
+**A log, not evidence.** It is not hash-chained, not signed, not listed among the run's hashed files and never cited by a report.
+
+**N4 holds for it all the same:**
+
+- A line carries only `t`, `kind`, `phase`, `index`, `total`, `percent` and `message`. Any other field is refused.
+- Messages are cut to 200 characters, and stripped of URL credentials and query strings.
+- A test runs commands with an API key and a URL holding credentials and a query, and finds none of them in any line.
+
+**Throttled.** At most two ticks a second reach the file. Milestones, and the tick that ends a phase, always do. A failure to write progress never fails the command.
+
+**Followed by offset.** `read_progress(directory, offset)` returns the complete lines from a byte offset and the offset to continue from, so a reader never parses half a line.
+
+**What is lost:**
+
+- `discover`, `inquest`, `swarm`, `card`, `compare`, `sentinel overhead` and `certificate` write only their start and end lines. They are short, and the dashboard shows them as running until their `end` arrives.
+- A tick skipped by the throttle is gone.
+
+---
+
 ## D77 — An unsigned draft of any stored report, as a new version each time
 
 **Status:** applied (phase 19 of the work plan) · **Extends:** [D72](#d72--audit-run-shows-the-certificate-it-will-become-as-an-unsigned-draft) · **Builds on:** [D76](#d76--every-result-is-recorded-in-a-run-store-written-once) · **Affects:** `opaas certificate`, [`web/certificate.py`](../src/opaas/web/certificate.py)

@@ -48,6 +48,13 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
   report is checked against the hash its run recorded first.
 - A model report now has a draft certificate page, like a system report.
 
+### Added — progress written into each run (D78)
+
+- Every recorded command writes `progress.jsonl` into its run directory:
+  start and end for all, the blocks of `run`, the scenarios of `smith run`
+  and the steps of `audit run`. It is an operational log, not evidence, and
+  carries no prompt, response, key, URL credential or query string.
+
 ## [0.3.1] — 2026-10-19
 
 Everything in Spanish that 0.3.0 left out so that it shipped entirely in

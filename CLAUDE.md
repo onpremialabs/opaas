@@ -124,7 +124,8 @@ src/opaas/
 │   ├── metrics.py      ACR, RF, LPC, GB, SPDR, ADL, AC, ACD, IS, VC; thresholds (D44)
 │   ├── integrity.py    IS level a log file demonstrates, and VC
 │   ├── evidence.py     Evidence-document envelope, canonical write, environment binding
-│   └── store.py        The run store: one directory per run, files written once, run.json (D76)
+│   └── store.py        The run store: one directory per run, files written once, run.json,
+│                       progress.jsonl (D76, D78)
 ├── bench/              model certification (D41)
 │   ├── runner.py       RunRequest → execute() → RunOutcome; progress events
 │   ├── scoring.py      Block B prompt templates (direct/cot) + answer extraction
@@ -168,7 +169,7 @@ docs/     design.md, methodology.md, decisions.md, workplan.md, datasets.md, key
           is cut; releases are never replaced, D74), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60),
           dashboard.md (proposal: `opaas ui`, the local dashboard, and its file contract, D75)
-tests/    1173 tests, one file per module, plus conftest.py with the fake backends
+tests/    1179 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;
           rehearse_ceremony.py — runs every opaas step of the key ceremony (D67)
 web/      README describing the published site layout (the generator lives in src/)
@@ -212,7 +213,7 @@ a round trip.
 
 ### Known test state
 
-`uv run pytest` reports **1172 passed, 1 skipped**. The suite is green: treat any failure as yours.
+`uv run pytest` reports **1178 passed, 1 skipped**. The suite is green: treat any failure as yours.
 Most of its wall time is `nvidia-smi` being called by the bench tests; on a machine without
 it the suite is much faster.
 

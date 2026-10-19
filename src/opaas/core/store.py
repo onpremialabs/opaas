@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import stat
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -51,6 +52,17 @@ RUN_KINDS = frozenset(
 FINAL_STATUSES = frozenset({"completed", "partial", "failed"})
 
 _MAX_RUNS_PER_DAY = 999
+
+#: The operational log a running command appends to, and the dashboard follows
+#: (`docs/dashboard.md` §4). It is not evidence: not chained, not signed, never
+#: cited by a report.
+PROGRESS_FILE = "progress.jsonl"
+PROGRESS_FORMAT = 1
+#: The only fields a progress line may carry (N4: never content).
+PROGRESS_FIELDS = frozenset({"t", "kind", "phase", "index", "total", "percent", "message"})
+_MAX_MESSAGE = 200
+_URL_QUERY = re.compile(r"(\w+://[^\s?#]*)[?#][^\s]*")
+_URL_CREDENTIALS = re.compile(r"(\w+://)[^\s/@]+@")
 
 
 class StoreError(RuntimeError):
@@ -117,6 +129,8 @@ class Run:
     def write_bytes(self, name: str, data: bytes) -> Path:
         """Writes a new file into the run; one that exists is never replaced."""
         self._open_for_writing()
+        if name in (RUN_FILE, PROGRESS_FILE):
+            raise StoreError(f"{name} is the run's own record: it is not written as a file.")
         target = self.path(name)
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -127,6 +141,28 @@ class Run:
                 f"{target} already exists in run {self.run_id}: a run's files are written once."
             ) from None
         return target
+
+    def append_progress(self, **fields: Any) -> None:
+        """Appends one line to the run's progress log, while the run is open.
+
+        The one file of a run that grows. Fields outside `PROGRESS_FIELDS` are
+        refused, and the message is cut short and stripped of URL credentials
+        and query strings: a progress line says where a command is, never what
+        it read or wrote (N4).
+        """
+        self._open_for_writing()
+        unknown = set(fields) - PROGRESS_FIELDS
+        if unknown:
+            raise StoreError(f"Progress lines carry no {sorted(unknown)}: only "
+                             f"{sorted(PROGRESS_FIELDS)}.")
+        line = {"t": _now(), **{k: v for k, v in fields.items() if v is not None}}
+        if "message" in line:
+            message = _URL_CREDENTIALS.sub(r"\1", str(line["message"]))
+            line["message"] = _URL_QUERY.sub(r"\1", message)[:_MAX_MESSAGE]
+        if isinstance(line.get("percent"), float):
+            line["percent"] = round(line["percent"], 1)
+        with (self.directory / PROGRESS_FILE).open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(line, ensure_ascii=False) + "\n")
 
     def keep(self, source: Path, name: str | None = None) -> Path:
         """Copies a file or a directory the command wrote elsewhere into the run.
@@ -155,10 +191,13 @@ class Run:
         self._open_for_writing()
         if status not in FINAL_STATUSES:
             raise StoreError(f"Unknown final status {status!r}: one of {sorted(FINAL_STATUSES)}.")
+        if (self.directory / PROGRESS_FILE).is_file():
+            # A reader following the log learns the run ended without polling run.json.
+            self.append_progress(kind="end", message=f"ended {status}")
         files = {
             str(item.relative_to(self.directory)).replace(os.sep, "/"): file_digest(item)
             for item in sorted(self.directory.rglob("*"))
-            if item.is_file() and item.name != RUN_FILE
+            if item.is_file() and item.name not in (RUN_FILE, PROGRESS_FILE)
         }
         # `fields` may carry an `endedAt` of their own: an imported run ended long ago.
         record = {**self.record, "endedAt": _now(), **fields, "status": status, "files": files}
@@ -276,6 +315,28 @@ def import_directory(
             run.write_bytes(str(item.relative_to(source)), item.read_bytes())
     run.close(status, importedFrom=str(source.resolve()), **fields)
     return run
+
+
+def read_progress(directory: Path, *, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
+    """The progress lines from byte `offset` on, and the offset to read from next.
+
+    A reader that follows a running command calls it again with the offset it
+    got back; a half-written last line is left for the next call.
+    """
+    path = directory / PROGRESS_FILE
+    if not path.is_file():
+        return [], offset
+    with path.open("rb") as handle:
+        handle.seek(offset)
+        data = handle.read()
+    complete = data[: data.rfind(b"\n") + 1]
+    lines = []
+    for raw in complete.splitlines():
+        try:
+            lines.append(json.loads(raw.decode("utf-8")))
+        except ValueError:
+            continue
+    return lines, offset + len(complete)
 
 
 def _process_alive(pid: Any) -> bool:

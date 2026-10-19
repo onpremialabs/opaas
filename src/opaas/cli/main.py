@@ -680,7 +680,13 @@ def run(
 
         try:
             with _progress_reporter(len(requested)) as reporter:
-                outcome = execute(request, on_event=reporter)
+                def on_event(event: RunEvent) -> None:
+                    reporter(event)
+                    recorded.progress(event.message, kind=event.kind, phase=event.suite,
+                                      index=event.index or None, total=event.total or None,
+                                      percent=event.percent)
+
+                outcome = execute(request, on_event=on_event)
         except ValueError as exc:
             err_console.print(f"[red]{exc}[/red]")
             raise typer.Exit(code=2) from None
