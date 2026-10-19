@@ -50,6 +50,39 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D75 — A local dashboard that reads files and launches the CLI, and measures nothing
+
+**Status:** proposed; built by phases 18–24 for 0.4.0 · **Design:** [`dashboard.md`](dashboard.md) · **Builds on:** [D72](#d72--audit-run-shows-the-certificate-it-will-become-as-an-unsigned-draft), [D74](#d74--a-release-is-kept-never-replaced)
+
+A newcomer had only the README and a menu that prints commands. Results landed wherever a command ran, and could be overwritten.
+
+**`opaas ui` guides, shows and compares; it never measures.** The server reads `~/.opaas/runs` and the files commands write while they run. It launches `opaas` commands as child processes and shows each command before it runs. A result in the dashboard is therefore always a CLI result, reproducible from a terminal with the command shown next to it.
+
+**A file contract, not shared code.** `run.json`, `progress.jsonl` and `certificate-v<N>.json` are versioned formats written by the CLI and read by the server. There is no database: the run directories are the state.
+
+**One queue per endpoint.** Two measurements against one engine at once contaminate each other's latency, throughput and concurrency, so they run one after another.
+
+**What it does not do:**
+
+- it does not sign;
+- it does not start the sentinel proxy;
+- it does not approve held actions;
+- it does not launch a rerouted agent without a blocking confirmation that its tools point at the mock server.
+
+**Local, narrowed.** It binds loopback only and uses a session token exchanged for a strict cookie. It checks `Host` against DNS rebinding and allows no CORS.
+
+**Small stack.** Starlette, uvicorn and Jinja2 come in an optional `ui` extra. htmx and its server-sent-events extension are vendored. There is no build step and no CDN.
+
+**What is lost:**
+
+- A second interface that has to keep pace with the CLI.
+- Pages that are less fluid than a single-page application.
+- A localhost server that another process of the same user can still reach.
+- Engines on one GPU cannot be measured together from the dashboard.
+- No team server: runs are shared by sharing directories.
+
+---
+
 ## D74 — A release is kept, never replaced
 
 **Status:** applied (phase 16 of the work plan) · **Affects:** [`.github/workflows/release.yml`](../.github/workflows/release.yml), [`.github/release/build-constraints.txt`](../.github/release/build-constraints.txt), [`docs/releasing.md`](releasing.md), the repository's tag ruleset and release settings
