@@ -110,7 +110,13 @@ def run_command(
     # directory: members, system report and draft, as they were (D76).
     with recorded_run(ctx, "audit") as recorded:
         try:
-            run = run_audit(manifest, base=base, out=out, invoke=_invoke, supplied=supplied,
+            def invoke(args: list[str]) -> int:
+                # Only the step's name: its arguments may hold a key (--bench-args).
+                recorded.progress(f"step: opaas {' '.join(args[:2])}", kind="info",
+                                  phase=args[0] if args else None)
+                return _invoke(args)
+
+            run = run_audit(manifest, base=base, out=out, invoke=invoke, supplied=supplied,
                             only=only or [], skip=skip or [], bench_args=bench_args,
                             repeats=repeats, force=force)
             body = build_report(manifest, manifest_hash=file_digest(system),
