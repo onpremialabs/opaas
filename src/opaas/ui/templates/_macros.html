@@ -1,0 +1,23 @@
+{% macro state(status) -%}
+<span class="state s-{{ status }}">{{ status }}</span>
+{%- endmacro %}
+
+{% macro command(words) -%}
+<div class="cmd"><code class="mono"><span class="prompt">$</span> {{ words | join(' ') }}</code><button type="button" class="copy" data-copy="{{ words | join(' ') }}" title="Copy command">Copy</button></div>
+{%- endmacro %}
+
+{% macro interval(row) -%}
+{# The interval as SVG attributes only: the page's CSP allows no inline styles. #}
+<div class="irow">
+  <span class="ilabel">{{ row.label }}</span>
+  <svg class="ibar" viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label="{{ row.label }}: {{ (row.point * 100) | round(1) }}%{% if row.low is not none %}, interval {{ (row.low * 100) | round(1) }} to {{ (row.high * 100) | round(1) }}{% endif %}">
+    <rect class="itrack" x="0" y="0" width="100" height="10" rx="5"/>
+    <line class="itick" x1="50" x2="50" y1="0" y2="10"/>
+    {% if row.low is not none and row.high is not none %}
+    <rect class="iband" x="{{ row.low * 100 }}" y="0" width="{{ [(row.high - row.low) * 100, 0.6] | max }}" height="10" rx="4"/>
+    {% endif %}
+    <rect class="ipoint" x="{{ [row.point * 100 - 0.6, 0] | max }}" y="0" width="1.2" height="10"/>
+  </svg>
+  <span class="ivalue mono">{{ (row.point * 100) | round(1) }}%{% if row.n %} <small>n {{ row.n }}</small>{% endif %}</span>
+</div>
+{%- endmacro %}

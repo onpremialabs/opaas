@@ -321,12 +321,18 @@ def recorded_run(ctx: typer.Context, kind: str, *,
             opaas_version=__version__,
             spec_version=OPAAS_SPEC_VERSION,
             endpoint=_publishable_value("endpoint", endpoint) if endpoint else None,
+            job_id=os.environ.get("OPAAS_JOB_ID") or None,
         )
     except (StoreError, OSError) as exc:
         err_console.print(f"[red]Cannot record the run:[/red] {exc}")
         raise typer.Exit(code=1) from None
     recorded = RecordedRun(run=run)
-    recorded.progress(" ".join(run.record.get("command", [])[:3]) + " started", kind="start")
+    words = []
+    for word in run.record.get("command", []):
+        if word.startswith("-"):
+            break
+        words.append(word)
+    recorded.progress(" ".join(words) + " started", kind="start")
     try:
         yield recorded
     except KeyboardInterrupt:

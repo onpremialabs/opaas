@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "_macros.html" import state, command, interval %}
+{% block title %}Run {{ record.runId }}{% endblock %}
+{% block content %}
+<div class="head">
+  <div>
+    <p class="crumb"><a href="/runs">Runs</a> / <span class="mono">{{ record.runId }}</span></p>
+    <h1>{% if report and report.model %}{{ report.model }}{% else %}{{ record.kind }} run{% endif %}</h1>
+    <p class="sub">{{ record.kind }}{% if report and report.quantization %} · {{ report.quantization }}{% endif %} · started {{ record.startedAt }}{% if record.endedAt %} · ended {{ record.endedAt }}{% endif %}{% if record.endpoint %} · <span class="mono">{{ record.endpoint }}</span>{% endif %}</p>
+  </div>
+  <div class="head-right">
+    {{ state(record.status) }}
+    {% if report and report.status %}{{ state(report.status) }}{% endif %}
+  </div>
+</div>
+
+{% if record.command %}{{ command(record.command) }}{% elif record.importedFrom %}<p class="dim">Imported from <span class="mono">{{ record.importedFrom }}</span>; the command that produced it is not known.</p>{% endif %}
+
+{% if record.status == 'running' %}
+<section class="live" data-run="{{ record.runId }}">
+  <h2>Live</h2>
+  <ol class="events" id="events"></ol>
+</section>
+{% endif %}
+
+{% if report and report.kind == 'model' %}
+  {% if report.missing %}
+  <p class="notice">Partial evaluation: block{{ 's' if report.missing | length > 1 }} {% for m in report.missing %}{{ m.block }}{{ ', ' if not loop.last }}{% endfor %} not evaluated. Nothing is claimed about {{ 'them' if report.missing | length > 1 else 'it' }}.</p>
+  {% endif %}
+  {% for block in report.blocks %}
+  <section class="block">
+    <h2>Block {{ block.block }} · {{ block.suite }} {{ state(block.status) }}</h2>
+    {% if block.error %}<p class="error mono">{{ block.error }}</p>{% endif %}
+    {% if block.rows %}
+      <p class="legend">Point and 95% interval, per category, in the report's order. No total.</p>
+      {% for row in block.rows %}{{ interval(row) }}{% endfor %}
+    {% elif not block.error %}
+      <p class="dim">This block's figures are in the report: <a href="/runs/{{ record.runId }}/files/report.json">report.json</a>.</p>
+    {% endif %}
+    {% for item in block.notMeasured %}
+      <div class="unmeasured"><span class="dash">not measured</span> <b>{{ item.what }}</b>{% if item.why %} — {{ item.why }}{% endif %}</div>
+    {% endfor %}
+    {% if block.limitations %}
+    <details><summary>{{ block.limitations | length }} limitation{{ 's' if block.limitations | length > 1 }}</summary>
+      <ul class="lims">{% for l in block.limitations %}<li>{{ l }}</li>{% endfor %}</ul>
+    </details>
+    {% endif %}
+  </section>
+  {% endfor %}
+{% elif report and report.kind == 'system' %}
+  <section class="block">
+    <h2>System coverage</h2>
+    <table class="list">
+      <tbody>
+      {% for component, cells in report.coverage.items() %}
+        <tr><td><b>{{ component }}</b></td><td>{% for name, cell in cells.items() %}<span class="tag c-{{ cell }}">{{ name }}: {{ cell }}</span> {% endfor %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+
+<div class="grid2">
+  <section class="card">
+    <h2>Files</h2>
+    {% for f in files %}
+      <div class="file"><a href="/runs/{{ record.runId }}/files/{{ f.name }}">{{ f.name }}</a>
+        <span class="mono dim">{{ f.digest[:19] }}…</span>
+        <span class="chk k-{{ f.check }}">{{ 'matches run.json' if f.check == 'ok' else f.check }}</span></div>
+    {% else %}
+      <p class="dim">No files yet.</p>
+    {% endfor %}
+  </section>
+
+  {% if report %}
+  <section class="card">
+    <h2>Certificate, unsigned draft</h2>
+    {% for d in drafts %}
+      <div class="file"><span>v{{ d.version }} <span class="dim mono">{{ d.endedAt or d.startedAt }}</span></span>
+        <span><a href="/runs/{{ d.runId }}/files/certificate-v{{ d.version }}.html" target="_blank" rel="noopener">Open</a> ·
+        <a href="/runs/{{ d.runId }}/files/certificate-v{{ d.version }}.html?download=1">Download</a></span></div>
+    {% else %}
+      <p class="dim">No draft yet. Each one is kept as a new version.</p>
+    {% endfor %}
+    <button type="button" class="btn" data-launch='["certificate", "--run", "{{ record.runId }}"]'>Generate draft v{{ (drafts | length) + 1 }}</button>
+    <p class="fine">Unsigned: a rendering of this report, not a certificate. Signing stays <code>opaas sign</code>, in a terminal.</p>
+  </section>
+  {% endif %}
+</div>
+
+{% if progress and record.status != 'running' %}
+<details class="card"><summary>Progress log ({{ progress | length }} lines)</summary>
+  <ol class="events">{% for p in progress %}<li><span class="mono dim">{{ p.t[11:19] }}</span> {% if p.phase %}<b>{{ p.phase }}</b> {% endif %}{{ p.message }}</li>{% endfor %}</ol>
+</details>
+{% endif %}
+{% endblock %}
