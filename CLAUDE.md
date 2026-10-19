@@ -162,7 +162,8 @@ src/opaas/
                         signing key), one file per module group, menu.py, banner.py, sprite.py
 
 docs/     design.md, methodology.md, decisions.md, workplan.md, datasets.md, key-custody.md,
-          ceremony.md (production key ceremony runbook, D67), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
+          ceremony.md (production key ceremony runbook, D67), releasing.md (how a release
+          is cut; releases are never replaced, D74), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60)
 tests/    1145 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;

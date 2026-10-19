@@ -4,6 +4,8 @@ on:
   push:
     branches: [develop, main]
   pull_request:
+  # The release workflow runs the whole suite on the tag before it builds.
+  workflow_call:
 
 # A second push to the same branch supersedes the first: no point burning
 # minutes on a commit nobody will look at again.

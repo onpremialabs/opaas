@@ -62,6 +62,17 @@ entirely in English. Block D in Spanish (D70) and the Spanish domain packs
   patterns. Every `pack.json` declares its `language`, and reports list it
   beside each pack's version and hash (D73).
 
+### Releases are kept, never replaced (D74)
+
+- Every release now carries its wheel, its sdist, `SHA256SUMS` and
+  `BUILD-INFO.txt`. A workflow builds them from the tag with a pinned `uv` and
+  build backend, so rebuilding the tag gives the same bytes.
+- `v*` tags can no longer be moved or deleted, and a published release can no
+  longer gain or swap files. A mistake is fixed by the next patch version.
+- 0.2.0 and 0.3.0 gain archives built from their tags after the fact, as their
+  `BUILD-INFO.txt` says. 0.2.1 is tagged at its release commit (`e20a404`).
+- The procedure is in [`docs/releasing.md`](docs/releasing.md).
+
 ## [0.3.0] — 2026-10-18
 
 Phase 14 of the work plan: the operational gaps the status table declared
