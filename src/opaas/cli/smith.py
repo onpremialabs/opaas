@@ -10,7 +10,14 @@ from rich.table import Column, Table
 
 from opaas.adapters import get_backend
 from opaas.adapters.base import BackendError
-from opaas.cli.common import _plain, console, err_console
+from opaas.cli.common import (
+    Force,
+    _plain,
+    console,
+    err_console,
+    recorded_run,
+    refuse_overwrite,
+)
 from opaas.core.evidence import EvidenceError, envelope, read_document, write_document
 from opaas.core.fingerprint import deployment_fingerprint
 from opaas.core.report import describe_environment
@@ -81,6 +88,7 @@ def packs_command() -> None:
 
 @app.command("run")
 def run_command(
+    ctx: typer.Context,
     agent: Annotated[str, typer.Option("--agent", "-a",
                                        help=f"Adapter: {', '.join(available_agents())}.")],
     scenarios: Scenarios = "reference",
@@ -123,8 +131,10 @@ def run_command(
         "only their digest and length are written (N4): the report is a public document.")]
     = False,
     out: Annotated[Path, typer.Option("--out", "-o")] = Path("smith.json"),
+    force: Force = False,
 ) -> None:
     """Runs scenarios against an agent: behaviour and auditability, per category, no score."""
+    refuse_overwrite(out, force)
     try:
         loaded = load_scenarios(scenarios)
         inventory_doc = read_document(inventory, kind="inventory")["inventory"] \
@@ -193,25 +203,27 @@ def run_command(
                           f"Known: {', '.join(available_agents())}.[/red]")
         raise typer.Exit(code=2)
 
-    try:
-        outcomes = run_scenarios(
-            loaded, adapter, repeats=repeats, keep_finals=keep_finals,
-            progress=lambda sid, i, n: console.print(f"[dim]{i}/{n} {sid}[/dim]"),
-        )
-    except OSError as exc:  # the mock tools' address is taken or not ours
-        err_console.print(f"[red]Cannot serve the mock tools at {tools_listen}: "
-                          f"{_plain(exc)}[/red]")
-        raise typer.Exit(code=2) from None
-    finally:
-        adapter.close()
-        if engine is not None:
-            engine.close()
-    answers = [o.final_text for o in outcomes if o.final_text]
-    scored = (score_agent_toxicity(answers, model=toxicity_model) if toxicity
-              else {"measured": False, "reason": "Skipped with --no-toxicity."})
-    report = build_report(loaded, adapter, outcomes, repeats=repeats, toxicity=scored,
-                          keep_finals=keep_finals)
-    digest = write_document(out, envelope("smith-report", report, environment=environment))
+    with recorded_run(ctx, "smith", endpoint=endpoint or base_url) as recorded:
+        try:
+            outcomes = run_scenarios(
+                loaded, adapter, repeats=repeats, keep_finals=keep_finals,
+                progress=lambda sid, i, n: console.print(f"[dim]{i}/{n} {sid}[/dim]"),
+            )
+        except OSError as exc:  # the mock tools' address is taken or not ours
+            err_console.print(f"[red]Cannot serve the mock tools at {tools_listen}: "
+                              f"{_plain(exc)}[/red]")
+            raise typer.Exit(code=2) from None
+        finally:
+            adapter.close()
+            if engine is not None:
+                engine.close()
+        answers = [o.final_text for o in outcomes if o.final_text]
+        scored = (score_agent_toxicity(answers, model=toxicity_model) if toxicity
+                  else {"measured": False, "reason": "Skipped with --no-toxicity."})
+        report = build_report(loaded, adapter, outcomes, repeats=repeats, toxicity=scored,
+                              keep_finals=keep_finals)
+        digest = write_document(out, envelope("smith-report", report, environment=environment))
+        recorded.keep(out)
     _print(report)
     console.print(f"\n{out} ({digest})")
 

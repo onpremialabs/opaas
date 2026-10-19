@@ -54,6 +54,7 @@ from opaas.bench.scoring import ScoringError, prompt_template_hash
 from opaas.bench.suites import PLANNED_SUITES, available_suites, get_suite, planned_suite_hint
 from opaas.cli.banner import print_banner
 from opaas.cli.common import (  # noqa: E402 - shared with the module command groups
+    Force,
     _load_signing_key,
     _plain,
     _signing_identity,
@@ -61,6 +62,8 @@ from opaas.cli.common import (  # noqa: E402 - shared with the module command gr
     console,
     err_console,
     read_json,
+    recorded_run,
+    refuse_overwrite,
 )
 from opaas.cli.menu import MenuItem, is_interactive, present
 from opaas.core.credential import (
@@ -304,7 +307,9 @@ WeightsPath = Annotated[
 OutputFile = Annotated[
     Path | None,
     typer.Option(
-        "--output", "-o", help="Report file; defaults to runs/<run-id>/report.json."
+        "--output", "-o",
+        help="Report file, written in addition to the run store's copy. Defaults to the run "
+        "store: ~/.opaas/runs/<run-id>/report.json, or $OPAAS_RUNS_DIR.",
     ),
 ]
 RunId = Annotated[
@@ -470,6 +475,7 @@ def _progress_reporter(suites: int) -> Iterator[Callable[[RunEvent], None]]:
 
 @app.command()
 def run(
+    ctx: typer.Context,
     model: Model,
     backend: Backend = "vllm",
     suite: Suites = None,
@@ -511,6 +517,7 @@ def run(
     toxicity_es_model: ToxicityEsModel = None,
     toxicity_es_threshold: ToxicityEsThreshold = None,
     allow_remote_code: AllowRemoteCode = False,
+    force: Force = False,
 ) -> None:
     """Runs an evaluation and writes the structured report."""
     requested = suite or ["performance"]
@@ -635,44 +642,62 @@ def run(
         },
     }
 
-    request = RunRequest(
-        model=model,
-        backend=backend,
-        suites=requested,
-        backend_config={
-            "base_url": base_url,
-            "prompt_mode": prompt_mode,
-            "num_ctx": num_ctx,
-            "max_concurrency": max_concurrency,
-            "api_key": api_key,
-            "timeout_s": timeout_s,
-            "quantization": quantization,
-        },
-        suite_options=suite_options,
-        output=output,
-        run_id=run_id,
-        model_source=source,
-        quantization=quantization,
-        weights_path=weights_path,
-        reference_type=reference_type,
-        operator_notes=note or [],
-    )
+    refuse_overwrite(output, force)
+    # Without --output the report goes straight into the run's directory;
+    # with it, where the user asked, and the store keeps a copy (D76). The
+    # report's run id is the store's, unless --run-id named another.
+    with recorded_run(ctx, "bench", endpoint=_backend_endpoint(backend, base_url)) as recorded:
+        request = RunRequest(
+            model=model,
+            backend=backend,
+            suites=requested,
+            backend_config={
+                "base_url": base_url,
+                "prompt_mode": prompt_mode,
+                "num_ctx": num_ctx,
+                "max_concurrency": max_concurrency,
+                "api_key": api_key,
+                "timeout_s": timeout_s,
+                "quantization": quantization,
+            },
+            suite_options=suite_options,
+            output=output or recorded.directory / "report.json",
+            run_id=run_id or recorded.run.run_id,
+            model_source=source,
+            quantization=quantization,
+            weights_path=weights_path,
+            reference_type=reference_type,
+            operator_notes=note or [],
+        )
 
+        try:
+            with _progress_reporter(len(requested)) as reporter:
+                outcome = execute(request, on_event=reporter)
+        except ValueError as exc:
+            err_console.print(f"[red]{exc}[/red]")
+            raise typer.Exit(code=2) from None
+        except BackendError as exc:
+            err_console.print(f"[red]Backend error:[/red] {exc}")
+            raise typer.Exit(code=1) from None
+
+        if output is not None:
+            recorded.keep(outcome.report_path, "report.json")
+        _print_run_summary(outcome.report.payload())
+        console.print(f"\nReport: [bold]{outcome.report_path}[/bold]")
+        console.print(f"Hash  : [bold]{file_digest(outcome.report_path)}[/bold]")
+        if outcome.report.status == "partial":
+            recorded.status = "partial"
+            raise typer.Exit(code=1)
+
+
+def _backend_endpoint(backend: str, base_url: str | None) -> str | None:
+    """The endpoint a run talks to, for the store's queue per endpoint (D75)."""
+    if base_url:
+        return base_url
     try:
-        with _progress_reporter(len(requested)) as reporter:
-            outcome = execute(request, on_event=reporter)
-    except ValueError as exc:
-        err_console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(code=2) from None
-    except BackendError as exc:
-        err_console.print(f"[red]Backend error:[/red] {exc}")
-        raise typer.Exit(code=1) from None
-
-    _print_run_summary(outcome.report.payload())
-    console.print(f"\nReport: [bold]{outcome.report_path}[/bold]")
-    console.print(f"Hash  : [bold]{file_digest(outcome.report_path)}[/bold]")
-    if outcome.report.status == "partial":
-        raise typer.Exit(code=1)
+        return getattr(get_backend(backend), "default_base_url", None)
+    except BackendError:
+        return None
 
 
 ReportPath = Annotated[
@@ -842,8 +867,10 @@ def admit_command(report: AdmitReport, as_json: AdmitJson = False) -> None:
 
 
 @app.command("compare")
-def compare_command(report: ReportInputs, out: ComparisonOut = None) -> None:
+def compare_command(ctx: typer.Context, report: ReportInputs, out: ComparisonOut = None,
+                    force: Force = False) -> None:
     """Compares several reports: quantizations, backends or configurations."""
+    refuse_overwrite(out, force)
     try:
         loaded = load_reports(list(report))
         comparison = compare(loaded)
@@ -856,9 +883,14 @@ def compare_command(report: ReportInputs, out: ComparisonOut = None) -> None:
 
     _print_comparison(comparison)
 
+    # Every comparison is kept in the run store, with or without --out (D76).
+    text = canonical_json(comparison) + "\n"
+    with recorded_run(ctx, "compare") as recorded:
+        recorded.run.write_bytes("comparison.json", text.encode("utf-8"))
+        if out is not None:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(text, encoding="utf-8")
     if out is not None:
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(canonical_json(comparison) + "\n", encoding="utf-8")
         console.print(f"\nComparison written to [bold]{out}[/bold]")
 
 
@@ -2606,6 +2638,7 @@ from opaas.cli import discover as _discover_cli  # noqa: E402
 from opaas.cli import evidence as _evidence_cli  # noqa: E402
 from opaas.cli import inquest as _inquest_cli  # noqa: E402
 from opaas.cli import root as _root_cli  # noqa: E402
+from opaas.cli import runs as _runs_cli  # noqa: E402
 from opaas.cli import sentinel as _sentinel_cli  # noqa: E402
 from opaas.cli import smith as _smith_cli  # noqa: E402
 from opaas.cli import swarm as _swarm_cli  # noqa: E402
@@ -2618,6 +2651,7 @@ app.add_typer(_inquest_cli.app, name="inquest")
 app.add_typer(_card_cli.app, name="card")
 app.add_typer(_evidence_cli.app, name="evidence")
 app.add_typer(_audit_cli.app, name="audit")
+app.add_typer(_runs_cli.app, name="runs")
 # What the offline root signs (D65): top-level, beside keygen, sign and trust.
 app.command("root-document")(_root_cli.root_document)
 app.command("delegate")(_root_cli.delegate)

@@ -8,7 +8,15 @@ from typing import Annotated
 
 import typer
 
-from opaas.cli.common import _plain, console, err_console, read_json
+from opaas.cli.common import (
+    Force,
+    _plain,
+    console,
+    err_console,
+    read_json,
+    recorded_run,
+    refuse_overwrite,
+)
 from opaas.core.credential import load_public_key
 from opaas.core.evidence import EvidenceError, envelope, read_document, write_document
 from opaas.inquest import FORMATS, import_records
@@ -24,6 +32,7 @@ Fmt = Annotated[str, typer.Option("--format", "-f", help=f"One of {', '.join(FOR
 
 @app.command("analyze")
 def analyze_command(
+    ctx: typer.Context,
     source: Source,
     topology: Annotated[Path, typer.Option("--topology", "-t",
                                            help="Declared flow: {edges: [{from, to}]}.")],
@@ -32,6 +41,7 @@ def analyze_command(
     inventory: Annotated[Path | None, typer.Option(
         "--inventory", help="`discover scan` document to bind the result to (N5).")] = None,
     out: Annotated[Path, typer.Option("--out", "-o")] = Path("swarm.json"),
+    force: Force = False,
 ) -> None:
     """Edges declared vs observed, per-edge figures, delegation attribution, faults."""
     try:
@@ -42,8 +52,12 @@ def analyze_command(
     except (TopologyError, ImportError_, EvidenceError, OSError, ValueError) as exc:
         err_console.print(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
-    result = {**analyse(imported.records, declared), "integrity": imported.integrity}
-    digest = write_document(out, envelope("swarm-analysis", result, environment=environment))
+    refuse_overwrite(out, force)
+    with recorded_run(ctx, "swarm") as recorded:
+        result = {**analyse(imported.records, declared), "integrity": imported.integrity}
+        digest = write_document(out, envelope("swarm-analysis", result,
+                                              environment=environment))
+        recorded.keep(out)
     topo = result["topology"]
     for edge in topo["undeclared"]:
         console.print(f"  [red]undeclared[/red] {edge['from']} → {edge['to']} "

@@ -7,7 +7,15 @@ from typing import Annotated, Any
 
 import typer
 
-from opaas.cli.common import _plain, console, err_console, read_json
+from opaas.cli.common import (
+    Force,
+    _plain,
+    console,
+    err_console,
+    read_json,
+    recorded_run,
+    refuse_overwrite,
+)
 from opaas.core.credential import load_public_key
 from opaas.core.events import PHASES
 from opaas.core.evidence import envelope, write_document
@@ -22,6 +30,7 @@ app = typer.Typer(help="Audit the records that exist: integrity first, three-val
 
 @app.command("audit")
 def audit_command(
+    ctx: typer.Context,
     source: Annotated[Path, typer.Argument(help="Records to audit.")],
     fmt: Annotated[str, typer.Option("--format", "-f",
                                      help=f"One of {', '.join(FORMATS)}.")] = "sentinel",
@@ -42,6 +51,7 @@ def audit_command(
     = None,
     inventory: Annotated[Path | None, typer.Option("--inventory")] = None,
     out: Annotated[Path, typer.Option("--out", "-o")] = Path("inquest.json"),
+    force: Force = False,
 ) -> None:
     """Audits records: IS level found, five dimensions, comply/violate/undecidable."""
     try:
@@ -59,9 +69,13 @@ def audit_command(
     except (PolicyError, AuditError, ImportError_, OSError, ValueError) as exc:
         err_console.print(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
-    result = audit(imported, policies=loaded, expected_phases=declared_phases,
-                   thresholds=limits, degradations=steps)
-    digest = write_document(out, envelope("inquest-audit", result, environment=environment))
+    refuse_overwrite(out, force)
+    with recorded_run(ctx, "inquest") as recorded:
+        result = audit(imported, policies=loaded, expected_phases=declared_phases,
+                       thresholds=limits, degradations=steps)
+        digest = write_document(out, envelope("inquest-audit", result,
+                                              environment=environment))
+        recorded.keep(out)
 
     dims = result["dimensions"]
     console.print(f"[bold]Integrity[/bold] {dims['evidenceIntegrity']['IS']} "

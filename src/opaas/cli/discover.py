@@ -7,7 +7,16 @@ from typing import Annotated
 
 import typer
 
-from opaas.cli.common import _load_signing_key, _plain, console, err_console, read_json
+from opaas.cli.common import (
+    Force,
+    _load_signing_key,
+    _plain,
+    console,
+    err_console,
+    read_json,
+    recorded_run,
+    refuse_overwrite,
+)
 from opaas.core.credential import load_public_key
 from opaas.core.evidence import EvidenceError, envelope, read_document, write_document
 from opaas.discover import discover
@@ -38,6 +47,7 @@ AgentEndpoint = Annotated[list[str], typer.Option(
 
 @app.command("scan")
 def scan_command(
+    ctx: typer.Context,
     endpoint: Endpoint = None,
     config: Config = None,
     manifest: Manifest = None,
@@ -46,6 +56,7 @@ def scan_command(
     well_known: WellKnown = False,
     agent_endpoint: AgentEndpoint = None,
     out: Out = Path("inventory.json"),
+    force: Force = False,
 ) -> None:
     """Inventory of engines, models, agents, MCP servers, tools, skills and containers.
 
@@ -56,12 +67,15 @@ def scan_command(
         if not path.exists():
             err_console.print(f"[red]Not found:[/red] {path}")
             raise typer.Exit(code=2)
-    document = discover(endpoints=endpoint or [], configs=config or [],
-                        manifests=manifest or [], skill_dirs=skills or [],
-                        containers=containers, well_known=well_known,
-                        agent_endpoints=agent_endpoint or [])
-    digest = write_document(out, envelope("inventory", {"inventory": document},
-                                          environment={"inventory": document}))
+    refuse_overwrite(out, force)
+    with recorded_run(ctx, "discover") as recorded:
+        document = discover(endpoints=endpoint or [], configs=config or [],
+                            manifests=manifest or [], skill_dirs=skills or [],
+                            containers=containers, well_known=well_known,
+                            agent_endpoints=agent_endpoint or [])
+        digest = write_document(out, envelope("inventory", {"inventory": document},
+                                              environment={"inventory": document}))
+        recorded.keep(out)
     console.print(f"[bold]Environment[/bold] {document['hash']}")
     for engine in document.get("engines", []):
         console.print(
@@ -94,6 +108,7 @@ def scan_command(
 
 @app.command("gaps")
 def gaps_command(
+    ctx: typer.Context,
     inventory: Annotated[Path, typer.Option("--inventory", "-i",
                                             help="Document from `discover scan`.")],
     log: Annotated[list[Path], typer.Option("--log", help="Agent log to assess. Repeatable.")]
@@ -111,6 +126,7 @@ def gaps_command(
         "one, signed skills are not observed: the key never comes from the signature.")]
     = None,
     out: Out = Path("gaps.json"),
+    force: Force = False,
 ) -> None:
     """Deterministic auditability gap scan (OP1). A gap is never a predicted violation."""
     try:
@@ -125,11 +141,14 @@ def gaps_command(
         if not path.exists():
             err_console.print(f"[red]Log not found:[/red] {path}")
             raise typer.Exit(code=2)
-    result = scan_gaps(document["inventory"], logs=log or [], public_key=public_key,
-                       declaration=declared, logging_endpoints=logging_endpoint or [],
-                       skill_keys=skill_keys)
-    digest = write_document(out, envelope("gap-scan", result,
-                                          environment={"inventory": document["inventory"]}))
+    refuse_overwrite(out, force)
+    with recorded_run(ctx, "discover") as recorded:
+        result = scan_gaps(document["inventory"], logs=log or [], public_key=public_key,
+                           declaration=declared, logging_endpoints=logging_endpoint or [],
+                           skill_keys=skill_keys)
+        digest = write_document(out, envelope("gap-scan", result,
+                                              environment={"inventory": document["inventory"]}))
+        recorded.keep(out)
     style = {"gap": "red", "ok": "green", "unsupported": "yellow", "not-observed": "dim"}
     for finding in result["findings"]:
         color = style[finding["status"]]
