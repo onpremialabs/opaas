@@ -1,6 +1,6 @@
 # Work plan: from model certification to auditable agents
 
-**Status:** implemented, phases 0–7 (D40–D52), with the system audit (8, D60), agent identification (9, D63), the smith adapters for pending agents (11, D68, D69), block D beyond English (12, D70), the domain scenario packs (13, D71) and the declared operational gaps (14, D64); phase 10 is in progress, 15 is planned. The [status table](#status) says what each phase delivered and what was left out, and the [release scope](#release-scope) says what shipped in 0.3.0 and what comes in 0.3.1. This plan splits OPAAS into modules (`discover`, `smith`, `swarm`, `sentinel`, `inquest`, `card`) around one shared evidence core. Each phase lands as its own pull requests with `D<n>` entries. Nothing here changes an invariant in [CLAUDE.md](../CLAUDE.md); where a module needs a new one, it is listed under [New invariants](#new-invariants).
+**Status:** implemented, phases 0–7 (D40–D52), with the system audit (8, D60), agent identification (9, D63), the smith adapters for pending agents (11, D68, D69), block D beyond English (12, D70), the domain scenario packs (13, D71) and the declared operational gaps (14, D64); phase 10 is in progress, 15 is planned, and phases 16–24 plan [releases 0.3.1 and 0.4.0](#releases-031-and-040). The [status table](#status) says what each phase delivered and what was left out, and the [release scope](#release-scope) says what shipped in 0.3.0 and what comes in 0.3.1. This plan splits OPAAS into modules (`discover`, `smith`, `swarm`, `sentinel`, `inquest`, `card`) around one shared evidence core. Each phase lands as its own pull requests with `D<n>` entries. Nothing here changes an invariant in [CLAUDE.md](../CLAUDE.md); where a module needs a new one, it is listed under [New invariants](#new-invariants).
 
 ---
 
@@ -202,6 +202,15 @@ This is the paper's missing end-to-end audit. The ground truth comes from instru
 | **13. Domain scenario packs** | Versioned, hashed scenario packs per domain; richer templates; more counterfactual pairs. [Detail](#phase-13-domain-scenario-packs) | 11 | M |
 | **14. Declared operational gaps** | Skill signatures verified (G05); full stream output when kept; approver notification; agent runtimes probed. [Detail](#phase-14-declared-operational-gaps) | — | S–M |
 | **15. Engines without an OpenAI-compatible API** (optional) | Native adapters (Triton / TensorRT-LLM, TGI native) only when a real deployment needs one. [Detail](#phase-15-engines-without-an-openai-compatible-api-optional) | — | S |
+| **16. Immutable releases** (0.3.1, planned) | Protected tags; wheel, sdist and checksums attached by a workflow; 0.2.0 and 0.3.0 backfilled; 0.2.1 resolved. [Detail](#phase-16-immutable-releases) | — | S |
+| **17. Release 0.3.1** (planned) | Block D in Spanish and the Spanish packs, published through phase 16's pipeline. [Detail](#phase-17-release-031) | 16 | S |
+| **18. Append-only run store** (0.4.0, planned) | Every result kept under `~/.opaas/runs`, written once, never overwritten; `opaas runs`. [Detail](#phase-18-append-only-run-store) | 17 | M |
+| **19. Versioned unsigned certificates** (0.4.0, planned) | Each generation of a run's draft certificate is a new version, kept. [Detail](#phase-19-versioned-unsigned-certificates) | 18 | S |
+| **20. Progress written to the run** (0.4.0, planned) | Every long command writes its progress to the run directory, so a reader of the files sees it live. [Detail](#phase-20-progress-written-to-the-run) | 18 | M |
+| **21. `opaas ui` server** (0.4.0, planned) | Local dashboard server in an optional `ui` extra, loopback only, reading the run store. [Detail](#phase-21-opaas-ui-server) | 18, 20 | M |
+| **22. Guided flow** (0.4.0, planned) | discover → models → agents → system → draft certificate, launched from the dashboard, each step showing its CLI command; sentinel live. [Detail](#phase-22-guided-flow) | 19, 21 | L |
+| **23. History and comparison** (0.4.0, planned) | Runs listed, filtered and compared per category with the CI-overlap rule, never ranked. [Detail](#phase-23-history-and-comparison) | 21 | M |
+| **24. Release 0.4.0** (planned) | Documentation, upgrade notes, release through phase 16's pipeline. [Detail](#phase-24-release-040) | 18–23 | S |
 
 ### Status
 
@@ -222,6 +231,7 @@ This is the paper's missing end-to-end audit. The ground truth comes from instru
 | **12. Block D beyond English** | D70: tasks declare their `language`, and block D computes every figure within one language: English at the top level, every other language under `byLanguage`, never pooled. `esbbq`: EsBBQ from the authors' repository at a fixed commit, ten files hashed, 2,000 items over ten categories of Spain's social context, whole records dropped when the stereotyped answer is not identifiable, the English `unknown` option shown as *No se puede determinar* and the options reordered by item id; asked in Spanish. A Spanish toxicity classifier (`textdetox/xlmr-large-toxicity-classifier`, full commit, safetensors only) with six Spanish control cases, unpublished when uncalibrated; the English one never scores Spanish. Spanish refusal, abstention, compliance and dissuasion patterns; the detector hash changes. `methodology.md` says what may not be claimed from each Spanish figure. | **A Spanish refusal pair**: no Spanish XSTest exists, and harmful-only sets are half a pair. **Spanish toxicity under provocation**: PolygloToxicityPrompts declares two licenses that disagree, and RTP-LX is a password-protected archive. **Spanish faithfulness**: no multilingual NLI model is pinned. The Spanish classifier is calibrated on its six control cases only (run on its real weights: 6 of 6, margin 0.999, D70). The Spanish patterns are unvalidated against a labelled corpus. `watch` drift compares English figures only. |
 | **13. Domain scenario packs** | D71: `banking`, `health`, `public-sector`, `rag` and `devops` packs (23 scenarios, each domain with a task, destructive, permission and injection scenario), loaded as `pack:<id>`, pinned by version and scenario-set hash and refused on mismatch, each replayed by a correct solution in the tests; a run on packs and reference scenarios alone is not certifiable. Counterfactual pairs for triage, hiring and moderation. `audit template` aims injection templates at the manifest's sinks and puts permission templates beside a lookup of the same kind. | Packs use invented data; Spanish versions of all five followed in D73, other languages wait for a deployment that needs them. A pack scenario is not promoted to the reference set, which stays the 21 that existing reports cite. |
 | **15.** | Planned, not started. | — |
+| **16.–24.** | Planned, not started: [releases 0.3.1 and 0.4.0](#releases-031-and-040). | — |
 | **14. Declared operational gaps** | D64: G05 verifies skill signatures (`discover sign-skill`, `gaps --skill-key`; `RULESET_VERSION` 2). The proxy assembles OpenAI, Responses API and Ollama streams before applying `keep`; `--keep-output`. The gate notifies approvers through `--notify-webhook` / `--notify-command` with ids and digest only, and records whether each notice was delivered. `discover` probes agent runtimes with one GET and G07 covers them. | Signatures in schemes other than OPAAS's own are not verified (`not-observed`). Streams in other shapes keep their last line, marked. A runtime probe sees its front door, not whether its actions need credentials. |
 
 ### Release scope
@@ -342,6 +352,269 @@ and one injection scenario. Depends on phase 11 to be exercised on real agents.
 Native adapters for Triton / TensorRT-LLM or TGI's own API, following the
 *new inference engine* recipe in `CLAUDE.md`, only when a deployment that needs
 one appears. Most engines already expose an OpenAI-compatible API.
+
+### Releases 0.3.1 and 0.4.0
+
+Two things stand between OPAAS and someone who installs it without knowing its
+commands. First, nothing guarantees that what was released, or what was
+measured, is still there tomorrow. Second, a newcomer has only the README to
+learn from.
+
+- **Releases are not immutable today.** `v0.2.0` and `v0.3.0` exist as tags and
+  GitHub releases, but neither carries a built artifact. Nothing stops a tag from
+  being moved or deleted. The CHANGELOG lists a 0.2.1 that has no tag and no
+  release.
+- **Results are not immutable today.** `opaas run --output` and `audit run -o`
+  overwrite whatever was there (`RunReport.write`, `write_document` and
+  `out.mkdir(exist_ok=True)`). The default run directory is `./runs`, relative
+  to wherever the command happened to run, so a user's history is scattered and
+  can be silently replaced.
+- **The CLI teaches, but does not guide.** The cover-page menu (`cli/menu.py`)
+  prints commands to copy. That is deliberate, and it stays, but a newcomer
+  still has to know which command comes next.
+
+**0.3.1** fixes the first point before anything else ships, and carries the
+Spanish work already in `develop`. **0.4.0** fixes the other two with an
+append-only run store and a local dashboard, `opaas ui`.
+
+**Settled with the maintainer before planning (2026-10-19):**
+
+1. Every software release and every audit run is kept and never replaced.
+2. A newcomer is guided by the dashboard. The CLI stays the source of truth, and
+   every dashboard step shows the exact command it runs.
+3. The dashboard is local: it is served on the machine of whoever installed
+   OPAAS, for that user.
+4. History lives in `~/.opaas/runs` and is read from the local file system.
+   Comparison is OPAAS's own, served by the same local server. MLflow is not
+   used.
+5. The dashboard never signs. It generates the **unsigned** certificate from the
+   data (D72), and each generation is a new version that stays visible.
+6. The server is an optional extra, `opaas[ui]`, so the base install stays as
+   small as it is.
+7. The interface is in English, like the CLI and the documentation.
+8. The dashboard shows sentinel's live traffic as well, digests only.
+
+**What the dashboard must not do,** because the invariants apply to it as to
+any other output:
+
+- No total score, ranking or "best run" (invariant 1). Comparison is per
+  category, with intervals, and overlapping intervals are shown as no
+  difference (invariant 11).
+- What was not measured is shown as not measured, with its reason, never as an
+  empty bar or a zero (invariant 2).
+- It shows only what the files hold. Under N4 those are digests unless the
+  operator kept a value. The dashboard never asks an engine or agent for more.
+- No signing, no key and no passphrase pass through the browser.
+- Nothing is published, and the draft certificate carries no QR code unless the
+  user names a base URL (D72).
+
+#### Phase 16: immutable releases
+
+1. A tag ruleset on the repository: `v*` tags cannot be updated, force-pushed or
+   deleted, and only maintainers create them. GitHub's immutable-releases
+   setting is turned on, so a published release's assets cannot be swapped.
+2. A `release.yml` workflow triggered by a `v*` tag. It runs the CI matrix, then
+   `uv build` with the locked toolchain, writes `SHA256SUMS` for the wheel and
+   the sdist, and uploads all three to the release created for that tag. It
+   refuses to run if the release already has assets, and it never re-uploads.
+3. Backfill 0.2.0 and 0.3.0: build each at its tag in a clean checkout and attach
+   the artifacts with their checksums. These are built after the fact, and their
+   release notes say so.
+4. Resolve 0.2.1. If the commit it describes can be identified, tag it and
+   release it like the others. If not, the CHANGELOG marks 0.2.1 as *never
+   released* and says why. A version number is never reused either way.
+5. `docs/releasing.md` gives the procedure: version bump in `pyproject.toml`,
+   `opaas.__version__` and `CITATION.cff` together; release branch; tag;
+   workflow. It also says how to correct a bad release: a new patch version,
+   never a moved tag.
+6. A D-entry, saying what is lost: a broken release cannot be repaired in place,
+   only superseded.
+
+**Done when** every version in the CHANGELOG has a tag and a release with a wheel,
+an sdist and `SHA256SUMS`, or is marked never released, and pushing a moved `v*`
+tag is refused by the server.
+
+#### Phase 17: release 0.3.1
+
+1. Block D in Spanish (D70) and the Spanish domain packs (D73), as the
+   [release scope](#release-scope) above lists them.
+2. The domain-expert review of the Spanish packs that D73 says they have not
+   had. Without it, the packs ship marked unreviewed in their `pack.json` and in
+   the release notes, or are held back. The maintainer decides which.
+3. Published through phase 16's workflow.
+
+**Done when** `v0.3.1` exists with its artifacts, and its release notes, in
+English, list what the Spanish figures may not be used to claim.
+
+#### Phase 18: append-only run store
+
+1. **One store**: `~/.opaas/runs`, or `$OPAAS_RUNS_DIR`. It replaces `./runs`
+   (`bench.runner.DEFAULT_RUNS_DIR`). Every command that produces a result
+   records it there: `run`, `smith run`, `audit run`, `discover scan`/`gaps`,
+   `inquest audit`, `swarm`, `card`, `compare`. `--output` still writes where the
+   user asked, and the store keeps its own copy.
+2. **A run directory per run**: `<run-id>/`, allocated atomically with an
+   exclusive `mkdir`, so two runs launched at once (the dashboard can do that)
+   never share an id. `allocate_run_id` checks and then creates, which is not
+   enough here.
+3. **Written once**: each file is opened exclusively for creation. A second
+   write to the same path fails and names the file. A run directory holds a
+   `run.json` stating:
+   - the kind, the OPAAS and spec versions, the start and end times and the
+     final status;
+   - the exact command line, with secrets replaced as in
+     `_publishable_config`;
+   - the hash of every file the run wrote.
+4. **No more silent overwrites**: an existing `--output` path is refused, as
+   `compliance` and `audit draft` already do, unless `--force`. Even with
+   `--force`, the store copy of the earlier result stays.
+5. **`opaas runs list | show | path`**: a read-only view over the store. An index
+   may be kept for speed, but it is derived and rebuildable. The run
+   directories are what counts.
+6. **Nothing deletes.** Removing a run is done by hand, outside OPAAS. The
+   documentation says what that loses.
+7. A D-entry, saying what is lost: disk space grows without bound, and a run
+   still in progress when the process dies stays visible, as `interrupted`.
+
+**Done when** no OPAAS command can replace a file in the store, a test pins that
+for every command in step 1, and the old `./runs` directories are listed by
+`opaas runs list --import` and copied in on request, never moved.
+
+#### Phase 19: versioned unsigned certificates
+
+1. `opaas certificate --run <run-id>`, without a credential, renders the
+   unsigned certificate (D72) from the run's report. The existing `certificate`
+   command, which takes a credential, is unchanged. It writes `certificate-v<N>.html` and a
+   `certificate-v<N>.json` that records:
+   - the report hash;
+   - the OPAAS version;
+   - the template hash;
+   - the generation time.
+
+   N is the next free number, and nothing earlier is touched.
+2. The draft stays marked **draft, not signed**, and carries no QR code unless
+   `--certificate-base-url` is given.
+3. The dashboard lists every version of a run's certificate and downloads any of
+   them. Signing remains `opaas sign`, outside the dashboard.
+
+**Done when** generating twice gives v1 and v2, side by side, and both can be
+downloaded.
+
+#### Phase 20: progress written to the run
+
+1. Every long command writes its progress to `progress.jsonl` in its run
+   directory. That covers `RunEvent` for `run`, and the equivalent events of
+   `smith run`, `audit run` steps, `discover`, `inquest` and `swarm`. Each line
+   is one event with a timestamp, the phase, the percentage when known, and a
+   message.
+2. This file is an operational log, not evidence. It is not an `AuditEvent`, it
+   is not hash-chained, and it is not cited by reports.
+3. Progress lines follow N4: no prompt, no response, no tool argument, no URL
+   query string, no environment value.
+4. Sentinel already writes its event log. The dashboard reads it as it grows, and
+   reads the gate's approval queue directory.
+
+**Done when** a reader that only tails files can draw the progress of every long
+command, and a test checks that no progress line carries content the report
+would not.
+
+#### Phase 21: `opaas ui` server
+
+1. **`opaas[ui]` extra.** A small ASGI stack (for example Starlette and uvicorn),
+   pinned in `uv.lock` and imported only inside `opaas ui`. Without the extra,
+   `opaas ui` says exactly what to install.
+2. **Loopback only.** It binds `127.0.0.1` and refuses any other address. Remote
+   use goes through an SSH tunnel, and the documentation shows how.
+3. **Local hardening:**
+   - a random session token in the URL printed at start, so other local users
+     and other browser tabs cannot reach it;
+   - a `Host` header check against DNS rebinding;
+   - no CORS.
+4. **Reads the store; launches the CLI.** The server reads `~/.opaas/runs` and the
+   files phase 20 writes, and pushes changes to the page with server-sent
+   events. A job started from the dashboard is the very `opaas …` command it
+   shows, run as a child process. So the CLI stays the only place where
+   measuring happens, and what the dashboard ran can be re-run from a terminal.
+5. **Offline assets.** Every script and stylesheet is shipped in the package.
+   There are no CDNs, so it works air-gapped.
+6. **English only**, matching the CLI.
+
+**Done when** `opaas ui` serves the store on loopback, refuses a request without
+the token or with a foreign `Host`, and tests drive it through an in-process
+client without opening a socket.
+
+#### Phase 22: guided flow
+
+The dashboard walks a newcomer through what the README describes:
+
+1. **Prerequisites:** Python, `nvidia-smi`, cached datasets and classifiers,
+   offline mode. This is the same report as the cover-page menu.
+2. **Discover:** run the inventory and show engines, models, agents, MCP servers
+   and gaps.
+3. **Models:** pick the served models and their backend and context window, and
+   launch `run --suite all` for each. The warnings the README gives are shown
+   where they apply: `--num-ctx` on Ollama, concurrency, generation caps.
+4. **Agents:** pick the adapter and the scenarios, among the operator's own,
+   `opaas audit template` and the packs. Before any rerouted-agent run, a
+   blocking confirmation states that the agent's tools must point at the mock
+   MCP server, because otherwise its scenarios act on real tools (D68).
+5. **System:** `audit draft`, the manifest shown for completion, then
+   `audit run` citing the runs already in the store as `--member`.
+6. **Live:** the progress of every running job, sentinel's events as they
+   arrive, and the gate's held actions with who must approve them. Approving
+   stays where D50 puts it; the dashboard only shows.
+7. **Result:** the report per category with its limitations, then the draft
+   certificate of phase 19, ready to download.
+
+Every step shows its exact command, with a copy button, and the run it produced
+in the history.
+
+**Done when** someone who has read no documentation can go from a fresh install
+to a downloaded draft certificate, and every action they took is a command
+recorded in a run.
+
+#### Phase 23: history and comparison
+
+1. **History:** runs listed and filtered by kind, model, backend, deployment
+   fingerprint, OPAAS version, date and status. Interrupted and failed runs are
+   included, labelled as such.
+2. **Compare:** two or more runs side by side, through `bench/compare.py`.
+   - Per category, with intervals.
+   - Overlapping intervals are shown as no difference.
+   - No ranking, no total.
+   - A cloud baseline is kept out of the performance tables (D22).
+3. **Comparability first:** runs whose detector hash, dataset hash, spec version
+   or scenario-set hash differ are shown as **not comparable** on that figure,
+   with the reason, rather than compared.
+4. **System reports:** compared cell by cell. A cell measured in one run and not
+   measured in the other is shown as such, not as a change.
+5. **Export:** every comparison is also saved as a `compare` run in the store,
+   with its command.
+
+**Done when** a model measured under two quantizations can be compared in the
+dashboard with the same result `opaas compare` gives, and a test pins that the
+two agree.
+
+#### Phase 24: release 0.4.0
+
+1. README:
+   - a *Dashboard* section;
+   - the store and `opaas runs` in the command reference;
+   - the SSH-tunnel recipe.
+2. CHANGELOG *Upgrading*:
+   - results now go to `~/.opaas/runs`;
+   - `--output` no longer overwrites;
+   - `./runs` can be imported with `opaas runs list --import`.
+3. `methodology.md`: what the dashboard's comparison may not be used to claim.
+4. Published through phase 16's workflow.
+
+**Done when** `v0.4.0` exists with its artifacts, and a clean install with
+`opaas[ui]` runs phase 22's flow end to end against the test doubles.
+
+**Order.** Phase 16 goes first: from then on, every release is kept. Phase 18 is
+the base of everything in 0.4.0. Phases 19 and 20 can proceed in parallel once
+it lands, and phase 21 needs 20. Phases 22 and 23 can proceed in parallel once
+21 lands.
 
 ---
 
