@@ -207,7 +207,7 @@ This is the paper's missing end-to-end audit. The ground truth comes from instru
 | **18. Append-only run store** (0.4.0, planned) | Every result kept under `~/.opaas/runs`, written once, never overwritten; `opaas runs`. [Detail](#phase-18-append-only-run-store) | 17 | M |
 | **19. Versioned unsigned certificates** (0.4.0, planned) | Each generation of a run's draft certificate is a new version, kept. [Detail](#phase-19-versioned-unsigned-certificates) | 18 | S |
 | **20. Progress written to the run** (0.4.0, planned) | Every long command writes its progress to the run directory, so a reader of the files sees it live. [Detail](#phase-20-progress-written-to-the-run) | 18 | M |
-| **21. `opaas ui` server** (0.4.0, planned) | Local dashboard server in an optional `ui` extra, loopback only, reading the run store. [Detail](#phase-21-opaas-ui-server) | 18, 20 | M |
+| **21. `opaas ui` server** (0.4.0, planned) | Local dashboard server in an optional `ui` extra, loopback only, reading the run store, one job queue per endpoint (D75, [design](dashboard.md)). [Detail](#phase-21-opaas-ui-server) | 18, 20 | M |
 | **22. Guided flow** (0.4.0, planned) | discover → models → agents → system → draft certificate, launched from the dashboard, each step showing its CLI command; sentinel live. [Detail](#phase-22-guided-flow) | 19, 21 | L |
 | **23. History and comparison** (0.4.0, planned) | Runs listed, filtered and compared per category with the CI-overlap rule, never ranked. [Detail](#phase-23-history-and-comparison) | 21 | M |
 | **24. Release 0.4.0** (planned) | Documentation, upgrade notes, release through phase 16's pipeline. [Detail](#phase-24-release-040) | 18–23 | S |
@@ -448,6 +448,11 @@ tag is refused by the server.
 **Done when** `v0.3.1` exists with its artifacts, and its release notes, in
 English, list what the Spanish figures may not be used to claim.
 
+The design of phases 18–23 is in [`dashboard.md`](dashboard.md) (D75): the file
+contract between the CLI and the dashboard (`run.json`, `progress.jsonl`,
+`certificate-v<N>.json`), the server, its jobs and queue, its security on
+localhost, and the screens.
+
 #### Phase 18: append-only run store
 
 1. **One store**: `~/.opaas/runs`, or `$OPAAS_RUNS_DIR`. It replaces `./runs`
@@ -508,7 +513,8 @@ downloaded.
    directory. That covers `RunEvent` for `run`, and the equivalent events of
    `smith run`, `audit run` steps, `discover`, `inquest` and `swarm`. Each line
    is one event with a timestamp, the phase, the percentage when known, and a
-   message.
+   message, in the format of [`dashboard.md`](dashboard.md) §4. Only `bench`
+   emits progress today (`RunEvent`); the other commands gain the hooks.
 2. This file is an operational log, not evidence. It is not an `AuditEvent`, it
    is not hash-chained, and it is not cited by reports.
 3. Progress lines follow N4: no prompt, no response, no tool argument, no URL
@@ -540,10 +546,18 @@ would not.
 5. **Offline assets.** Every script and stylesheet is shipped in the package.
    There are no CDNs, so it works air-gapped.
 6. **English only**, matching the CLI.
+7. **One queue per endpoint** ([`dashboard.md`](dashboard.md) §5). Jobs that
+   name the same engine or agent run one after another, because two
+   measurements against one engine contaminate each other. A job's output goes
+   to `job.log` in its run directory, and a cancelled job ends `interrupted`
+   and keeps what it wrote.
+8. **What it never launches:** the sentinel proxy, approvals, and anything that
+   takes a key.
 
 **Done when** `opaas ui` serves the store on loopback, refuses a request without
-the token or with a foreign `Host`, and tests drive it through an in-process
-client without opening a socket.
+the token or with a foreign `Host`, queues two jobs on one endpoint instead of
+running them together, and tests drive it through an in-process client without
+opening a socket.
 
 #### Phase 22: guided flow
 
