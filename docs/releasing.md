@@ -52,9 +52,11 @@ version.
 - **GitHub lists releases by tag date, newest first, not by version.** A tag
   cannot be moved or recreated, so its place in the list is permanent.
   Release in version order. A patch for an older line, such as 0.2.2 after
-  0.3.0, will be listed above the newer versions. 0.2.1 already is: it was
-  tagged on 2026-10-19, after 0.3.0 (D74). The **Latest** label still goes to
-  the highest version.
+  0.3.0, will be listed above the newer versions. From now on that order is
+  kept as it falls. The **Latest** label still goes to the highest version.
+- **One exception was made, once:** `v0.2.1` was re-created on 2026-10-19,
+  dated 2026-10-15, so that the existing releases read in version order
+  (D74). It is not a precedent.
 
 ## If something went wrong
 

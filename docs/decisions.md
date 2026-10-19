@@ -71,7 +71,17 @@ It refuses a release that already has any asset, and it never passes `--clobber`
 
 **Earlier versions are backfilled, and say so.** 0.2.0 and 0.3.0 are built from their tags by a manual run of the same workflow. Its `BUILD-INFO.txt` says the archives were built after the release was published. 0.2.1 is tagged at `e20a404`, the release commit merged in #54, where `pyproject.toml` and `__version__` say 0.2.1. 0.1.0 was never tagged (see the 0.2.0 entry of the CHANGELOG) and stays that way: no commit can be named as what was released.
 
-**What is lost:** a release cannot be fixed in place. A wrong file, a typo in the notes' assets or a missing wheel means a new patch version. A backfilled archive is evidence of what the tag builds today with today's pinned backend, not of what users installed in October 2026: they installed from git. The same holds for 0.2.1's tag, placed four days after the fact on the commit the CHANGELOG describes. GitHub lists releases by tag date, so 0.2.1 sits above 0.3.0 in the release list for good. Built archives are attached to GitHub only; nothing is on PyPI.
+**What is lost:** a release cannot be fixed in place. A wrong file, a typo in the notes' assets or a missing wheel means a new patch version. A backfilled archive is evidence of what the tag builds today with today's pinned backend, not of what users installed in October 2026: they installed from git. The same holds for 0.2.1's tag, placed four days after the fact on the commit the CHANGELOG describes. GitHub lists releases by tag date, not by version, so a release tagged out of order stays out of order. Built archives are attached to GitHub only; nothing is on PyPI.
+
+**The one exception, 2026-10-19.** Tagged on 2026-10-19, 0.2.1 was listed above 0.3.0. At the maintainer's request it was re-created once, about an hour after its first publication:
+
+- the tag ruleset was disabled for the operation;
+- the release and the tag `v0.2.1` were deleted;
+- the tag was created again on the same commit `e20a404`, with a tagger date of 2026-10-15 10:40 -03:00, between 0.2.0 and 0.3.0;
+- the workflow published the release again;
+- the ruleset was re-enabled.
+
+The archives are byte-identical to the first publication: the same `SHA256SUMS`, because the build is reproducible. Only the tag object and the release changed, and the release is now immutable. Anyone who fetched the first `v0.2.1` holds a tag object that differs from the current one, though both point to the same commit. The tag's date is not when it was made; its message says so. This is not a precedent: from here on, releases are listed in the order they are tagged.
 
 ---
 
