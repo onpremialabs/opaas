@@ -8,11 +8,18 @@ releases, for someone deciding whether to upgrade.
 The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 `1.0-draft`) is separate from the package version, and did not change.
 
-## [Unreleased]
+## [0.3.1] — 2026-10-19
 
-For 0.3.1: everything in Spanish that 0.3.0 left out so that it shipped
-entirely in English. Block D in Spanish (D70) and the Spanish domain packs
-(D73).
+Everything in Spanish that 0.3.0 left out so that it shipped entirely in
+English: block D in Spanish (D70) and the Spanish domain packs (D73). It is
+also the first release built and attached by the release workflow, with its
+wheel, sdist and checksums (D74).
+
+> **The Spanish domain packs are an unreviewed translation.** They are
+> OPAAS's own translation of the English packs, not yet reviewed by native
+> domain experts (D73). Use them to see whether the language of the
+> conversation changes what an agent does, not as a domain expert's
+> rendering of Spanish banking, health or public-sector practice.
 
 ### Upgrading
 
