@@ -25,7 +25,7 @@
 </form>
 
 <div class="compare-bar" data-compare-bar>
-  <span class="dim" data-compare-hint>Tick two or more model runs to compare them, per category, with <code>opaas compare</code>.</span>
+  <span class="dim" data-compare-hint>Tick two or more runs of one kind (models, agents or systems) to compare them, figure by figure, with <code>opaas compare</code>.</span>
   <button type="button" class="btn primary hidden" data-compare>Compare selected</button>
   <p class="error hidden" data-compare-error></p>
 </div>
@@ -37,7 +37,7 @@
   <tbody>
   {% for run in runs %}
     <tr>
-      <td>{% if run.reportPath %}<input type="checkbox" data-compare-pick value="{{ run.reportPath }}" aria-label="Compare {{ run.runId }}">{% endif %}</td>
+      <td>{% if run.reportPath %}<input type="checkbox" data-compare-pick data-compare-kind="{{ run.compareKind }}" value="{{ run.reportPath }}" aria-label="Compare {{ run.runId }}">{% endif %}</td>
       <td><a href="/runs/{{ run.runId }}" class="mono">{{ run.runId }}</a>{% if run.draftCount %} <span class="tag">{{ run.draftCount }} draft{{ 's' if run.draftCount > 1 }}</span>{% endif %}</td>
       <td>{{ run.kind }}</td>
       <td>{% if run.model %}<b>{{ run.model }}</b>{% endif %}{% if run.quantization %} · {{ run.quantization }}{% endif %}{% if run.backend %} · {{ run.backend }}{% endif %}{% if run.referenceType == 'cloud-baseline' %} <span class="tag">cloud baseline</span>{% endif %}

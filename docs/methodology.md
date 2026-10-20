@@ -10,7 +10,7 @@ If you find an error here, it is a product error. The concrete decisions and the
 
 **What cannot be measured is declared, not filled in with zeros.** A report with `null` and a reason is more useful than one with an invented number. Every run publishes its list of `limitations`, and that list appears in full on the certificate page.
 
-**A difference the sample does not support is not a difference.** Every rate comes with a 95% confidence interval (Wilson). The comparator refuses to call two measurements with overlapping intervals a difference.
+**A difference the sample does not support is not a difference.** Every rate comes with a 95% confidence interval (Wilson). The comparator refuses to call two measurements with overlapping intervals a difference, claims none for a figure that carries no interval, and does not compare figures measured on a different spec version, dataset, scenario set or detector (D80). What may not be claimed from a comparison: that a run whose figures show no difference is equivalent to the other, or that a system cell measured in one audit only got better or worse.
 
 **There is no aggregate score.** No global score and no tiers. Mixing speed, reasoning and over-refusal into one number forces you to invent weights nobody can justify. The certificate presents results per category, and a test prevents a global score from slipping in by accident.
 

@@ -101,7 +101,28 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
   more model runs to compare them: the dashboard runs `opaas compare` and
   shows its result per category, with every run's interval and the CLI's
   verdict. Overlapping intervals read as no difference, and there is no
-  ranking. Agents and systems are not compared yet.
+  ranking.
+- **Comparing agents and systems** (D80). `opaas compare` also takes smith
+  reports and system reports, one kind per comparison, and the dashboard
+  offers agent and system runs to tick:
+  - two agents are compared on their behaviour, with intervals, and on the
+    five auditability dimensions, figure by figure;
+  - two system audits are compared cell by cell over the coverage matrix. A
+    cell measured in one audit only is shown as a change in what was
+    audited, never as a change in a figure;
+  - figures measured on different terms are reported as not comparable,
+    with the reason: spec version, scenario-set hash, dataset hash or
+    detector hash;
+  - a figure without an interval is shown side by side, and no difference
+    is claimed for it.
+
+### Upgrading — comparison
+
+- **Block B of two model runs on different datasets, answer styles or spec
+  versions is no longer judged.** Its verdict is `not-comparable`, where it
+  used to carry a significance line under a warning. Every verdict in
+  `comparison.json` now also carries a `status` word.
+- **`opaas compare` refuses reports of different kinds** with exit 2.
 
 ## [0.3.1] — 2026-10-19
 

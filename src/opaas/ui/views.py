@@ -10,6 +10,7 @@ and 2).
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -51,8 +52,15 @@ def _describe(directory: Path, record: dict[str, Any]) -> dict[str, Any]:
     command = record.get("command", [])
     found: dict[str, Any] = {"model": _option(command, "--model", "-m"),
                              "backend": _option(command, "--backend", "-b")}
+    if record.get("kind") in ("smith", "audit") and record.get("status") in (
+            "completed", "partial"):
+        name = report_name(directory, record)
+        if name and name != "comparison.json":
+            found.update(reportPath=str(directory / name),
+                         compareKind="agent" if record["kind"] == "smith" else "system")
     if record.get("kind") == "bench" and "report.json" in record.get("files", {}):
         found["reportPath"] = str(directory / "report.json")
+        found["compareKind"] = "model"
         try:
             report = json.loads((directory / "report.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -152,6 +160,10 @@ def _report(path: Path) -> dict[str, Any] | None:
         return _agent(payload)
     if "opaasBenchComparison" in payload:
         return _comparison(payload)
+    if "opaasAgentComparison" in payload:
+        return _agent_comparison(payload)
+    if "opaasSystemComparison" in payload:
+        return _system_comparison(payload)
     if payload.get("kind") == "system-report":
         return _system(payload)
     blocks = []
@@ -351,11 +363,7 @@ def _comparison(payload: dict[str, Any]) -> dict[str, Any]:
     Each category keeps the CLI's verdict, word for word; the intervals are the
     reports'. The order of runs is the order they were given, never a ranking.
     """
-    runs = []
-    for run in payload.get("runs", []):
-        source = Path(str(run.get("source", "")))
-        runs.append({**run, "storeRun": source.parent.name if source.name == "report.json"
-                     else None})
+    runs = [{**run, "storeRun": _store_run(run.get("source"))} for run in payload.get("runs", [])]
     # Two runs of one configuration get the same label from the CLI; on screen
     # each bar must still say which run it is, so the run id leads it then.
     labels = [r.get("label") for r in runs]
@@ -386,6 +394,126 @@ def _comparison(payload: dict[str, Any]) -> dict[str, Any]:
         "capability": capability,
         "performance": payload.get("performance", []),
         "consistency": payload.get("consistency", []),
+    }
+
+
+#: A run id as the store allocates them (core/store.py).
+_RUN_ID = re.compile(r"^\d{8}-\d{3}$")
+
+
+def _store_run(source: Any) -> str | None:
+    """The store run a compared report lives in, read from its path; None if outside one."""
+    path = Path(str(source or ""))
+    for parent in (path.parent, path.parent.parent):
+        if _RUN_ID.match(parent.name):
+            return parent.name
+    return None
+
+
+#: The CLI's verdict status, as the page words it and the class it is drawn with.
+#: Words only: the status itself is `opaas compare`'s.
+VERDICT_WORDS = {
+    "difference": ("A difference", "v-real"),
+    "no-difference": ("No difference", "v-none"),
+    "same": ("The same", "v-none"),
+    "same-evidence": ("Same evidence", "v-none"),
+    "no-interval": ("No difference claimed", "v-none"),
+    "changed": ("Changed", "v-real"),
+    "not-measured": ("Cannot compare", "v-cannot"),
+    "not-comparable": ("Not comparable", "v-cannot"),
+}
+
+
+def _figure(figure: dict[str, Any], label: str | None = None) -> dict[str, Any]:
+    """One figure of a comparison: a bar per run where the CLI gave an interval, else text."""
+    bars = []
+    for entry in figure.get("runs", []):
+        value = entry.get("value") or {}
+        if not entry.get("measured"):
+            bars.append({"label": entry.get("label"), "missing": True,
+                         "why": entry.get("reason", "")})
+        elif value.get("type") == "rate":
+            bars.append(_interval(entry.get("label"), value))
+        else:
+            bars.append({"label": entry.get("label"), "text": _value_text(value)})
+    verdict = figure.get("verdict", {})
+    word, css = VERDICT_WORDS.get(verdict.get("status"), (verdict.get("status"), "v-cannot"))
+    return {"label": label or figure.get("label"), "metric": figure.get("metric"), "bars": bars,
+            "verdict": verdict, "word": word, "css": css}
+
+
+def _value_text(value: dict[str, Any]) -> str:
+    """A value without an interval bar, as the report gives it, with its unit."""
+    if value.get("type") in ("level", "verdict"):
+        return str(value.get("level") or value.get("verdict"))
+    centre = next((value[k] for k in ("point", "p50", "value") if k in value), None)
+    text = f"{centre}{' ' + value['unit'] if value.get('unit') else ''}"
+    if value.get("low") is not None and value.get("high") is not None:
+        text += f" [{value['low']}, {value['high']}]"
+    return text
+
+
+def _agent_comparison(payload: dict[str, Any]) -> dict[str, Any]:
+    """`opaas compare` over smith reports, laid out: behaviour, then the five dimensions."""
+    names = {"actionRecoverability": "Action recoverability",
+             "lifecycleCoverage": "Lifecycle coverage", "policyCheckability": "Policy checkability",
+             "responsibilityAttribution": "Responsibility attribution",
+             "evidenceIntegrity": "Evidence integrity"}
+    runs = [{**run, "storeRun": _store_run(run.get("source"))} for run in payload.get("runs", [])]
+    return {
+        "kind": "agent-comparison",
+        "model": f"Agent comparison · {len(runs)} runs",
+        "runs": runs,
+        "warnings": payload.get("warnings", []),
+        "behaviour": [_figure(f) for f in payload.get("behaviour", [])],
+        "dimensions": [
+            {"question": d.get("question"),
+             "title": names.get(d.get("dimension"), d.get("dimension")),
+             "metrics": [_figure(m, f"{m.get('metric')} · {m.get('label')}")
+                         for m in d.get("metrics", [])]}
+            for d in payload.get("auditability", [])],
+    }
+
+
+def _system_comparison(payload: dict[str, Any]) -> dict[str, Any]:
+    """`opaas compare` over system reports, laid out cell by cell, as the CLI wrote them."""
+    runs = [{**run, "storeRun": _store_run(run.get("source"))} for run in payload.get("runs", [])]
+    cells = payload.get("cells", [])
+    # A component in one audit only is absent from every one of its cells: said once.
+    changed, absent = [], set()
+    for cell in cells:
+        if cell.get("status") == "coverage-changed":
+            changed.append(cell)
+        elif cell.get("status") == "component-absent" and cell.get("component") not in absent:
+            absent.add(cell.get("component"))
+            changed.append({**cell, "dimension": "every dimension"})
+    measured = [
+        {"component": c.get("component"),
+         "dimension": AXIS_LABELS.get(c.get("dimension"), c.get("dimension")),
+         "figures": [_figure(m) for m in c.get("measurements", [])]}
+        for c in cells if c.get("status") == "measured"]
+    components = []
+    for cell in cells:
+        if cell.get("component") not in components:
+            components.append(cell.get("component"))
+    order = [*payload.get("dimensions", {}).get("behaviour", []),
+             *payload.get("dimensions", {}).get("auditability", [])]
+    by_cell = {(c.get("component"), c.get("dimension")): c for c in cells}
+    matrix = [{"component": component,
+               "cells": [{"status": (cell := by_cell.get((component, d), {})).get("status"),
+                          "states": " · ".join(f"{s.get('label')}: {s.get('state')}"
+                                               for s in cell.get("states", []))}
+                         for d in order]}
+              for component in components]
+    return {
+        "kind": "system-comparison",
+        "model": f"System comparison · {len(runs)} runs",
+        "runs": runs,
+        "warnings": payload.get("warnings", []),
+        "axis": [AXIS_LABELS.get(d, d) for d in order],
+        "matrix": matrix,
+        "changed": changed,
+        "measured": measured,
     }
 
 

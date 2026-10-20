@@ -157,6 +157,12 @@ input, select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px
 .cell-measured { background: var(--data); }
 .cell-not-measured { border: 1.5px dashed var(--ink-3); }
 .cell-not-applicable { width: 6px; height: 6px; background: var(--tick); }
+/* A compared cell says what changed in coverage, never which run is better. */
+.cell-cmp-measured { background: var(--data); }
+.cell-cmp-coverage-changed { border: 2px solid var(--data); }
+.cell-cmp-component-absent { border: 1.5px dashed var(--ink-3); }
+.cell-cmp-unchanged { width: 6px; height: 6px; background: var(--tick); }
+.dim-title { font-size: 13px; color: var(--ink-2); margin: 16px 0 0; }
 .matrix-legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-3); margin: 8px 0 0; flex-wrap: wrap; }
 .qcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
 .scroll-x { overflow-x: auto; }

@@ -50,6 +50,32 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D80 — `opaas compare` compares agents and systems, figure by figure and cell by cell
+
+**Status:** applied (phase 23 of the work plan) · **Revises:** the model-only scope of [`bench/compare.py`](../src/opaas/bench/compare.py) · **Affects:** [`bench/compare.py`](../src/opaas/bench/compare.py), [`cli/main.py`](../src/opaas/cli/main.py) (`compare`), [`ui/views.py`](../src/opaas/ui/views.py), [`run.html`](../src/opaas/ui/templates/run.html)
+
+`opaas compare` read bench reports only, so two versions of an agent or two audits of a system could not be set side by side, and the dashboard, which computes nothing itself (D75), could not show them either.
+
+**One kind per comparison.** `compare` now also takes smith reports and system reports. The kind is read from the envelope; reports of different kinds are refused with exit 2, since a model, an agent and a system are not measured on the same terms. The dashboard ticks one kind at a time and says so before launching.
+
+**Agents: behaviour and the five dimensions, per figure.** Task completion, injections resisted, forbidden and destructive actions, step budget, schema-valid calls, instability, counterfactual divergence and toxicity, each with its interval; then ACR and RF, LPC and GB, SPDR, AC and IS under their card questions. The rule of D11 decides: a difference only where the intervals do not overlap. RF, LPC and GB carry no interval, so their values are shown side by side and no difference is claimed; IS is a level, and a different level is stated as changed, not weighed.
+
+**Systems: cell by cell over the coverage matrix.** Every component × dimension of either report gets a cell. A cell measured in one audit and not in the other is a change in *what was audited*, reported as `coverage-changed` and never compared; a component in one audit only is `component-absent`. Where every audit measured a cell, each measurement in it is matched by aspect and metric and compared on its own with the same rules. Two audits citing the very same member document are one measurement, not two (`same-evidence`).
+
+**Comparability before comparison.** Figures measured on different terms are reported as `not-comparable`, with the reason, instead of being compared:
+- a different spec version, everywhere;
+- for agents, a different scenario-set hash leaves every figure not comparable, and a different toxicity classifier hash leaves toxicity not comparable;
+- for systems, the datasets, the block D detector and the scenario sets are in the members, so `compare` reads each member next to the system report, checked against the hash the report cites. A cell whose members differ on those terms, or on a cell's classifier hash, is not compared;
+- for models, block B's verdict per category is now `not-comparable` when the dataset, answer style or spec version differ. The warning stays as it was.
+
+Every verdict carries a `status` word (`difference`, `no-difference`, `same`, `no-interval`, `changed`, `same-evidence`, `not-measured`, `not-comparable`). The dashboard maps that word to a heading and draws the CLI's detail line as written.
+
+**What is lost:**
+- No difference is ever claimed on a figure without an interval: RF dropping from 0.9 to 0.4 reads as "no difference claimed". An interval for those figures would be a methodology change, not something a comparison can add.
+- A member that is not next to the system report, or whose bytes no longer match its hash, cannot be checked for its terms. It is named in a warning, and its cells are compared as if the terms agreed. Compare the members themselves to settle it.
+- An agent run whose scenario set changed by a single scenario is wholly not comparable. A per-scenario comparison across two sets is not attempted.
+- Block B of two model runs on different datasets no longer gets a significance line at all, where it used to get one under a warning.
+
 ## D79 — `opaas ui`: a loopback server that reads the store and launches the CLI
 
 **Status:** applied (phase 21 of the work plan) · **Implements:** [D75](#d75--a-local-dashboard-that-reads-files-and-launches-the-cli-and-measures-nothing), [`dashboard.md`](dashboard.md) §3, §5 and §6 · **Affects:** [`ui/`](../src/opaas/ui/), [`cli/ui.py`](../src/opaas/cli/ui.py), the `ui` extra
