@@ -414,8 +414,12 @@ launched from *New audit*. An agent run shows its behaviour, its task completion
 and the five auditability dimensions. A system shows its coverage matrix and Auditability Card.
 Each shows what was not measured and why. *Sentinel* follows a running proxy's log and its
 gate's queue live, with the command that approves each held action. *Runs* filters the history
-and compares model, agent or system runs through `opaas compare`, per figure, with no ranking. Signing stays `opaas sign`, in a
-terminal. From another machine, tunnel to it:
+and compares model, agent or system runs through `opaas compare`, per figure, with no ranking.
+
+What it never does: sign, generate or read a key, delegate or revoke, start the sentinel proxy
+or approve a held action, or delete a run. Those stay in a terminal (`opaas sign`, `opaas
+sentinel approve`). It computes no figure of its own, and it does not listen beyond
+`127.0.0.1`: from another machine, tunnel to it:
 
 ```bash
 ssh -L 8780:127.0.0.1:8780 your-host
@@ -798,7 +802,8 @@ uv run ruff check src tests
 ```
 
 CI runs the suite on Python 3.10 through 3.13, `ruff check`, `uv lock --check` and a package
-build. **Dependencies are locked**: `uv.lock` pins the exact resolution of every package,
+build, and installs that build with the `ui` extra into an empty environment to drive the
+dashboard's flow from it (`scripts/smoke_ui_install.py`). **Dependencies are locked**: `uv.lock` pins the exact resolution of every package,
 extras included — a tool whose claim is that a certificate is reproducible should not resolve
 differently depending on the day it was installed. Contributions: [CONTRIBUTING.md](CONTRIBUTING.md).
 
