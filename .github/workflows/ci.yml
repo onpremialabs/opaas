@@ -72,3 +72,25 @@ jobs:
 
       - name: Check metadata
         run: uvx twine check dist/*
+
+  # The suite runs from the source tree, where every template, stylesheet,
+  # scenario pack and dataset exists whether or not the wheel ships it. This
+  # installs the wheel with the `ui` extra into an empty environment, as a user
+  # would, and drives the dashboard's flow from there against test doubles.
+  ui-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Build the wheel
+        run: uv build --wheel
+
+      - name: Install opaas[ui] from it into a clean environment
+        run: |
+          uv venv /tmp/clean --python 3.12
+          uv pip install --python /tmp/clean "opaas[ui] @ file://$PWD/$(ls dist/*.whl)"
+
+      # -I keeps the checkout off sys.path: the package must come from the wheel.
+      - name: Dashboard flow from the install
+        run: /tmp/clean/bin/python -I scripts/smoke_ui_install.py --installed

@@ -172,9 +172,10 @@ docs/     design.md, methodology.md, decisions.md, workplan.md, datasets.md, key
           is cut; releases are never replaced, D74), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60),
           dashboard.md (proposal: `opaas ui`, the local dashboard, and its file contract, D75)
-tests/    1230 tests, one file per module, plus conftest.py with the fake backends
+tests/    1232 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;
-          rehearse_ceremony.py — runs every opaas step of the key ceremony (D67)
+          rehearse_ceremony.py — runs every opaas step of the key ceremony (D67);
+          smoke_ui_install.py — the dashboard's flow from an installed opaas[ui] (CI)
 web/      README describing the published site layout (the generator lives in src/)
 ```
 
@@ -211,13 +212,14 @@ a dependency. Plain `pip install .` ignores the lockfile — fine for trying the
 reproducing a run.
 
 **CI runs on every push and pull request** (`.github/workflows/ci.yml`): the suite on
-Python 3.10 through 3.13, `ruff check`, `uv lock --check`, and a package build checked
-with `twine`. Run them yourself before committing anyway — the feedback is faster than
+Python 3.10 through 3.13, `ruff check`, `uv lock --check`, a package build checked
+with `twine`, and that wheel installed with the `ui` extra into an empty environment,
+where `scripts/smoke_ui_install.py` drives the dashboard's flow. Run them yourself before committing anyway — the feedback is faster than
 a round trip.
 
 ### Known test state
 
-`uv run pytest` reports **1229 passed, 1 skipped**. The suite is green: treat any failure as yours.
+`uv run pytest` reports **1231 passed, 1 skipped**. The suite is green: treat any failure as yours.
 Most of its wall time is `nvidia-smi` being called by the bench tests; on a machine without
 it the suite is much faster.
 
