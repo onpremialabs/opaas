@@ -50,18 +50,11 @@ who did what.
 OPAAS measures **the deployment you actually run** — model, quantization, engine, hardware,
 agents, tools and records — where it runs, and nothing leaves your network.
 
-```
-│ prompt (words) │ conc. │ out tok/s │ TTFT p50 / p95 / p99 (s) │ VRAM peak │ Wh / 1M tok │
-│            128 │     1 │      79.4 │  0.102 / 0.113 / 0.117   │      7671 │       571.8 │
-│            128 │    16 │      82.4 │ 37.883 / 38.200 / 38.322 │      7860 │       602.0 │
+<img alt="Block A of a real run, as opaas prints it: throughput, TTFT and VRAM per prompt length and concurrency, and two no-concurrency-scaling findings" src="docs/img/readme/cli-performance.svg">
 
-▲ no-concurrency-scaling (prompt 128, concurrency 16)
-  At 16 simultaneous requests, throughput only improves x1.038 while TTFT worsens
-  x372.868. The engine is queueing, not serving in parallel.
-```
-
-<sub>A real run: qwen2.5:7b, Q4_K_M, Ollama. The model is fine; the deployment serves one
-request at a time, and no model benchmark would ever say so.</sub>
+<sub>Block A of a real run: qwen2.5:7b-instruct, Q4_K_M, Ollama, as `opaas run` prints it. The model is
+fine; the deployment serves one request at a time. Sixteen simultaneous users get the same throughput as one
+and wait 675× longer for the first token, and no model benchmark would ever say so.</sub>
 
 ---
 
