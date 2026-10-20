@@ -10,6 +10,19 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Added — package metadata
+
+- `pyproject.toml` says what OPAAS is to an index:
+  - **keywords** for every capability;
+  - **18 classifiers**: Beta, console and web, Linux and Windows (the
+    systems it has run on), Python 3.10–3.13, and the AI, testing,
+    benchmark and monitoring topics;
+  - **links** to the guide, the methodology, the changelog and the issues.
+- **`opaas[all]`** installs every measuring capability at once: the
+  dashboard and the block D classifiers. `token` stays apart, for the
+  machine that holds the root's hardware token. Nothing is published to
+  PyPI yet.
+
 ### Changed — the holder's name
 
 - **onpremIA Labs is written one way everywhere**: the copyright line in

@@ -1128,6 +1128,15 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "huggingface-hub" },
+    { name = "jinja2" },
+    { name = "starlette", version = "1.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "starlette", version = "1.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "torch" },
+    { name = "transformers" },
+    { name = "uvicorn" },
+]
 classifiers = [
     { name = "huggingface-hub" },
     { name = "torch" },
@@ -1164,6 +1173,7 @@ requires-dist = [
     { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1" },
     { name = "jinja2", marker = "extra == 'ui'", specifier = ">=3.1" },
     { name = "numpy", marker = "extra == 'dev'", specifier = ">=1.24" },
+    { name = "opaas", extras = ["ui", "classifiers"], marker = "extra == 'all'" },
     { name = "pillow", marker = "extra == 'dev'", specifier = ">=10.0" },
     { name = "psutil", specifier = ">=5.9" },
     { name = "pydantic", specifier = ">=2.7" },
@@ -1181,7 +1191,7 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'dev'", specifier = ">=0.30" },
     { name = "uvicorn", marker = "extra == 'ui'", specifier = ">=0.30" },
 ]
-provides-extras = ["dev", "ui", "classifiers", "token"]
+provides-extras = ["dev", "ui", "classifiers", "token", "all"]
 
 [[package]]
 name = "packaging"
