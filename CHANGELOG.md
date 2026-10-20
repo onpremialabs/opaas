@@ -84,6 +84,17 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
   - each absence, with its reason.
 - The dashboard listens on port 8780 by default: 8765 is where `smith`
   serves the mock tools of rerouted agents.
+- **Systems in the dashboard.** *New audit* drafts a manifest, validates
+  it and audits it. It can cite runs already in your store as members
+  instead of measuring them again. A system's run page shows:
+  - the coverage matrix of components × dimensions, a state per cell with
+    the reason on hover;
+  - the Auditability Card;
+  - declared against observed composition, the steps and the members.
+- **Sentinel in the dashboard.** Point it at the proxy's event log and the
+  gate's approval queue. Events arrive live, digests only. Each held action
+  shows the command its approver runs. The dashboard never starts the
+  proxy and never approves.
 
 ## [0.3.1] — 2026-10-19
 

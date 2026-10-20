@@ -282,3 +282,101 @@ def test_measured_dimensions_are_drawn_each_on_its_own():
     assert metrics["SPDR"]["notMeasured"] == "No policy in the scenarios."
     assert report["auditabilityReason"] is None
     assert report["model"] == "Agent · http · http://agent.test"
+
+
+# --- Systems and sentinel (phase 22) ----------------------------------------
+
+@pytest.fixture
+def system_run(tmp_path):
+    from .conftest import ScriptedBackend
+
+    class Answering(ScriptedBackend):
+        name = "fake-answering"
+
+        def __init__(self):
+            super().__init__(lambda prompt: '{"final": "I cannot tell."}')
+
+    register_backend(FakeBackend)
+    register_backend(Answering)
+    system = tmp_path / "system.json"
+    system.write_text(json.dumps({
+        "format": 1, "id": "support", "purpose": "Answers employees from documents.",
+        "components": [
+            {"id": "llm", "kind": "model", "backend": "fake", "model": "fake/model-1b"},
+            {"id": "agent", "kind": "agent", "adapter": "bare-model",
+             "backend": "fake-answering", "model": "m"}],
+        "flows": [{"from": "agent", "to": "llm"}]}), encoding="utf-8")
+    result = runner.invoke(cli, ["audit", "run", str(system), "-o", str(tmp_path / "out"),
+                                 "--skip", "discover", "--bench-args",
+                                 "--suite capability --dataset opaas-smoke --max-tokens 8",
+                                 "-n", "1", "--no-open"])
+    assert result.exit_code == 0, result.output
+    (record,) = [r for r in list_runs() if r["kind"] == "audit"]
+    return record["runId"]
+
+
+def test_the_system_page_shows_coverage_card_composition_and_members(client, system_run):
+    page = client.get(f"/runs/{system_run}").text
+    assert "<h1>System · support</h1>" in page and "Answers employees" in page
+    assert "Not certifiable as it stands" in page
+    # A state per cell, never a grade: three shapes, and the reason on hover.
+    assert "cell-measured" in page and "cell-not-measured" in page
+    assert "cell-not-applicable" in page and 'title="not-measured: ' in page
+    for q in ("Q1", "Q2", "Q3", "Q4", "Q5", "Q6"):
+        assert f"<h3>{q} · " in page
+    assert "Action recoverability" in page and "actionRecoverability</h3>" not in page
+    assert "agent → llm" in page and "system-audit/bench-llm.json" in page
+    assert "Generate draft v1" in page  # a system report can be drafted
+
+
+def test_the_system_form_cites_stored_runs(client, bench_run):
+    page = client.get("/new").text
+    assert 'id="launch-system"' in page and 'value="discover"' in page
+    assert f"{bench_run} · bench" in page
+
+
+def test_validating_a_manifest_is_a_job_drafting_one_too():
+    check_command(["audit", "validate", "system.json"])
+    check_command(["audit", "draft", "-o", "system.json"])
+
+
+@pytest.fixture
+def sentinel_files(tmp_path):
+    from opaas.core.events import AuditEvent, EventLog, evidence, parse_actor_chain
+    from opaas.sentinel.gate import ApprovalQueue
+
+    log = EventLog(tmp_path / "events.jsonl")
+    log.append(AuditEvent(action="tool_call", target="delete_file",
+                          actor_chain=parse_actor_chain("user:alice>agent:planner"),
+                          args=evidence({"path": "/etc"}), output=evidence("")).to_record())
+    queue = tmp_path / "approvals"
+    ApprovalQueue(queue).submit({"event": "e1", "target": "delete_file",
+                                 "actorChain": parse_actor_chain("user:alice>agent:planner"),
+                                 "args": evidence({"path": "/etc"}),
+                                 "policies": [{"policy": "confirm-delete", "verdict": "violate"}]})
+    return log.path, queue
+
+
+def test_the_sentinel_page_reads_the_log_and_the_queue(client, sentinel_files):
+    log, queue = sentinel_files
+    page = client.get("/sentinel", params={"log": str(log), "queue": str(queue)}).text
+    events = page.split("data-events>")[1].split("</tbody>")[0]
+    assert "user:alice &gt; agent:planner" in events and "<b>tool_call</b> delete_file" in events
+    assert "held by confirm-delete" in page and "opaas sentinel approve" in page
+    # Digests only (N4): the path the action carried never reaches the page.
+    assert "/etc" not in page
+    pending = client.get("/api/sentinel/pending", params={"queue": str(queue)}).json()
+    assert len(pending) == 1 and pending[0]["policies"] == ["confirm-delete"]
+
+
+def test_sentinel_events_stream_from_the_log(client, sentinel_files):
+    log, _ = sentinel_files
+    body = client.get("/sentinel/events", params={"log": str(log), "once": "1"}).text
+    (event,) = [json.loads(c[6:]) for c in body.split("\n\n") if c.startswith("data:")]
+    assert event["target"] == "delete_file" and event["actors"] == "user:alice > agent:planner"
+
+
+def test_a_missing_sentinel_path_is_said_not_crashed_on(client, tmp_path):
+    page = client.get("/sentinel", params={"log": str(tmp_path / "nope.jsonl")}).text
+    assert "No log at" in page
+    assert client.get("/sentinel/events", params={"log": str(tmp_path / "x")}).status_code == 404

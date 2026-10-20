@@ -16,6 +16,7 @@
     <a href="/" class="{{ 'on' if request.url.path == '/' }}">Overview</a>
     <a href="/new" class="{{ 'on' if request.url.path.startswith('/new') }}">New audit</a>
     <a href="/runs" class="{{ 'on' if request.url.path.startswith('/runs') }}">Runs</a>
+    <a href="/sentinel" class="{{ 'on' if request.url.path.startswith('/sentinel') }}" data-sentinel-link>Sentinel</a>
   </nav>
   <span class="where mono">127.0.0.1 · v{{ version }}</span>
 </header>
