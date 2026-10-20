@@ -12,13 +12,21 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ### Added — a full-screen `opaas`, and one way of speaking (D82)
 
-- **`opaas` in a terminal opens a full screen.** The meerkat comes up out of
-  its burrow, keeps watch and blinks. Beside it is the menu, grouped by task,
+- **`opaas` in a terminal opens a full screen.** The meerkat of the cover page
+  stands beside the menu, at its full size: it comes up out of its burrow, then
+  stands still, and blinks, looks around and hops when the mouse passes over it
+  or a command is chosen. Beside it is the menu, grouped by task,
   with the selected entry's command and documentation link. Read-only entries
   run in place; the others print the exact command to copy. `o` opens the
-  entry's documentation. `OPAAS_NO_ANIMATION=1` stills the meerkat, and
+  entry's documentation. `OPAAS_NO_ANIMATION=1` stills the meerkats, and
   `OPAAS_NO_TUI=1` brings back the cover page and inline menu. Small and
   legacy terminals get those anyway.
+- **An audit has company.** While `run`, `smith run`, `audit run`, `swarm`,
+  `inquest` or `sentinel` record a run in a terminal, the sentinel keeps watch
+  on a screen of its own and other meerkats come up out of their burrows and
+  go back down, above the progress bar and the log's last lines, until the
+  audit ends. Then everything it printed appears in full, in order, as
+  before. Piped output and CI are unchanged.
 - **`opaas --help` is grouped by task**: *Audit*, *Results*, *Data and setup*,
   and *Signed credentials (advanced)*. No command was renamed or moved.
 - **Help links instead of citing decision numbers.** Every command's help ends

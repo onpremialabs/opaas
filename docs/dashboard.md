@@ -199,6 +199,7 @@ The rules:
 - **Reduced motion is respected.** With the system's *reduce motion* setting, the mob is shown already standing, without moving.
 - **A failed run gets no celebration.** When a run ends `failed`, only the sentinel comes out and looks around, beside the error. When a run is `interrupted`, nothing comes out.
 - **The animation is the only decoration in the dashboard.** It runs on a `<canvas>` with a few lines of vendored script, and it needs no image file, font or network.
+- **The terminal has its meerkats too** (D82): the sentinel beside `opaas`'s menu, which moves when the mouse passes over it, and, while an audit runs, a company that comes and goes until the audit ends.
 - **It is a reaction to a file, not a verdict.** It celebrates that a report exists, never what the report says. The mob is the same for a model whose figures are low as for one whose figures are high (invariant 1).
 
 ---

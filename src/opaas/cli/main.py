@@ -53,7 +53,7 @@ from opaas.bench.registry import REJECTED, admit
 from opaas.bench.runner import RunEvent, RunRequest, execute
 from opaas.bench.scoring import ScoringError, prompt_template_hash
 from opaas.bench.suites import PLANNED_SUITES, available_suites, get_suite, planned_suite_hint
-from opaas.cli import tui
+from opaas.cli import mob, tui
 from opaas.cli.banner import print_banner
 from opaas.cli.common import (  # noqa: E402 - shared with the module command groups
     Force,
@@ -497,21 +497,31 @@ def _progress_reporter(suites: int) -> Iterator[Callable[[RunEvent], None]]:
             "[dim]{task.description}[/dim]",
             table_column=Column(no_wrap=True, max_width=52),
         ),
-        BarColumn(bar_width=24),
-        TaskProgressColumn(),
+        # The palette of the cover page and the dashboard, not Rich's magenta.
+        BarColumn(bar_width=24, style="#3a2a1c", complete_style="#c8873f",
+                  finished_style="#8fae6a", pulse_style="#c8873f"),
+        TaskProgressColumn(style="#c8873f"),
         TimeElapsedColumn(),
         console=console,
     )
+    bar = progress.add_task(f"starting · {suites} block(s)", total=100.0)
+
+    def live(event: RunEvent) -> None:
+        progress.update(bar, completed=event.percent, description=event.message)
+        if event.kind != "progress":
+            # The milestones are left above the bar: when the run finishes,
+            # what remains on screen is a readable log of what happened.
+            progress.console.print(f"[dim]{event}[/dim]")
+
+    # Under the meerkats when they keep the run company (`cli/mob.py`): a
+    # terminal draws one live display at a time, so the bar joins theirs.
+    if mob.attach(progress):
+        try:
+            yield live
+        finally:
+            mob.detach(progress)
+        return
     with progress:
-        bar = progress.add_task(f"starting · {suites} block(s)", total=100.0)
-
-        def live(event: RunEvent) -> None:
-            progress.update(bar, completed=event.percent, description=event.message)
-            if event.kind != "progress":
-                # The milestones are left above the bar: when the run finishes,
-                # what remains on screen is a readable log of what happened.
-                progress.console.print(f"[dim]{event}[/dim]")
-
         yield live
 
 
