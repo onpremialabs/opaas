@@ -165,7 +165,18 @@ A figure from one vantage point is not a figure from another. A `smith` ACR says
 
 **Every result is bound to an environment** (N5): the hash of a `discover` inventory, a deployment fingerprint, or both. A result says nothing outside that environment, and `opaas sentinel inventory` says when the environment has left it.
 
-## 8. What OPAAS does not do
+## 8. The local dashboard
+
+`opaas ui` reads the run store and launches the same CLI commands; it computes no figure of its own. What it shows may be claimed exactly as far as the CLI output it shows, and no further:
+
+- **A comparison is `opaas compare`, nothing more.** Overlapping intervals read *No difference*, and that is a statement about these runs at this sample size, not that the configurations are equivalent. A non-overlapping interval says which run measured higher on that category only.
+- **There is no ranking.** Ticking runs and reading them side by side does not order them; no category outweighs another, and no total is formed.
+- **Comparability is what the warnings say.** Runs with different datasets, detector hashes, methodology versions or deployment fingerprints are shown with the CLI's warnings first. A comparison across them is a comparison of different measurements.
+- **A draft certificate is not a certificate.** Drafts are unsigned, versioned renderings of a stored report. They carry no credential, and nothing verifies them; only `opaas sign` in a terminal issues one.
+- **The sentinel view is a reader.** It shows the proxy's log and the gate's queue as recorded, digests only. It approves nothing and proves nothing the log itself does not.
+- **The history is the store's, not a log.** Run files are written once and hashed in `run.json`, and the dashboard checks them, but the store is a local directory with no signature: a file changed after it was written is caught, unless whoever changed it rewrote `run.json` too. What a third party verifies is a signed credential, not the store.
+
+## 9. What OPAAS does not do
 
 - **It does not measure bias in free-form writing**, nor **code** (that needs a real sandbox), nor **long context** at RULER's level. Bias in choosing between two people is measured with BBQ.
 - **It does not solve benchmark contamination.** Public datasets are in the training data. Mitigating this requires a private held-out set.

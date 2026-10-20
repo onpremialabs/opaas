@@ -8,10 +8,15 @@ releases, for someone deciding whether to upgrade.
 The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 `1.0-draft`) is separate from the package version, and did not change.
 
-## [Unreleased]
+## [0.4.0] — 2026-10-20
 
-For 0.4.0: the run store, first of the pieces behind the local dashboard
-(D75, D76).
+The local dashboard. Every result is now kept in a run store that nothing
+overwrites (D76), each stored report can be rendered as a versioned unsigned
+draft (D77), running commands write their progress (D78), and `opaas ui`
+serves all of it on `127.0.0.1` (D79): launch model, agent and system audits,
+follow them live, read the sentinel, and compare model runs through
+`opaas compare`. The dashboard computes nothing of its own, signs nothing and
+is loopback only (D75). The methodology is unchanged.
 
 ### Upgrading
 
