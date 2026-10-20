@@ -13,7 +13,7 @@ venv/
 htmlcov/
 .claude/
 
-# OPAAS-Bench
+# OPAAS
 runs/
 keys/
 site/

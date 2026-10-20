@@ -8,6 +8,16 @@ releases, for someone deciding whether to upgrade.
 The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 `1.0-draft`) is separate from the package version, and did not change.
 
+## [Unreleased]
+
+### Fixed
+
+- Every link to the repository now names `onpremialabs/opaas`: the install
+  and clone commands in the README, the package's `Repository` URL, the
+  citation and the CHANGELOG's release links. They used the earlier name,
+  `luxinopanyvino/opaas-bench`, which works only while GitHub keeps its
+  redirect. A test keeps the old names out.
+
 ## [0.4.0] — 2026-10-20
 
 The local dashboard. Every result is now kept in a run store that nothing
@@ -442,5 +452,5 @@ certificate for it.
   hash granularities (D61).
 - Smith reports carried the agent's answers verbatim (D62).
 
-[0.2.1]: https://github.com/luxinopanyvino/opaas-bench/releases/tag/v0.2.1
-[0.2.0]: https://github.com/luxinopanyvino/opaas-bench/releases/tag/v0.2.0
+[0.2.1]: https://github.com/onpremialabs/opaas/releases/tag/v0.2.1
+[0.2.0]: https://github.com/onpremialabs/opaas/releases/tag/v0.2.0
