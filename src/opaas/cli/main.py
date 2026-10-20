@@ -680,7 +680,13 @@ def run(
 
         try:
             with _progress_reporter(len(requested)) as reporter:
-                outcome = execute(request, on_event=reporter)
+                def on_event(event: RunEvent) -> None:
+                    reporter(event)
+                    recorded.progress(event.message, kind=event.kind, phase=event.suite,
+                                      index=event.index or None, total=event.total or None,
+                                      percent=event.percent)
+
+                outcome = execute(request, on_event=on_event)
         except ValueError as exc:
             err_console.print(f"[red]{exc}[/red]")
             raise typer.Exit(code=2) from None
@@ -2749,6 +2755,7 @@ from opaas.cli import runs as _runs_cli  # noqa: E402
 from opaas.cli import sentinel as _sentinel_cli  # noqa: E402
 from opaas.cli import smith as _smith_cli  # noqa: E402
 from opaas.cli import swarm as _swarm_cli  # noqa: E402
+from opaas.cli import ui as _ui_cli  # noqa: E402
 
 app.add_typer(_discover_cli.app, name="discover")
 app.add_typer(_smith_cli.app, name="smith")
@@ -2759,6 +2766,8 @@ app.add_typer(_card_cli.app, name="card")
 app.add_typer(_evidence_cli.app, name="evidence")
 app.add_typer(_audit_cli.app, name="audit")
 app.add_typer(_runs_cli.app, name="runs")
+# The local dashboard (D79): top-level, it is where a newcomer starts.
+app.command("ui")(_ui_cli.ui)
 # What the offline root signs (D65): top-level, beside keygen, sign and trust.
 app.command("root-document")(_root_cli.root_document)
 app.command("delegate")(_root_cli.delegate)

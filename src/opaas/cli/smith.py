@@ -205,10 +205,13 @@ def run_command(
 
     with recorded_run(ctx, "smith", endpoint=endpoint or base_url) as recorded:
         try:
-            outcomes = run_scenarios(
-                loaded, adapter, repeats=repeats, keep_finals=keep_finals,
-                progress=lambda sid, i, n: console.print(f"[dim]{i}/{n} {sid}[/dim]"),
-            )
+            def progress(scenario: str, done: int, total: int) -> None:
+                console.print(f"[dim]{done}/{total} {scenario}[/dim]")
+                recorded.progress(scenario, phase="scenarios", index=done, total=total,
+                                  percent=100.0 * done / total if total else None)
+
+            outcomes = run_scenarios(loaded, adapter, repeats=repeats, keep_finals=keep_finals,
+                                     progress=progress)
         except OSError as exc:  # the mock tools' address is taken or not ours
             err_console.print(f"[red]Cannot serve the mock tools at {tools_listen}: "
                               f"{_plain(exc)}[/red]")

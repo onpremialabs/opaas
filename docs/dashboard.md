@@ -125,7 +125,7 @@ These files are the interface between the CLI and the dashboard. Each carries a 
 
 ## 5. Jobs
 
-**Launching.** Every form in the dashboard ends on a confirmation that shows the command line it is about to run. The job is that command, started as a child process with the user's environment. Its stdout and stderr go to `job.log` in the run directory, so a failure can be read after the fact.
+**Launching.** Every form in the dashboard ends on a confirmation that shows the command line it is about to run. The job is that command, started as a child process with the user's environment, in its own working directory `<store>/.jobs/<job-id>/`. Its stdout and stderr go to `job.log` there, so a failure can be read after the fact; the run directory itself is written only by the command (D76). The job's id reaches the run as `jobId` in `run.json` (D79).
 
 **One queue per endpoint.** Two measurements against the same engine at the same time contaminate each other: block A's latency and throughput, and the concurrency OPAAS believes it is sending. So jobs that name the same endpoint run one after another, in the order they were queued. Jobs on different endpoints, and jobs that touch no endpoint (`discover`, `inquest`, `compare`, `certificate`), run alongside. The queue is shown, and a queued job can be removed before it starts.
 
@@ -159,7 +159,7 @@ A server on `127.0.0.1` is still reachable by every local user and by any web pa
 | Overview | `/` | Prerequisites (Python, `nvidia-smi`, cached datasets and classifiers, offline mode), what discovery found, the latest runs, the queue |
 | New audit | `/audit/new` | The guided flow: discover → models → agents → system → run. Every step shows its command |
 | Live | `/runs/{id}/live` | Progress per phase, the event lines, the command, elapsed time; cancel |
-| Run | `/runs/{id}` | Results per block and category with intervals; *not measured* with reasons; deployment fingerprint; files with hashes; certificate versions to download |
+| Run | `/runs/{id}` | Results per block and category with intervals; *not measured* with reasons; deployment fingerprint; files with hashes; certificate versions to download. For an agent: behaviour with what each line counts, instability, task completion by category, the five auditability dimensions each on its own, bias, toxicity and every run; no draft of its own, since an agent is certified within a system audit |
 | History | `/runs` | Every run, filtered by kind, model, backend, fingerprint, OPAAS version, date and status |
 | Compare | `/compare?runs=a,b,…` | Per category, side by side; overlapping intervals marked as no difference; figures that cannot be compared said so, with why |
 | Sentinel | `/sentinel` | Events as they arrive (digests, actor chains, verdicts), held actions with their approver |

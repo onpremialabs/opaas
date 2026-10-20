@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_macros.html" import state %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<h1>Overview</h1>
+<p class="sub">What this machine has, and the runs in your store. Nothing here measures: every result comes from an <code>opaas</code> command.</p>
+
+<section>
+  <h2>This machine</h2>
+  <ul class="checks">
+  {% for line in status %}
+    <li class="m-{{ 'ok' if line.mark == '✓' else ('todo' if line.mark == '○' else 'info') }}"><span class="markc">{{ line.mark }}</span>{{ line.text }}</li>
+  {% endfor %}
+  </ul>
+</section>
+
+{% if jobs %}
+<section>
+  <h2>Jobs</h2>
+  <table class="list">
+    <tbody>
+    {% for job in jobs | reverse %}
+      <tr><td><a href="/jobs/{{ job.id }}" class="mono">{{ job.command | join(' ') | truncate(80) }}</a></td>
+          <td>{% if job.endpoint %}<span class="dim mono">{{ job.endpoint }}</span>{% endif %}</td>
+          <td class="r">{{ state(job.status) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<section>
+  <h2>Latest runs <a class="more" href="/runs">All runs</a></h2>
+  {% if runs %}
+  <table class="list">
+    <tbody>
+    {% for run in runs %}
+      <tr><td><a href="/runs/{{ run.runId }}" class="mono">{{ run.runId }}</a></td>
+          <td>{{ run.kind }}</td>
+          <td class="dim mono">{{ (run.command or [])[1:] | join(' ') | truncate(60) }}</td>
+          <td class="r">{{ state(run.status) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <p><b>Start your first audit.</b> Runs appear here as soon as any <code>opaas</code> command records one.</p>
+    <a class="btn primary" href="/new">New audit</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

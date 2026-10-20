@@ -384,6 +384,29 @@ when those could not decide. On a system certificate it re-checks every componen
 the one that moved. Exit `0` current, `1` drifted or expired, `3` inconclusive, `2` bad
 inputs. Nothing is published; `--log` keeps a hash-chained history.
 
+### 7 · Local dashboard
+
+```bash
+uv sync --extra ui
+```
+
+```bash
+opaas ui
+```
+
+Open the address it prints: the token in it is the session's key. The dashboard serves your
+run store on `127.0.0.1` only. It shows every run with its command and its files checked
+against their hashes, per-category intervals, what was not measured, live progress, and
+versioned unsigned drafts of the certificate. It launches measuring commands only, each shown
+before it runs, and jobs against one engine wait their turn. Models and agents are launched
+from *New audit*: an agent run shows its behaviour, its task completion by category and the five
+auditability dimensions, each with what was not measured and why. Signing stays `opaas sign`, in a
+terminal. From another machine, tunnel to it:
+
+```bash
+ssh -L 8780:127.0.0.1:8780 your-host
+```
+
 ### Every result is kept
 
 Every command that produces a result also records it in the **run store**:
@@ -637,6 +660,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas audit template` | Scenario templates for the manifest's tools; you write the answers |
 | `opaas audit run` | Audit a system from its manifest; write the system report and open its draft certificate |
 | `opaas audit validate` / `extract` | Check a system manifest; read any document into measurements |
+| `opaas ui` | The local dashboard over the run store (`ui` extra), loopback only |
 | `opaas runs list` / `show` / `path` / `import` | The run store: every result, with its command and hashes; copy old `./runs` in |
 
 </details>

@@ -11,8 +11,9 @@ import getpass
 import json
 import os
 import sys
+import time
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any
@@ -273,6 +274,25 @@ class RecordedRun:
     kept: list[Path] = field(default_factory=list)
     #: Extra fields for `run.json`, set by the command (a draft's `sourceRun`).
     fields: dict[str, Any] = field(default_factory=dict)
+    _last_tick: float = 0.0
+
+    def progress(self, message: str, *, kind: str = "progress", phase: str | None = None,
+                 index: int | None = None, total: int | None = None,
+                 percent: float | None = None) -> None:
+        """One line of the run's progress log (phase 20, `docs/dashboard.md` §4).
+
+        Ticks (`kind="progress"`) come many times a second during generation;
+        at most two a second reach the file, and the last one of a phase always
+        does. Milestones always do. Writing progress never fails the command.
+        """
+        now = time.monotonic()
+        if kind == "progress" and now - self._last_tick < 0.5 and (percent or 0) < 100:
+            return
+        if kind == "progress":
+            self._last_tick = now
+        with suppress(StoreError, OSError):
+            self.run.append_progress(kind=kind, phase=phase, index=index, total=total,
+                                     percent=percent, message=message)
 
     def keep(self, path: Path, name: str | None = None) -> None:
         """Records an output the command wrote outside the run directory."""
@@ -301,11 +321,18 @@ def recorded_run(ctx: typer.Context, kind: str, *,
             opaas_version=__version__,
             spec_version=OPAAS_SPEC_VERSION,
             endpoint=_publishable_value("endpoint", endpoint) if endpoint else None,
+            job_id=os.environ.get("OPAAS_JOB_ID") or None,
         )
     except (StoreError, OSError) as exc:
         err_console.print(f"[red]Cannot record the run:[/red] {exc}")
         raise typer.Exit(code=1) from None
     recorded = RecordedRun(run=run)
+    words = []
+    for word in run.record.get("command", []):
+        if word.startswith("-"):
+            break
+        words.append(word)
+    recorded.progress(" ".join(words) + " started", kind="start")
     try:
         yield recorded
     except KeyboardInterrupt:

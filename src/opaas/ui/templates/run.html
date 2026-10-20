@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% from "_macros.html" import state, command, interval %}
+{% block title %}Run {{ record.runId }}{% endblock %}
+{% block content %}
+<div class="head">
+  <div>
+    <p class="crumb"><a href="/runs">Runs</a> / <span class="mono">{{ record.runId }}</span></p>
+    <h1>{% if report and report.model %}{{ report.model }}{% else %}{{ record.kind }} run{% endif %}</h1>
+    <p class="sub">{{ record.kind }}{% if report and report.quantization %} · {{ report.quantization }}{% endif %} · started {{ record.startedAt }}{% if record.endedAt %} · ended {{ record.endedAt }}{% endif %}{% if record.endpoint %} · <span class="mono">{{ record.endpoint }}</span>{% endif %}</p>
+  </div>
+  <div class="head-right">
+    {{ state(record.status) }}
+    {% if report and report.status %}{{ state(report.status) }}{% endif %}
+  </div>
+</div>
+
+{% if record.command %}{{ command(record.command) }}{% elif record.importedFrom %}<p class="dim">Imported from <span class="mono">{{ record.importedFrom }}</span>; the command that produced it is not known.</p>{% endif %}
+
+{% if record.status == 'running' %}
+<section class="live" data-run="{{ record.runId }}">
+  <h2>Live</h2>
+  <ol class="events" id="events"></ol>
+</section>
+{% endif %}
+
+{% if report and report.kind == 'model' %}
+  {% if report.missing %}
+  <p class="notice">Partial evaluation: block{{ 's' if report.missing | length > 1 }} {% for m in report.missing %}{{ m.block }}{{ ', ' if not loop.last }}{% endfor %} not evaluated. Nothing is claimed about {{ 'them' if report.missing | length > 1 else 'it' }}.</p>
+  {% endif %}
+  {% for block in report.blocks %}
+  <section class="block">
+    <h2>Block {{ block.block }} · {{ block.suite }} {{ state(block.status) }}</h2>
+    {% if block.error %}<p class="error mono">{{ block.error }}</p>{% endif %}
+    {% if block.rows %}
+      <p class="legend">Point and 95% interval, per category, in the report's order. No total.</p>
+      {% for row in block.rows %}{{ interval(row) }}{% endfor %}
+    {% elif not block.error %}
+      <p class="dim">This block's figures are in the report: <a href="/runs/{{ record.runId }}/files/report.json">report.json</a>.</p>
+    {% endif %}
+    {% for item in block.notMeasured %}
+      <div class="unmeasured"><span class="dash">not measured</span> <b>{{ item.what }}</b>{% if item.why %} — {{ item.why }}{% endif %}</div>
+    {% endfor %}
+    {% if block.limitations %}
+    <details><summary>{{ block.limitations | length }} limitation{{ 's' if block.limitations | length > 1 }}</summary>
+      <ul class="lims">{% for l in block.limitations %}<li>{{ l }}</li>{% endfor %}</ul>
+    </details>
+    {% endif %}
+  </section>
+  {% endfor %}
+{% elif report and report.kind == 'agent' %}
+  {% if not report.certifiable %}
+  <p class="notice">Not certifiable on its own: {{ 'only OPAAS\'s scenarios were run' if report.source else 'see the limitations' }}. A pack or the reference set tests a domain, not this deployment's tasks. An agent is certified within a system audit.</p>
+  {% endif %}
+  <section class="block">
+    <h2>Agent</h2>
+    <p class="facts"><span>adapter <b>{{ report.adapter }}</b></span>{% for k, v in report.agent.items() %} <span>{{ k }} <b class="mono">{{ v }}</b></span>{% endfor %}</p>
+    <p class="dim">{{ report.scenarioCount }} scenario{{ 's' if report.scenarioCount != 1 }} from {{ report.source | join(', ') }} · {{ report.repeats }} repeat{{ 's' if report.repeats != 1 }} each{% if report.agentErrors %} · <span class="error">{{ report.agentErrors }} agent error{{ 's' if report.agentErrors != 1 }}</span>{% endif %}</p>
+  </section>
+
+  <section class="block">
+    <h2>Behaviour</h2>
+    <p class="legend">Share of runs, with its 95% interval. Each line counts something different; none is a score.</p>
+    {% for row in report.behaviour %}{{ interval(row) }}<p class="counts">{{ row.counts }}</p>{% endfor %}
+    {% for item in report.behaviourNotMeasured %}
+      <div class="unmeasured"><span class="dash">not measured</span> <b>{{ item.what }}</b> — {{ item.why }}</div>
+    {% endfor %}
+    {% if report.instability.measured %}
+      {{ interval({'label': 'Unstable across repeats', 'point': report.instability.point, 'low': report.instability.low, 'high': report.instability.high, 'n': report.instability.n}) }}
+      {% if report.instability.unstableScenarios %}<p class="counts">unstable: {{ report.instability.unstableScenarios | join(', ') }}</p>{% endif %}
+    {% elif report.instability.reason %}
+      <div class="unmeasured"><span class="dash">not measured</span> <b>Instability</b> — {{ report.instability.reason }}</div>
+    {% endif %}
+  </section>
+
+  {% if report.byCategory %}
+  <section class="block">
+    <h2>Task completed, by category</h2>
+    {% for row in report.byCategory %}{% if row.point is defined %}{{ interval(row) }}{% else %}<div class="unmeasured"><b>{{ row.label }}</b> — {{ row.runs }} runs, nothing to complete</div>{% endif %}{% endfor %}
+  </section>
+  {% endif %}
+
+  <section class="block">
+    <h2>Auditability <span class="dim">· the five dimensions, each on its own</span></h2>
+    {% if report.auditabilityReason %}
+    <div class="unmeasured"><span class="dash">not measured</span> <b>{% for dim in report.dimensions %}{% for m in dim.metrics %}{{ m.name }}{{ ', ' if not loop.last }}{% endfor %}{{ ', ' if not loop.last }}{% endfor %}</b> — {{ report.auditabilityReason }}</div>
+    {% else %}
+    <div class="dims">
+    {% for dim in report.dimensions %}
+      <div class="dim-card">
+        <h3>{{ dim.question }} · {{ dim.title }}</h3>
+        {% for item in dim.metrics %}
+          {% if item.notMeasured is defined %}
+            <div class="unmeasured"><span class="dash">not measured</span> <b>{{ item.name }}</b> {{ item.label }}<br><small>{{ item.notMeasured }}</small></div>
+          {% elif item.row %}{{ interval(item.row) }}
+          {% else %}<p><b>{{ item.name }}</b> {{ item.label }}: <span class="mono">{{ item.text }}</span></p>{% endif %}
+        {% endfor %}
+      </div>
+    {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="block">
+    <h2>Bias and toxicity</h2>
+    {% for name, entry in [('Bias, counterfactual', report.bias), ('Toxicity of final answers', report.toxicity)] %}
+      {% if entry.measured %}
+        <p><b>{{ name }}</b>: measured — <a href="/runs/{{ record.runId }}/files/{{ reportFile }}">see the report</a>.</p>
+      {% else %}
+        <div class="unmeasured"><span class="dash">not measured</span> <b>{{ name }}</b> — {{ entry.reason }}</div>
+      {% endif %}
+    {% endfor %}
+  </section>
+
+  <details class="card"><summary>Every run ({{ report.runs | length }})</summary>
+    <table class="list compact">
+      <thead><tr><th>Scenario</th><th>#</th><th>Completed</th><th>Forbidden</th><th>Injection resisted</th><th>Violations</th><th>Calls</th></tr></thead>
+      <tbody>
+      {% for r in report.runs %}
+        <tr><td class="mono">{{ r.scenario }}</td><td>{{ r.repeat }}</td>
+          <td>{{ '✓' if r.completed else '—' }}</td><td>{{ 'yes' if r.forbidden else '—' }}</td>
+          <td>{{ '' if r.resisted is none else ('✓' if r.resisted else 'no') }}</td>
+          <td>{{ r.violated or '—' }}</td><td>{{ r.calls }}</td></tr>
+        {% if r.error %}<tr><td colspan="7" class="error mono">{{ r.error }}</td></tr>{% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% if report.limitations %}
+  <details><summary>{{ report.limitations | length }} limitation{{ 's' if report.limitations | length > 1 }}</summary>
+    <ul class="lims">{% for l in report.limitations %}<li>{{ l }}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+{% elif report and report.kind == 'system' %}
+  <section class="block">
+    <h2>System coverage</h2>
+    <table class="list">
+      <tbody>
+      {% for component, cells in report.coverage.items() %}
+        <tr><td><b>{{ component }}</b></td><td>{% for name, cell in cells.items() %}<span class="tag c-{{ cell }}">{{ name }}: {{ cell }}</span> {% endfor %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+
+<div class="grid2">
+  <section class="card">
+    <h2>Files</h2>
+    {% for f in files %}
+      <div class="file"><a href="/runs/{{ record.runId }}/files/{{ f.name }}">{{ f.name }}</a>
+        <span class="mono dim">{{ f.digest[:19] }}…</span>
+        <span class="chk k-{{ f.check }}">{{ 'matches run.json' if f.check == 'ok' else f.check }}</span></div>
+    {% else %}
+      <p class="dim">No files yet.</p>
+    {% endfor %}
+  </section>
+
+  {% if report and report.kind == 'agent' %}
+  <section class="card">
+    <h2>Certificate</h2>
+    <p class="dim">An agent is certified within a system audit: run <code>opaas audit run</code> with this agent in the manifest, and cite this run with <code>--member</code>.</p>
+  </section>
+  {% elif report %}
+  <section class="card">
+    <h2>Certificate, unsigned draft</h2>
+    {% for d in drafts %}
+      <div class="file"><span>v{{ d.version }} <span class="dim mono">{{ d.endedAt or d.startedAt }}</span></span>
+        <span><a href="/runs/{{ d.runId }}/files/certificate-v{{ d.version }}.html" target="_blank" rel="noopener">Open</a> ·
+        <a href="/runs/{{ d.runId }}/files/certificate-v{{ d.version }}.html?download=1">Download</a></span></div>
+    {% else %}
+      <p class="dim">No draft yet. Each one is kept as a new version.</p>
+    {% endfor %}
+    <button type="button" class="btn" data-launch='["certificate", "--run", "{{ record.runId }}"]'>Generate draft v{{ (drafts | length) + 1 }}</button>
+    <p class="fine">Unsigned: a rendering of this report, not a certificate. Signing stays <code>opaas sign</code>, in a terminal.</p>
+  </section>
+  {% endif %}
+</div>
+
+{% if progress and record.status != 'running' %}
+<details class="card"><summary>Progress log ({{ progress | length }} lines)</summary>
+  <ol class="events">{% for p in progress %}<li><span class="mono dim">{{ p.t[11:19] }}</span> {% if p.phase %}<b>{{ p.phase }}</b> {% endif %}{{ p.message }}</li>{% endfor %}</ol>
+</details>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="opaas-token" content="{{ token }}">
+<title>{% block title %}OPAAS{% endblock %} · OPAAS</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/opaas.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><img src="/favicon.svg" alt="" class="mark"><span>OPAAS</span></a>
+  <nav>
+    <a href="/" class="{{ 'on' if request.url.path == '/' }}">Overview</a>
+    <a href="/new" class="{{ 'on' if request.url.path.startswith('/new') }}">New audit</a>
+    <a href="/runs" class="{{ 'on' if request.url.path.startswith('/runs') }}">Runs</a>
+  </nav>
+  <span class="where mono">127.0.0.1 · v{{ version }}</span>
+</header>
+<main class="page">
+{% block content %}{% endblock %}
+</main>
+<footer class="foot">
+  <span>small sentinel, full audit</span>
+  <span class="mono">methodology {{ spec }} · store {{ store }}</span>
+</footer>
+</body>
+</html>

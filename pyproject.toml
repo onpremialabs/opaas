@@ -34,6 +34,18 @@ dev = [
     # committed one is still that image. The tool itself does not use them.
     "pillow>=10.0",
     "numpy>=1.24",
+    # The `ui` extra, so the dashboard's tests run in CI without a second sync.
+    "starlette>=0.40",
+    "uvicorn>=0.30",
+    "jinja2>=3.1",
+]
+# The local dashboard, `opaas ui` (D75, D79): a small ASGI server and its
+# templates. Optional so the base install stays as small as it is; imported only
+# inside `opaas ui`.
+ui = [
+    "starlette>=0.40",
+    "uvicorn>=0.30",
+    "jinja2>=3.1",
 ]
 # Pinned block D classifiers (faithfulness and toxicity). Optional on purpose:
 # torch weighs more than everything else combined, and without it OPAAS

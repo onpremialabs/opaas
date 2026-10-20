@@ -48,6 +48,43 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
   report is checked against the hash its run recorded first.
 - A model report now has a draft certificate page, like a system report.
 
+### Added — progress written into each run (D78)
+
+- Every recorded command writes `progress.jsonl` into its run directory:
+  start and end for all, the blocks of `run`, the scenarios of `smith run`
+  and the steps of `audit run`. It is an operational log, not evidence, and
+  carries no prompt, response, key, URL credential or query string.
+
+### Added — `opaas ui`, the local dashboard (D79)
+
+- `opaas ui` serves a dashboard over your run store on `127.0.0.1:8780`.
+  Install it with the `ui` extra (`uv sync --extra ui`, or
+  `pip install "opaas[ui]"`). Open the address it prints: the token in it is
+  the session's key.
+- It shows:
+  - the machine's status;
+  - every run, with its command and files checked against their hashes;
+  - per-category intervals and what was not measured;
+  - live progress;
+  - versioned unsigned drafts, which you can open or download.
+- It launches measuring commands only: a model run or a machine scan from a
+  form, and a draft certificate from a run. Each shows its exact command
+  first. Jobs against one engine wait their turn. Signing and keys stay in
+  the terminal.
+- The meerkat stays: its head is the icon, and its mob comes out when a run
+  writes a report.
+- **Agents in the dashboard.** *New audit* runs `smith` against any
+  adapter, on the reference scenarios, a domain pack or your own directory.
+  A rerouted agent needs your confirmation that its tools are OPAAS's mock
+  server. An agent's run page shows:
+  - its behaviour, with intervals;
+  - task completion by category;
+  - the five auditability dimensions, each on its own;
+  - bias and toxicity, and every run;
+  - each absence, with its reason.
+- The dashboard listens on port 8780 by default: 8765 is where `smith`
+  serves the mock tools of rerouted agents.
+
 ## [0.3.1] — 2026-10-19
 
 Everything in Spanish that 0.3.0 left out so that it shipped entirely in

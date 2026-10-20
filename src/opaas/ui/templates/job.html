@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import state, command %}
+{% block title %}Job {{ job.id }}{% endblock %}
+{% block content %}
+<div class="job" data-job="{{ job.id }}">
+  <div class="head">
+    <div>
+      <p class="crumb"><a href="/">Overview</a> / job <span class="mono">{{ job.id }}</span></p>
+      <h1>Job</h1>
+      <p class="sub" data-where>{% if job.endpoint %}Queue: <span class="mono">{{ job.endpoint }}</span>{% else %}Runs alongside other jobs{% endif %}</p>
+    </div>
+    <div class="head-right"><span data-status>{{ state(job.status) }}</span>
+      <button type="button" class="btn" data-cancel>Cancel</button></div>
+  </div>
+  {{ command(job.command) }}
+
+  <canvas class="mob hidden" width="660" height="210" data-mob aria-label="The meerkat mob comes out: a report was generated"></canvas>
+  <p class="ready hidden" data-ready></p>
+
+  <section>
+    <h2>Progress</h2>
+    <div class="phases" data-phases></div>
+    <ol class="events" data-events><li class="dim">Waiting for the command to start…</li></ol>
+  </section>
+  <details class="card"><summary>Command output</summary><pre class="log mono" data-log></pre></details>
+</div>
+{% endblock %}

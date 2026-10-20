@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import state %}
+{% block title %}Runs{% endblock %}
+{% block content %}
+<h1>Runs</h1>
+<p class="sub">Every result in your store, newest first. Nothing here is ever replaced or deleted.</p>
+<nav class="filters">
+  <a href="/runs" class="{{ 'on' if not kind }}">All</a>
+  {% for k in ['bench', 'smith', 'audit', 'discover', 'inquest', 'swarm', 'card', 'compare', 'certificate', 'sentinel'] %}
+  <a href="/runs?kind={{ k }}" class="{{ 'on' if kind == k }}">{{ k }}</a>
+  {% endfor %}
+</nav>
+{% if runs %}
+<table class="list">
+  <thead><tr><th>Run</th><th>Kind</th><th>Command</th><th>Started</th><th class="r">Status</th></tr></thead>
+  <tbody>
+  {% for run in runs %}
+    <tr>
+      <td><a href="/runs/{{ run.runId }}" class="mono">{{ run.runId }}</a>{% if run.draftCount %} <span class="tag">{{ run.draftCount }} draft{{ 's' if run.draftCount > 1 }}</span>{% endif %}</td>
+      <td>{{ run.kind }}</td>
+      <td class="dim mono">{% if run.command %}{{ run.command[1:] | join(' ') | truncate(70) }}{% elif run.importedFrom %}imported{% endif %}</td>
+      <td class="dim mono">{{ run.startedAt }}</td>
+      <td class="r">{{ state(run.status) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty"><p>No {{ kind or '' }} runs yet.</p></div>
+{% endif %}
+{% endblock %}
