@@ -822,7 +822,9 @@ def compliance_command(out: TemplateOut = Path("declaration.json")) -> None:
 
 
 ReportInputs = Annotated[
-    list[Path], typer.Option("--report", "-r", help="Report to compare. Repeat for each one.")
+    list[Path],
+    typer.Option("--report", "-r", help="Report to compare: bench, smith or system, one kind "
+                 "per comparison. Repeat for each one."),
 ]
 ComparisonOut = Annotated[
     Path | None, typer.Option("--out", "-o", help="Comparison JSON file to write.")
@@ -883,7 +885,12 @@ def admit_command(report: AdmitReport, as_json: AdmitJson = False) -> None:
 @app.command("compare")
 def compare_command(ctx: typer.Context, report: ReportInputs, out: ComparisonOut = None,
                     force: Force = False) -> None:
-    """Compares several reports: quantizations, backends or configurations."""
+    """Compares several reports of one kind: models, agents (smith) or systems.
+
+    Per figure, never ranked or totalled: a difference counts only where the
+    intervals do not overlap, and runs measured on different terms (spec
+    version, dataset, scenario set, detector) are reported as not comparable.
+    """
     refuse_overwrite(out, force)
     try:
         loaded = load_reports(list(report))
@@ -895,7 +902,12 @@ def compare_command(ctx: typer.Context, report: ReportInputs, out: ComparisonOut
     for warning in comparison["warnings"]:
         console.print(f"[yellow]Warning:[/yellow] {warning}")
 
-    _print_comparison(comparison)
+    if "opaasAgentComparison" in comparison:
+        _print_agent_comparison(comparison)
+    elif "opaasSystemComparison" in comparison:
+        _print_system_comparison(comparison)
+    else:
+        _print_comparison(comparison)
 
     # Every comparison is kept in the run store, with or without --out (D76).
     text = canonical_json(comparison) + "\n"
@@ -2723,6 +2735,85 @@ def _print_comparison(comparison: dict[str, Any]) -> None:
                     f"  [dim]{_plain(row['category'])}: "
                     f"{_plain(row['verdict']['detail'])}[/dim]"
                 )
+
+
+_VERDICT_MARKS = {
+    "difference": "[green]difference[/green]",
+    "no-difference": "[yellow]no difference[/yellow]",
+    "not-comparable": "[red]not comparable[/red]",
+    "not-measured": "[dim]not measured[/dim]",
+    "same": "same",
+    "same-evidence": "same evidence",
+    "changed": "[yellow]changed[/yellow]",
+    "no-interval": "[dim]no interval[/dim]",
+}
+
+
+def _figure_cell(entry: dict[str, Any]) -> str:
+    if not entry.get("measured"):
+        return "—"
+    value = entry["value"]
+    centre = value.get("point", value.get("p50", value.get("value")))
+    if value.get("type") == "rate":
+        return f"{centre:.1%} [{value['low']:.0%}–{value['high']:.0%}]"
+    if isinstance(centre, int | float):
+        return _fmt(centre, 2)
+    return _plain(value.get("level") or value.get("verdict") or "—")
+
+
+def _figure_table(title: str, figures: list[dict[str, Any]], labels: list[str]) -> None:
+    table = Table(title=title)
+    table.add_column("figure", style="bold")
+    for label in labels:
+        table.add_column(_plain(label), justify="right")
+    table.add_column("verdict")
+    for figure in figures:
+        status = figure["verdict"].get("status", "")
+        table.add_row(_plain(figure["label"]), *(_figure_cell(e) for e in figure["runs"]),
+                      _VERDICT_MARKS.get(status, _plain(status)))
+    console.print(table)
+
+
+def _print_agent_comparison(comparison: dict[str, Any]) -> None:
+    console.print("\n[bold]Agent runs compared[/bold] [dim](in the order given, not ranked)"
+                  "[/dim]")
+    for run in comparison["runs"]:
+        console.print(f"  * {_plain(run['label'])}  (scenario set "
+                      f"{_plain(str(run.get('scenarioSetHash'))[:19])}…, "
+                      f"{run.get('repeats')} repeat(s))")
+    labels = [run["label"] for run in comparison["runs"]]
+    _figure_table("Behaviour — comparison", comparison["behaviour"], labels)
+    figures = [{**m, "label": f"{d['question']} {m['metric']} · {m['label']}"}
+               for d in comparison["auditability"] for m in d["metrics"]]
+    _figure_table("Auditability — the five dimensions", figures, labels)
+    for figure in comparison["behaviour"] + figures:
+        if figure["verdict"].get("status") in ("difference", "no-difference"):
+            console.print(f"  [dim]{_plain(figure['label'])}: "
+                          f"{_plain(figure['verdict']['detail'])}[/dim]")
+
+
+def _print_system_comparison(comparison: dict[str, Any]) -> None:
+    console.print("\n[bold]System audits compared[/bold] [dim](in the order given, not ranked)"
+                  "[/dim]")
+    for run in comparison["runs"]:
+        console.print(f"  * {_plain(run['label'])}")
+    labels = [run["label"] for run in comparison["runs"]]
+    table = Table(title="Coverage — cell by cell")
+    table.add_column("component", style="bold")
+    table.add_column("dimension")
+    for label in labels:
+        table.add_column(_plain(label))
+    table.add_column("cell")
+    for cell in comparison["cells"]:
+        if cell["status"] == "unchanged":
+            continue
+        table.add_row(_plain(cell["component"]), _plain(cell["dimension"]),
+                      *(_plain(s["state"]) for s in cell["states"]), _plain(cell["status"]))
+    console.print(table)
+    figures = [{**m, "label": f"{c['component']} · {m['label']}"}
+               for c in comparison["cells"] for m in c.get("measurements", [])]
+    if figures:
+        _figure_table("Measurements in cells every run measured", figures, labels)
 
 
 _SUITE_PRINTERS = {

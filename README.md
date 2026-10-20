@@ -244,6 +244,17 @@ difference whose confidence intervals overlap is not a difference:
 opaas compare --report fp16.json --report q8.json --report q4.json --out comparison.json
 ```
 
+The same command compares two smith reports (behaviour with intervals, and the five
+auditability dimensions) or two system reports (cell by cell over the coverage matrix), one
+kind per comparison. Runs on a different spec version, scenario set, dataset or detector are
+reported as not comparable on the figures that depend on it, with the reason. A cell measured
+in one audit and not in the other is shown as a change in what was audited, not in a figure:
+
+```bash
+opaas compare --report agent-v1.json --report agent-v2.json
+opaas compare --report audit-1/system-report.json --report audit-2/system-report.json
+```
+
 A **cloud baseline** measures the same model on a public endpoint, to know what deploying
 locally costs. It refuses performance and compliance, cannot be signed, and is excluded from
 performance tables:
@@ -403,7 +414,7 @@ launched from *New audit*. An agent run shows its behaviour, its task completion
 and the five auditability dimensions. A system shows its coverage matrix and Auditability Card.
 Each shows what was not measured and why. *Sentinel* follows a running proxy's log and its
 gate's queue live, with the command that approves each held action. *Runs* filters the history
-and compares model runs through `opaas compare`, per category, with no ranking. Signing stays `opaas sign`, in a
+and compares model, agent or system runs through `opaas compare`, per figure, with no ranking. Signing stays `opaas sign`, in a
 terminal. From another machine, tunnel to it:
 
 ```bash
@@ -634,7 +645,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas` | Cover page and menu: what you have, what you are missing |
 | `opaas run` | Runs blocks A–E and writes the report |
 | `opaas show <report>` | Summary of an existing report, with its hash |
-| `opaas compare` | Cross-references several reports under the interval-overlap rule |
+| `opaas compare` | Cross-references several reports of one kind (bench, smith or system) under the interval-overlap rule |
 | `opaas keygen` | Generates an Ed25519 pair and its DID document |
 | `opaas root-document` | Writes the root's DID document from the public keys of its two hardware tokens (`#key-1`, `#key-2`), printing the fingerprints to check (D67) |
 | `opaas delegate` | The root delegates credential signing to an issuing key, from a hardware token (`--pkcs11-module`, `token` extra) or a key file (D65) |

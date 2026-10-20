@@ -14,9 +14,10 @@ The local dashboard. Every result is now kept in a run store that nothing
 overwrites (D76), each stored report can be rendered as a versioned unsigned
 draft (D77), running commands write their progress (D78), and `opaas ui`
 serves all of it on `127.0.0.1` (D79): launch model, agent and system audits,
-follow them live, read the sentinel, and compare model runs through
-`opaas compare`. The dashboard computes nothing of its own, signs nothing and
-is loopback only (D75). The methodology is unchanged.
+follow them live, read the sentinel, and compare runs through `opaas compare`,
+which now compares agents and whole systems as well as models (D80). The
+dashboard computes nothing of its own, signs nothing and is loopback only
+(D75). `OPAAS_SPEC_VERSION` is unchanged.
 
 ### Upgrading
 
@@ -32,6 +33,11 @@ is loopback only (D75). The methodology is unchanged.
   that write to the same path twice need one or the other.
 - **Old `./runs` directories** are listed by `opaas runs import`, and copied
   into the store with `--copy`. The originals are not moved.
+- **Block B of two model runs on different datasets, answer styles or spec
+  versions is no longer judged.** Its verdict is `not-comparable`, where it
+  used to carry a significance line under a warning. Every verdict in
+  `comparison.json` now also carries a `status` word.
+- **`opaas compare` refuses reports of different kinds** with exit 2.
 
 ### Added — the run store (D76)
 
@@ -106,7 +112,20 @@ is loopback only (D75). The methodology is unchanged.
   more model runs to compare them: the dashboard runs `opaas compare` and
   shows its result per category, with every run's interval and the CLI's
   verdict. Overlapping intervals read as no difference, and there is no
-  ranking. Agents and systems are not compared yet.
+  ranking.
+- **Comparing agents and systems** (D80). `opaas compare` also takes smith
+  reports and system reports, one kind per comparison, and the dashboard
+  offers agent and system runs to tick:
+  - two agents are compared on their behaviour, with intervals, and on the
+    five auditability dimensions, figure by figure;
+  - two system audits are compared cell by cell over the coverage matrix. A
+    cell measured in one audit only is shown as a change in what was
+    audited, never as a change in a figure;
+  - figures measured on different terms are reported as not comparable,
+    with the reason: spec version, scenario-set hash, dataset hash or
+    detector hash;
+  - a figure without an interval is shown side by side, and no difference
+    is claimed for it.
 
 ## [0.3.1] — 2026-10-19
 

@@ -10,7 +10,7 @@ If you find an error here, it is a product error. The concrete decisions and the
 
 **What cannot be measured is declared, not filled in with zeros.** A report with `null` and a reason is more useful than one with an invented number. Every run publishes its list of `limitations`, and that list appears in full on the certificate page.
 
-**A difference the sample does not support is not a difference.** Every rate comes with a 95% confidence interval (Wilson). The comparator refuses to call two measurements with overlapping intervals a difference.
+**A difference the sample does not support is not a difference.** Every rate comes with a 95% confidence interval (Wilson). The comparator refuses to call two measurements with overlapping intervals a difference, claims none for a figure that carries no interval, and does not compare figures measured on a different spec version, dataset, scenario set or detector (D80). What may not be claimed from a comparison: that a run whose figures show no difference is equivalent to the other, or that a system cell measured in one audit only got better or worse.
 
 **There is no aggregate score.** No global score and no tiers. Mixing speed, reasoning and over-refusal into one number forces you to invent weights nobody can justify. The certificate presents results per category, and a test prevents a global score from slipping in by accident.
 
@@ -169,9 +169,9 @@ A figure from one vantage point is not a figure from another. A `smith` ACR says
 
 `opaas ui` reads the run store and launches the same CLI commands; it computes no figure of its own. What it shows may be claimed exactly as far as the CLI output it shows, and no further:
 
-- **A comparison is `opaas compare`, nothing more.** Overlapping intervals read *No difference*, and that is a statement about these runs at this sample size, not that the configurations are equivalent. A non-overlapping interval says which run measured higher on that category only.
+- **A comparison is `opaas compare`, nothing more.** Overlapping intervals read *No difference*, and that is a statement about these runs at this sample size, not that the configurations are equivalent. A non-overlapping interval says which run measured higher on that figure only. Between system audits, a cell measured in one audit only is a change in what was audited, not in what was measured.
 - **There is no ranking.** Ticking runs and reading them side by side does not order them; no category outweighs another, and no total is formed.
-- **Comparability is what the warnings say.** Runs with different datasets, detector hashes, methodology versions or deployment fingerprints are shown with the CLI's warnings first. A comparison across them is a comparison of different measurements.
+- **Comparability is what the warnings say.** A figure measured on a different dataset, detector, scenario set or methodology version is reported as not comparable, with the reason; different deployment fingerprints are shown as the CLI's warnings first. A comparison across them is a comparison of different measurements.
 - **A draft certificate is not a certificate.** Drafts are unsigned, versioned renderings of a stored report. They carry no credential, and nothing verifies them; only `opaas sign` in a terminal issues one.
 - **The sentinel view is a reader.** It shows the proxy's log and the gate's queue as recorded, digests only. It approves nothing and proves nothing the log itself does not.
 - **The history is the store's, not a log.** Run files are written once and hashed in `run.json`, and the dashboard checks them, but the store is a local directory with no signature: a file changed after it was written is caught, unless whoever changed it rewrote `run.json` too. What a third party verifies is a signed credential, not the store.
