@@ -14,7 +14,7 @@ import re
 import sys
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any
@@ -28,6 +28,7 @@ from rich.style import Style
 from rich.text import Text
 
 from opaas import OPAAS_SPEC_VERSION, __version__
+from opaas.cli.mob import audit_company
 from opaas.core.credential import (
     Pkcs11Signer,
     Signer,
@@ -430,7 +431,12 @@ def recorded_run(ctx: typer.Context, kind: str, *,
         words.append(word)
     recorded.progress(" ".join(words) + " started", kind="start")
     try:
-        yield recorded
+        # An audit has the meerkats' company while it runs (`cli/mob.py`); they
+        # leave with it, before what it recorded is printed.
+        company = (audit_company(console, " ".join(words) or "opaas", also=err_console)
+                   if kind in _AUDIT_KINDS else nullcontext())
+        with company:
+            yield recorded
     except KeyboardInterrupt:
         raise
     except typer.Exit as exc:
@@ -447,6 +453,8 @@ def recorded_run(ctx: typer.Context, kind: str, *,
     next_steps(run_next_steps(kind, run.run_id))
 
 
+#: Kinds that audit something, and get the meerkats' company while they run.
+_AUDIT_KINDS = frozenset({"bench", "smith", "audit", "swarm", "inquest", "sentinel"})
 #: Kinds whose run holds a report the audit certificate is rendered from.
 _CERTIFIABLE_KINDS = frozenset({"bench", "smith", "audit"})
 #: Kinds whose reports `opaas compare` reads.

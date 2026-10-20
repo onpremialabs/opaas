@@ -201,3 +201,33 @@ def test_a_recorded_run_ends_with_what_to_run_next(tmp_path):
     assert result.output.index("✓ Recorded as run") < result.output.index("Next:")
     assert f"opaas certificate --run {run_id}" in result.output
     assert f"opaas runs show {run_id}" in result.output
+
+
+# -------------------------------------------------------------- one mode
+
+
+def test_opaas_alone_in_a_terminal_opens_the_screen(monkeypatch):
+    opened = []
+    monkeypatch.setattr("opaas.cli.main.is_interactive", lambda: True)
+    monkeypatch.setattr("opaas.cli.main.tui.supported", lambda console: True)
+    monkeypatch.setattr("opaas.cli.main.tui.run", lambda console, items: opened.append(items))
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert len(opened) == 1
+    assert "What would you like to do?" not in result.output, "no inline menu any more"
+
+
+def test_opaas_alone_without_a_terminal_prints_the_help():
+    """Piped or in CI there is nothing to interact with: the help, for scripts."""
+    result = runner.invoke(app, [])
+    assert result.exit_code == 0
+    assert "─ Audit " in result.output
+
+
+def test_a_console_that_cannot_draw_the_screen_says_where_to_open_it(monkeypatch):
+    monkeypatch.setattr("opaas.cli.main.is_interactive", lambda: True)
+    monkeypatch.setattr("opaas.cli.main.tui.supported", lambda console: False)
+    result = runner.invoke(app, [])
+    assert result.exit_code == 2
+    assert "✗ This console cannot draw OPAAS's screen." in result.output
+    assert "Windows" in result.output

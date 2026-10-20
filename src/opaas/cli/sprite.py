@@ -28,23 +28,35 @@ HEIGHT_IN_LINES = len(MASCOT) // 2
 
 
 def render(rows: tuple[str, ...] = MASCOT) -> list[Text]:
-    """Turns the grid into terminal lines, two rows per line."""
+    """Turns the grid into terminal lines, two rows per line.
+
+    Neighbouring cells of the same glyph and colours are written as one run:
+    the same picture in a fraction of the bytes, which an animation redrawing
+    it ten times a second needs (a terminal that falls behind smears frames).
+    """
     lines: list[Text] = []
     for index in range(0, len(rows), 2):
         top = rows[index]
         bottom = rows[index + 1] if index + 1 < len(rows) else "." * len(top)
-        line = Text()
+        cells: list[tuple[str, Style | None]] = []
         for column in range(len(top)):
             upper = PALETTE.get(top[column])
             lower = PALETTE.get(bottom[column])
             if upper and lower:
-                line.append("▀", Style(color=upper, bgcolor=lower))
+                cells.append(("▀", Style(color=upper, bgcolor=lower)))
             elif upper:
-                line.append("▀", Style(color=upper))
+                cells.append(("▀", Style(color=upper)))
             elif lower:
-                line.append("▄", Style(color=lower))
+                cells.append(("▄", Style(color=lower)))
             else:
-                line.append(" ")
+                cells.append((" ", None))
+        line = Text()
+        start = 0
+        for end in range(1, len(cells) + 1):
+            if end == len(cells) or cells[end] != cells[start]:
+                glyph, style = cells[start]
+                line.append(glyph * (end - start), style)
+                start = end
         lines.append(line)
     return lines
 

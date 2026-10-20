@@ -129,13 +129,19 @@ uv tool install "opaas[ui] @ git+https://github.com/onpremialabs/opaas.git"
 ```
 
 **In the terminal** — `opaas` on its own opens the menu: every task, the exact command it
-runs and the page that documents it, with the meerkat keeping watch:
+runs and the page that documents it, with the meerkat keeping watch. It comes up out of its
+burrow and stands still, and moves when the mouse passes over it or a command is chosen:
 
 ```bash
 opaas
 ```
 
-<img alt="The full-screen opaas: the meerkat on the left, the menu grouped by task on the right, the selected entry's command and documentation link, and the environment status" src="docs/img/readme/cli-tui.svg">
+<img alt="The full-screen opaas: the meerkat comes up out of its burrow beside the menu, grouped by task, and wakes when the mouse passes over it; the selected entry shows its command and documentation link" src="docs/img/readme/cli-tui.gif">
+
+While an audit runs, the sentinel keeps it company and other meerkats come and go, for as long as
+it takes; then the whole log is printed as usual:
+
+<img alt="An audit running: the sentinel on the left and other meerkats coming up out of their burrows and going back down, above the progress bar and the log" src="docs/img/readme/cli-audit.gif">
 
 **From the dashboard** — launch audits, follow them live, read and compare the results:
 

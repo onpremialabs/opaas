@@ -53,7 +53,7 @@ from opaas.bench.registry import REJECTED, admit
 from opaas.bench.runner import RunEvent, RunRequest, execute
 from opaas.bench.scoring import ScoringError, prompt_template_hash
 from opaas.bench.suites import PLANNED_SUITES, available_suites, get_suite, planned_suite_hint
-from opaas.cli import tui
+from opaas.cli import mob, tui
 from opaas.cli.banner import print_banner
 from opaas.cli.common import (  # noqa: E402 - shared with the module command groups
     Force,
@@ -71,7 +71,7 @@ from opaas.cli.common import (  # noqa: E402 - shared with the module command gr
     warning,
 )
 from opaas.cli.docs import PANEL_AUDIT, PANEL_RESULTS, PANEL_SETUP, PANEL_SIGNED, doc, epilog
-from opaas.cli.menu import MenuItem, is_interactive, present
+from opaas.cli.menu import MenuItem, is_interactive
 from opaas.core.credential import (
     CredentialError,
     TrustAnchorError,
@@ -199,20 +199,20 @@ def _menu_items() -> list[MenuItem]:
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context) -> None:
-    """Cover page and menu. Only with no subcommand and an interactive terminal:
-    command output gets piped to files and to `jq`, and a menu there would get
-    in the way. A terminal big enough gets the full screen (`cli/tui.py`); a
-    small or legacy one, the cover page and the inline menu."""
+    """`opaas` on its own: the full screen (`cli/tui.py`), the one interactive
+    way in (D82). Only with an interactive terminal: command output gets piped
+    to files and to `jq`, and there it prints the help instead."""
     if ctx.invoked_subcommand is not None:
         return
-    if is_interactive() and tui.supported(console):
-        tui.run(console, _menu_items())
-        return
-    print_banner(console)
-    if is_interactive():
-        present(console, _menu_items())
-    else:
+    if not is_interactive():
         console.print(ctx.get_help())
+        return
+    if not tui.supported(console):
+        error("[red]This console cannot draw OPAAS's screen.[/red] Open it in Windows "
+              "Terminal, or any terminal that speaks VT sequences; every command works "
+              "here as well (opaas --help).")
+        raise typer.Exit(code=2)
+    tui.run(console, _menu_items())
 
 
 def _parse_int_list(raw: str, flag: str) -> list[int]:
@@ -497,21 +497,31 @@ def _progress_reporter(suites: int) -> Iterator[Callable[[RunEvent], None]]:
             "[dim]{task.description}[/dim]",
             table_column=Column(no_wrap=True, max_width=52),
         ),
-        BarColumn(bar_width=24),
-        TaskProgressColumn(),
+        # The palette of the cover page and the dashboard, not Rich's magenta.
+        BarColumn(bar_width=24, style="#3a2a1c", complete_style="#c8873f",
+                  finished_style="#8fae6a", pulse_style="#c8873f"),
+        TaskProgressColumn(style="#c8873f"),
         TimeElapsedColumn(),
         console=console,
     )
+    bar = progress.add_task(f"starting · {suites} block(s)", total=100.0)
+
+    def live(event: RunEvent) -> None:
+        progress.update(bar, completed=event.percent, description=event.message)
+        if event.kind != "progress":
+            # The milestones are left above the bar: when the run finishes,
+            # what remains on screen is a readable log of what happened.
+            progress.console.print(f"[dim]{event}[/dim]")
+
+    # Under the meerkats when they keep the run company (`cli/mob.py`): a
+    # terminal draws one live display at a time, so the bar joins theirs.
+    if mob.attach(progress):
+        try:
+            yield live
+        finally:
+            mob.detach(progress)
+        return
     with progress:
-        bar = progress.add_task(f"starting · {suites} block(s)", total=100.0)
-
-        def live(event: RunEvent) -> None:
-            progress.update(bar, completed=event.percent, description=event.message)
-            if event.kind != "progress":
-                # The milestones are left above the bar: when the run finishes,
-                # what remains on screen is a readable log of what happened.
-                progress.console.print(f"[dim]{event}[/dim]")
-
         yield live
 
 
