@@ -17,7 +17,7 @@ import typer
 from rich.table import Table
 
 from opaas import OPAAS_SPEC_VERSION, __version__
-from opaas.cli.common import _plain, console, err_console
+from opaas.cli.common import _plain, console, error
 from opaas.core.store import (
     RUN_FILE,
     StoreError,
@@ -40,8 +40,8 @@ _STATUS_STYLE = {"completed": "green", "partial": "yellow", "failed": "red",
 def _run_directory(run_id: str) -> Path:
     directory = runs_dir() / run_id
     if not (directory / RUN_FILE).is_file():
-        err_console.print(f"[red]No run {_plain(run_id)} in {runs_dir()}.[/red] "
-                          "`opaas runs list` shows the ones there are.")
+        error(f"[red]No run {_plain(run_id)} in {runs_dir()}.[/red] "
+              "`opaas runs list` shows the ones there are.")
         raise typer.Exit(code=2)
     return directory
 
@@ -80,7 +80,7 @@ def show_command(run_id: RunId) -> None:
         record = load_run(directory)
         checks = verify_files(directory)
     except (StoreError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=1) from None
     for key in ("runId", "kind", "status", "opaasVersion", "specVersion", "startedAt",
                 "endedAt", "endpoint", "importedFrom"):
@@ -94,7 +94,7 @@ def show_command(run_id: RunId) -> None:
         console.print(f"  [{style[state]}]{state:<8}[/{style[state]}] {_plain(name)}  "
                       f"[dim]{digest}[/dim]")
     if any(state != "ok" for state in checks.values()):
-        err_console.print("[red]Some files no longer match the hash this run recorded.[/red]")
+        error("[red]Some files no longer match the hash this run recorded.[/red]")
         raise typer.Exit(code=1)
 
 
@@ -131,7 +131,7 @@ def import_command(
                                    spec_version=OPAAS_SPEC_VERSION, fields=fields,
                                    status=status)
         except (StoreError, OSError) as exc:
-            err_console.print(f"[red]{directory}: {_plain(exc)}[/red]")
+            error(f"[red]{directory}: {_plain(exc)}[/red]")
             raise typer.Exit(code=1) from None
         console.print(f"  {directory} → run {run.run_id}")
     if not copy:

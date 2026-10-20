@@ -38,6 +38,12 @@ class MenuItem:
     #: Argument-less action executed when the entry is chosen.
     action: Callable[[], None] | None = None
     quit: bool = False
+    #: The task group the full-screen menu lists it under (`cli/tui.py`).
+    section: str = ""
+    #: One sentence on what the entry does, shown beside the menu.
+    description: str = ""
+    #: Where it is documented (`cli/docs.py`).
+    docs: str = ""
 
 
 @dataclass

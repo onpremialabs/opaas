@@ -25,6 +25,7 @@ from opaas.cli.common import (
     _plain,
     console,
     err_console,
+    error,
     read_json,
     recorded_run,
     refuse_overwrite,
@@ -44,7 +45,7 @@ from opaas.system.report import SYSTEM_ROW, SystemReportError, build_report, loa
 from opaas.web import SiteError, certificate_url, check_verify_url, render_audit_certificate
 from opaas.web.certificate import audit_entry
 
-app = typer.Typer(help="System audit: manifest and measurements (D60).", no_args_is_help=True)
+app = typer.Typer(help="System audit: manifest and measurements.", no_args_is_help=True)
 
 _STATUS_STYLE = {"measured": "green", "not-measured": "yellow", "not-applicable": "dim"}
 _STATUS_MARK = {"measured": "[green]●[/green]", "not-measured": "[yellow]○[/yellow]",
@@ -87,8 +88,8 @@ def run_command(
         if certificate_base is not None:
             check_verify_url(f"{certificate_base.rstrip('/')}/cert/x/index.html")
     except SiteError:
-        err_console.print(f"[red]--certificate-base-url: '{_plain(certificate_base)}' is not a "
-                          "web address, e.g. https://onpremialabs.com.[/red]")
+        error(f"[red]--certificate-base-url: '{_plain(certificate_base)}' is not a "
+              "web address, e.g. https://onpremialabs.com.[/red]")
         raise typer.Exit(code=2) from None
     try:
         manifest = load_manifest(read_json(system), known_adapters=tuple(available_agents()))
@@ -101,7 +102,7 @@ def run_command(
             declared = [declared_item(r, declaration) for r in DECLARED_REQUIREMENTS]
     except (SystemManifestError, SystemReportError, DeclarationError, ExtractionError,
             OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
     refuse_overwrite(out, force)
@@ -122,7 +123,7 @@ def run_command(
                                 members=run.members, steps=run.steps, thresholds=thresholds,
                                 declared_items=declared)
         except (AuditPlanError, SystemReportError) as exc:
-            err_console.print(f"[red]{_plain(exc)}[/red]")
+            error(f"[red]{_plain(exc)}[/red]")
             raise typer.Exit(code=2) from None
         inventory = read_json(run.inventory)["inventory"] if run.inventory else None
         report = out / "system-report.json"
@@ -184,7 +185,7 @@ def _invoke(args: list[str]) -> int:
         if not isinstance(code, int):
             raise
         if hasattr(exc, "format_message"):
-            err_console.print(f"[red]{_plain(exc.format_message())}[/red]")
+            error(f"[red]{_plain(exc.format_message())}[/red]")
         return code
     return 0
 
@@ -269,8 +270,8 @@ def draft_command(
     from opaas.system.draft import draft_manifest
 
     if out.exists() and not force:
-        err_console.print(f"[red]{out} exists: a draft never overwrites a manifest someone "
-                          "completed. Pass --force, or choose another --out.[/red]")
+        error(f"[red]{out} exists: a draft never overwrites a manifest someone "
+              "completed. Pass --force, or choose another --out.[/red]")
         raise typer.Exit(code=2)
     try:
         observed = (read_json(inventory)["inventory"] if inventory
@@ -281,7 +282,7 @@ def draft_command(
                                    public_key=load_public_key(records_key)
                                    if records_key else None) if records else None)
     except (OSError, ValueError, KeyError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     source = None
     if records is not None:
@@ -298,7 +299,7 @@ def draft_command(
     try:
         load_manifest(document, known_adapters=tuple(available_agents()))
     except SystemManifestError as exc:
-        err_console.print(f"[red]The draft is not a valid manifest: {_plain(exc)}[/red]")
+        error(f"[red]The draft is not a valid manifest: {_plain(exc)}[/red]")
         raise typer.Exit(code=1) from None
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -325,13 +326,13 @@ def template_command(
         loaded = load_manifest(read_json(system), known_adapters=tuple(available_agents()))
         schemas = _tool_schemas(manifest or [])
     except (SystemManifestError, OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     templates, notes = scenario_templates(loaded, tool_schemas=schemas)
     existing = [name for name, _ in templates if (out / name).exists()]
     if existing and not force:
-        err_console.print(f"[red]{len(existing)} template(s) already exist in {out}, perhaps "
-                          f"completed: {', '.join(existing)}. Pass --force to overwrite.[/red]")
+        error(f"[red]{len(existing)} template(s) already exist in {out}, perhaps "
+              f"completed: {', '.join(existing)}. Pass --force to overwrite.[/red]")
         raise typer.Exit(code=2)
     out.mkdir(parents=True, exist_ok=True)
     for name, scenario in templates:
@@ -370,7 +371,7 @@ def validate_command(
     try:
         manifest = load_manifest(read_json(system), known_adapters=tuple(available_agents()))
     except (SystemManifestError, OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     console.print(f"[bold]{_plain(manifest.id)}[/bold] — {_plain(manifest.purpose)}")
     for component in manifest.components:
@@ -398,7 +399,7 @@ def extract_command(
         extraction = extract(read_json(document), component=component, file=document.name,
                              file_hash=file_digest(document))
     except (ExtractionError, OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
     table = Table(title=f"{_plain(component)} · {extraction.kind} · {_plain(document.name)}")

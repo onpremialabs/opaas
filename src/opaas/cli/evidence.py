@@ -19,8 +19,9 @@ from opaas.cli.common import (
     _signing_identity,
     _verification_trust,
     console,
-    err_console,
+    error,
     read_json,
+    success,
     write_json,
 )
 from opaas.core.credential import (
@@ -49,7 +50,7 @@ Passphrase = Annotated[str | None, typer.Option("--passphrase", envvar="OPAAS_KE
 Validity = Annotated[int, typer.Option("--validity-days", help="Days of validity.")]
 Log = Annotated[Path | None, typer.Option("--log", help="Transparency log to record it in.")]
 Delegation = Annotated[Path | None, typer.Option(
-    "--delegation", help="Delegation from the root to this key; signs under the root's name (D65).",
+    "--delegation", help="Delegation from the root to this key; signs under the root's name.",
 )]
 Revocations = Annotated[Path | None, typer.Option(
     "--revocations", help="The issuer's signed revocation list; defaults to the installed ones.",
@@ -85,7 +86,7 @@ def sign_evidence(
         )
         signed = sign_credential(credential, private_key, key_id=key_id, delegation=delegated)
     except (EvidenceError, CredentialError, OSError, TypeError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     target = out or document.with_suffix(".vc.json")
     write_json(target, signed)
@@ -93,9 +94,9 @@ def sign_evidence(
         try:
             append_entry(log, signed, file_digest(document))
         except TransparencyError as exc:
-            err_console.print(f"[red]Could not record in the log:[/red] {exc}")
+            error(f"[red]Could not record in the log:[/red] {exc}")
             raise typer.Exit(code=2) from None
-    console.print(f"[green]Signed[/green] {body.get('kind')}: {signed['id']}")
+    success(f"[green]Signed[/green] {body.get('kind')}: {signed['id']}")
     console.print(f"  document : {signed['credentialSubject']['evidence']['documentHash']}")
     console.print(f"  file     : {target}")
 
@@ -115,7 +116,7 @@ def verify_evidence(
             signed, key=key, did_document=did_document, revocations=revocations
         )
     except (OSError, json.JSONDecodeError, TrustAnchorError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     result = verify_credential(signed, root, report_path=document, revocation_lists=lists)
     for check in result.checks:
@@ -123,4 +124,4 @@ def verify_evidence(
         console.print(f"  {mark} {check.name}: {_plain(check.detail)}")
     if not result.valid:
         raise typer.Exit(code=1)
-    console.print("[green]Valid.[/green]")
+    success("[green]Valid.[/green]")

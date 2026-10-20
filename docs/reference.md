@@ -45,7 +45,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 
 | Command | What it does |
 |---|---|
-| `opaas` | Cover page and menu: what you have, what you are missing |
+| `opaas` | In a terminal, the full-screen menu: every task, its command and its documentation, and what you have and are missing. `OPAAS_NO_TUI=1` for the inline cover page and menu, `OPAAS_NO_ANIMATION=1` to still the meerkat |
 | `opaas run` | Runs blocks A–E and writes the report |
 | `opaas show <report>` | Summary of an existing report, with its hash |
 | `opaas compare` | Cross-references several reports of one kind (bench, smith or system) under the interval-overlap rule |

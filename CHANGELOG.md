@@ -10,6 +10,37 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Added — a full-screen `opaas`, and one way of speaking (D82)
+
+- **`opaas` in a terminal opens a full screen.** The meerkat comes up out of
+  its burrow, keeps watch and blinks. Beside it is the menu, grouped by task,
+  with the selected entry's command and documentation link. Read-only entries
+  run in place; the others print the exact command to copy. `o` opens the
+  entry's documentation. `OPAAS_NO_ANIMATION=1` stills the meerkat, and
+  `OPAAS_NO_TUI=1` brings back the cover page and inline menu. Small and
+  legacy terminals get those anyway.
+- **`opaas --help` is grouped by task**: *Audit*, *Results*, *Data and setup*,
+  and *Signed credentials (advanced)*. No command was renamed or moved.
+- **Help links instead of citing decision numbers.** Every command's help ends
+  with its page in the documentation and, where one applies, the decision
+  behind it.
+- **One look for status lines**: ✓ done, ! worth knowing, ✗ stopped. Errors
+  come in two parts: what happened, then → what to do.
+- **What to run next.** A command that records a run ends with the commands
+  that usually follow it, starting with `opaas certificate --run <id>`.
+
+### Fixed
+
+- The message for a missing `ui` extra printed `pip install "opaas"`. Rich
+  read `[ui]` as markup and dropped it.
+
+### Upgrading
+
+- Scripts are unaffected: no command, option or exit code changed, and
+  piped output still gets the plain help.
+- Errors now start with `✗` and put what to do on a second line, after `→`.
+  A script that matched a whole error line may need to match one of the two.
+
 ### Added — package metadata
 
 - `pyproject.toml` says what OPAAS is to an index:

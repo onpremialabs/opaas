@@ -53,6 +53,7 @@ from opaas.bench.registry import REJECTED, admit
 from opaas.bench.runner import RunEvent, RunRequest, execute
 from opaas.bench.scoring import ScoringError, prompt_template_hash
 from opaas.bench.suites import PLANNED_SUITES, available_suites, get_suite, planned_suite_hint
+from opaas.cli import tui
 from opaas.cli.banner import print_banner
 from opaas.cli.common import (  # noqa: E402 - shared with the module command groups
     Force,
@@ -62,10 +63,14 @@ from opaas.cli.common import (  # noqa: E402 - shared with the module command gr
     _verification_trust,
     console,
     err_console,
+    error,
     read_json,
     recorded_run,
     refuse_overwrite,
+    success,
+    warning,
 )
+from opaas.cli.docs import PANEL_AUDIT, PANEL_RESULTS, PANEL_SETUP, PANEL_SIGNED, doc, epilog
 from opaas.cli.menu import MenuItem, is_interactive, present
 from opaas.core.credential import (
     CredentialError,
@@ -127,44 +132,68 @@ app = typer.Typer(
     name="opaas",
     help="OPAAS — audit the models, agents and AI systems you run yourself, and certify what was "
     "measured (onpremIA Labs).",
+    epilog="Run opaas with no command, in a terminal, for the interactive menu.\n\n"
+    f"Guide: {doc('guide')}\n\nReference: {doc('reference')}",
     add_completion=False,
 )
 
 
 def _menu_items() -> list[MenuItem]:
-    """Read-only ones are executed; the rest show their command."""
+    """The menu, by task as `opaas --help` is. Read-only ones are executed; the
+    rest show their command. Signing is last and says it is not the audit flow
+    (D81)."""
+    audit, results, setup, signed = PANEL_AUDIT, PANEL_RESULTS, PANEL_SETUP, PANEL_SIGNED
     return [
-        MenuItem(
-            "▶",
-            "Evaluate a model",
-            command="opaas run --model <id> --backend ollama --suite all",
-        ),
-        MenuItem("◈", "View evaluation blocks", action=suites_command),
-        MenuItem("▤", "View datasets and cache", action=datasets_command),
-        MenuItem("⚙", "View inference engines", action=backends_command),
-        MenuItem(
-            "✎",
-            "Sign a report",
-            command="opaas sign --input <report> --key <key.pem> --out cert.json",
-        ),
-        MenuItem(
-            "◱",
-            "Publish certificates",
-            command="opaas publish --report <report> --credential <cert> "
-            "--did-document did.json",
-        ),
-        MenuItem(
-            "▣",
-            "Print a certificate",
-            command="opaas certificate --report <report> --credential <cert> "
-            "--url <published page>",
-        ),
-        MenuItem(
-            "✓",
-            "Verify a credential",
-            command="opaas verify --credential <cert> --report <report>",
-        ),
-        MenuItem("✕", "Exit", quit=True),
+        MenuItem("▶", "Audit a model deployment", section=audit,
+                 command="opaas run --model <id> --backend ollama --num-ctx 8192 --suite all",
+                 description="Blocks A–E against the engine already serving the model.",
+                 docs=doc("model")),
+        MenuItem("◆", "Audit an agent", section=audit,
+                 command="opaas smith run --agent http --endpoint <agent-url>",
+                 description="Fixed scenarios with mock tools as ground truth.",
+                 docs=doc("agents")),
+        MenuItem("▦", "Audit a whole system", section=audit,
+                 command="opaas audit draft -o system.json",
+                 description="A manifest of every component; then opaas audit run system.json.",
+                 docs=doc("system")),
+        MenuItem("◎", "Discover what runs here", section=audit,
+                 command="opaas discover scan",
+                 description="Engines, agents, tools and what cannot be audited about them.",
+                 docs=doc("environment")),
+        MenuItem("↻", "Check a certificate for drift", section=audit,
+                 command="opaas watch --report <report> --credential <cert>",
+                 description="Does the certificate still describe what is deployed?",
+                 docs=doc("monitoring")),
+        MenuItem("▤", "Recent runs", section=results,
+                 action=lambda: _runs_cli.list_command(None, False),
+                 description="Every result recorded in the run store, oldest first.",
+                 docs=doc("run-store")),
+        MenuItem("▣", "Audit certificate of a run", section=results,
+                 command="opaas certificate --run <run-id>",
+                 description="Printable, self-attested, checked by the report's SHA-256.",
+                 docs=doc("readme")),
+        MenuItem("⇄", "Compare runs", section=results,
+                 command="opaas compare <report> <report>",
+                 description="Overlapping intervals are no difference; no ranking.",
+                 docs=doc("commands")),
+        MenuItem("◱", "Open the dashboard", section=results,
+                 command="opaas ui",
+                 description="History, comparison and certificates in the browser, locally.",
+                 docs=doc("dashboard")),
+        MenuItem("◈", "Evaluation blocks", section=setup, action=suites_command,
+                 description="What each block measures, and what is still planned.",
+                 docs=doc("methodology")),
+        MenuItem("≡", "Datasets and cache", section=setup, action=datasets_command,
+                 description="Pinned sources, and what is already cached for offline runs.",
+                 docs=doc("datasets")),
+        MenuItem("⚙", "Inference engines", section=setup, action=backends_command,
+                 description="The engine adapters OPAAS talks to.",
+                 docs=doc("commands")),
+        MenuItem("✎", "Signed credentials", section=signed,
+                 command="opaas sign --input <report> --key <key.pem> --out cert.json",
+                 description="Optional, outside the audit flow: W3C credentials under your key.",
+                 docs=doc("signed")),
+        MenuItem("✕", "Exit", section=signed, quit=True),
     ]
 
 
@@ -172,8 +201,12 @@ def _menu_items() -> list[MenuItem]:
 def main(ctx: typer.Context) -> None:
     """Cover page and menu. Only with no subcommand and an interactive terminal:
     command output gets piped to files and to `jq`, and a menu there would get
-    in the way."""
+    in the way. A terminal big enough gets the full screen (`cli/tui.py`); a
+    small or legacy one, the cover page and the inline menu."""
     if ctx.invoked_subcommand is not None:
+        return
+    if is_interactive() and tui.supported(console):
+        tui.run(console, _menu_items())
         return
     print_banner(console)
     if is_interactive():
@@ -482,7 +515,7 @@ def _progress_reporter(suites: int) -> Iterator[Callable[[RunEvent], None]]:
         yield live
 
 
-@app.command()
+@app.command(rich_help_panel=PANEL_AUDIT, epilog=epilog("model"))
 def run(
     ctx: typer.Context,
     model: Model,
@@ -538,29 +571,29 @@ def run(
     if unknown:
         for name in unknown:
             hint = planned_suite_hint(name) if name in PLANNED_SUITES else None
-            err_console.print(
+            error(
                 f"[red]Suite '{name}' not available.[/red] "
                 + (hint or f"Available: {', '.join(available_suites())}")
             )
         raise typer.Exit(code=2)
 
     if explicit_all and PLANNED_SUITES:
-        err_console.print(
-            "[yellow]Warning:[/yellow] '--suite all' runs the implemented suites "
+        warning(
+            "'--suite all' runs the implemented suites "
             f"({', '.join(available_suites())}), not the five design blocks. "
             f"Not implemented: {', '.join(sorted(PLANNED_SUITES))}. "
             "The report and the credential will declare it a partial evaluation."
         )
 
     if prompt_mode not in PROMPT_MODES:
-        err_console.print(
+        error(
             f"[red]Unknown --prompt-mode: {prompt_mode!r}.[/red] "
             f"Valid ones: {', '.join(PROMPT_MODES)}"
         )
         raise typer.Exit(code=2)
 
     if max_concurrency is not None and max_concurrency <= 0:
-        err_console.print(
+        error(
             f"[red]--max-concurrency must be greater than 0, received {max_concurrency}.[/red]"
         )
         raise typer.Exit(code=2)
@@ -569,24 +602,24 @@ def run(
         ("--safety-max-tokens", safety_max_tokens),
     ):
         if value is not None and value <= 0:
-            err_console.print(f"[red]{flag} must be greater than 0, received {value}.[/red]")
+            error(f"[red]{flag} must be greater than 0, received {value}.[/red]")
             raise typer.Exit(code=2)
     if suite_concurrency <= 0:
-        err_console.print(
+        error(
             f"[red]--suite-concurrency must be greater than 0, received {suite_concurrency}.[/red]"
         )
         raise typer.Exit(code=2)
     if load_concurrency <= 0:
-        err_console.print(
+        error(
             f"[red]--load-concurrency must be greater than 0, received {load_concurrency}.[/red]"
         )
         raise typer.Exit(code=2)
     if num_ctx is not None and num_ctx <= 0:
-        err_console.print(f"[red]--num-ctx must be greater than 0, received {num_ctx}.[/red]")
+        error(f"[red]--num-ctx must be greater than 0, received {num_ctx}.[/red]")
         raise typer.Exit(code=2)
 
     if declaration is not None and not declaration.exists():
-        err_console.print(f"[red]The declaration does not exist:[/red] {declaration}")
+        error(f"[red]The declaration does not exist:[/red] {declaration}")
         raise typer.Exit(code=2)
 
     if {"capability", "safety"} & set(requested):
@@ -599,7 +632,7 @@ def run(
             load_dataset(dataset, limit=limit, offline=offline)
             prompt_template_hash(answer_style)
         except (DatasetError, ScoringError) as exc:
-            err_console.print(f"[red]{exc}[/red]")
+            error(f"[red]{exc}[/red]")
             raise typer.Exit(code=2) from None
 
     suite_options = {
@@ -689,10 +722,10 @@ def run(
 
                 outcome = execute(request, on_event=on_event)
         except ValueError as exc:
-            err_console.print(f"[red]{exc}[/red]")
+            error(f"[red]{exc}[/red]")
             raise typer.Exit(code=2) from None
         except BackendError as exc:
-            err_console.print(f"[red]Backend error:[/red] {exc}")
+            error(f"[red]Backend error:[/red] {exc}")
             raise typer.Exit(code=1) from None
 
         if output is not None:
@@ -720,18 +753,18 @@ ReportPath = Annotated[
 ]
 
 
-@app.command("show")
+@app.command("show", rich_help_panel=PANEL_RESULTS, epilog=epilog("model"))
 def show(report_path: ReportPath) -> None:
     """Shows the summary of an already-generated report."""
     path = report_path / REPORT_FILENAME if report_path.is_dir() else report_path
     if not path.exists():
-        err_console.print(f"[red]Does not exist:[/red] {path}")
+        error(f"[red]Does not exist:[/red] {path}")
         raise typer.Exit(code=2)
     _print_run_summary(json.loads(path.read_text(encoding="utf-8")))
     console.print(f"\nReport hash: [bold]{file_digest(path)}[/bold]")
 
 
-@app.command("backends")
+@app.command("backends", rich_help_panel=PANEL_SETUP, epilog=epilog("commands"))
 def backends_command() -> None:
     """Lists the available engine adapters."""
     table = Table(title="Registered adapters")
@@ -750,7 +783,7 @@ def backends_command() -> None:
     console.print(table)
 
 
-@app.command("suites")
+@app.command("suites", rich_help_panel=PANEL_SETUP, epilog=epilog("methodology"))
 def suites_command() -> None:
     """Lists the implemented and the planned suites."""
     table = Table(title="Evaluation suites")
@@ -802,17 +835,17 @@ TemplateOut = Annotated[
 ]
 
 
-@app.command("compliance")
+@app.command("compliance", rich_help_panel=PANEL_SETUP, epilog=epilog("model"))
 def compliance_command(out: TemplateOut = Path("declaration.json")) -> None:
     """Generates a declaration template for block E."""
     if out.exists():
-        err_console.print(f"[red]Already exists:[/red] {out}. Delete it or choose another path.")
+        error(f"[red]Already exists:[/red] {out}. Delete it or choose another path.")
         raise typer.Exit(code=2)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
         json.dumps(declaration_template(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    console.print(f"[green]Template written to[/green] {out}")
+    success(f"[green]Template written to[/green] {out}")
     console.print(
         "\nFill in each requirement with a status (yes/partial/no/unknown) and its evidence.\n"
         "[yellow]Without evidence, a requirement declared as 'yes' is marked unsupported "
@@ -840,7 +873,7 @@ AdmitJson = Annotated[
 ]
 
 
-@app.command("admit")
+@app.command("admit", rich_help_panel=PANEL_SIGNED, epilog=epilog("signed"))
 def admit_command(report: AdmitReport, as_json: AdmitJson = False) -> None:
     """Checks whether a report can join a public comparison, and says why not.
 
@@ -852,10 +885,10 @@ def admit_command(report: AdmitReport, as_json: AdmitJson = False) -> None:
     try:
         payload = json.loads(report.read_text(encoding="utf-8-sig"))
     except FileNotFoundError:
-        err_console.print(f"[red]The report does not exist:[/red] {report}")
+        error(f"[red]The report does not exist:[/red] {report}")
         raise typer.Exit(code=2) from None
     except json.JSONDecodeError as exc:
-        err_console.print(f"[red]The report is not valid JSON:[/red] {exc}")
+        error(f"[red]The report is not valid JSON:[/red] {exc}")
         raise typer.Exit(code=2) from None
 
     result = admit(payload)
@@ -883,7 +916,7 @@ def admit_command(report: AdmitReport, as_json: AdmitJson = False) -> None:
     raise typer.Exit(code=1 if result.verdict == REJECTED else 0)
 
 
-@app.command("compare")
+@app.command("compare", rich_help_panel=PANEL_RESULTS, epilog=epilog("commands"))
 def compare_command(ctx: typer.Context, report: ReportInputs, out: ComparisonOut = None,
                     force: Force = False) -> None:
     """Compares several reports of one kind: models, agents (smith) or systems.
@@ -897,11 +930,11 @@ def compare_command(ctx: typer.Context, report: ReportInputs, out: ComparisonOut
         loaded = load_reports(list(report))
         comparison = compare(loaded)
     except ComparisonError as exc:
-        err_console.print(f"[red]{exc}[/red]")
+        error(f"[red]{exc}[/red]")
         raise typer.Exit(code=2) from None
 
-    for warning in comparison["warnings"]:
-        console.print(f"[yellow]Warning:[/yellow] {warning}")
+    for note in comparison["warnings"]:
+        warning(_plain(note), out=console)
 
     if "opaasAgentComparison" in comparison:
         _print_agent_comparison(comparison)
@@ -944,7 +977,7 @@ ImportAppend = Annotated[
 ]
 
 
-@app.command("import")
+@app.command("import", rich_help_panel=PANEL_SETUP, epilog=epilog("datasets"))
 def import_command(
     name: ImporterName,
     input_path: ImportSource,
@@ -957,11 +990,11 @@ def import_command(
     try:
         result = import_dataset(name, input_path, out, limit=limit, seed=seed, append=append)
     except (ImporterError, OSError) as exc:
-        err_console.print(f"[red]{exc}[/red]")
+        error(f"[red]{exc}[/red]")
         raise typer.Exit(code=2) from None
 
     dataset = load_dataset(str(result.dataset_dir))
-    console.print(f"[green]Converted {result.items} items.[/green]")
+    success(f"[green]Converted {result.items} items.[/green]")
     console.print(f"  directory : {result.dataset_dir}")
     console.print(f"  license   : {dataset.license}")
     console.print(f"  hash      : {dataset.content_hash}")
@@ -993,12 +1026,12 @@ PublishRevocations = Annotated[
     Path | None,
     typer.Option(
         "--revocations",
-        help="The issuer's signed revocation list, so the browser checks it too (D65).",
+        help="The issuer's signed revocation list, so the browser checks it too.",
     ),
 ]
 
 
-@app.command("publish")
+@app.command("publish", rich_help_panel=PANEL_SIGNED, epilog=epilog("signed", 65))
 def publish(
     report: PublishReports,
     credential: PublishCredentials,
@@ -1008,7 +1041,7 @@ def publish(
 ) -> None:
     """Generates the static certificate site."""
     if len(report) != len(credential):
-        err_console.print(
+        error(
             f"[red]There are {len(report)} reports and {len(credential)} credentials.[/red] "
             "Each certificate needs its pair, in the same order."
         )
@@ -1025,10 +1058,10 @@ def publish(
         ]
         written = build_site(entries, out, did, revocations=revocation_list)
     except (SiteError, OSError, json.JSONDecodeError) as exc:
-        err_console.print(f"[red]{exc}[/red]")
+        error(f"[red]{exc}[/red]")
         raise typer.Exit(code=2) from None
 
-    console.print(f"[green]Site generated with {len(entries)} certificate(s).[/green]")
+    success(f"[green]Site generated with {len(entries)} certificate(s).[/green]")
     for entry in entries:
         if entry.is_system:
             state = "certifiable" if entry.complete else "NOT certifiable"
@@ -1051,7 +1084,7 @@ FetchSource = Annotated[
 ]
 
 
-@app.command("fetch")
+@app.command("fetch", rich_help_panel=PANEL_SETUP, epilog=epilog("datasets"))
 def fetch_command(source: FetchSource = None, limit: ItemLimit = None) -> None:
     """Downloads datasets — and, with the classifiers extra installed, the pinned default
     classifiers — into the local cache, so as not to depend on the network later."""
@@ -1065,7 +1098,7 @@ def fetch_command(source: FetchSource = None, limit: ItemLimit = None) -> None:
         names = [*available_sources(), *(DEFAULT_CLASSIFIERS if classifiers_available() else [])]
     unknown = [name for name in names if name not in known]
     if unknown:
-        err_console.print(
+        error(
             f"[red]Unknown source: {', '.join(unknown)}.[/red] Available: {', '.join(known)}"
         )
         raise typer.Exit(code=2)
@@ -1074,7 +1107,7 @@ def fetch_command(source: FetchSource = None, limit: ItemLimit = None) -> None:
     # there and quietly doing nothing is the kind of silent no-op this tool
     # exists to catch elsewhere.
     if limit is not None and source in DEFAULT_CLASSIFIERS:
-        err_console.print(
+        error(
             f"[red]--limit does not apply to the '{source}' classifier:[/red] it trims a "
             "dataset's items, and a classifier has none. Drop the flag, or name a dataset "
             f"({', '.join(available_sources())})."
@@ -1097,9 +1130,9 @@ def fetch_command(source: FetchSource = None, limit: ItemLimit = None) -> None:
             except ClassifierError as exc:
                 # The message names 'opaas[classifiers]': unescaped, Rich
                 # reads that bracket as a style tag and eats the install hint.
-                err_console.print(f"[red]{_plain(exc)}[/red]")
+                error(f"[red]{_plain(exc)}[/red]")
                 raise typer.Exit(code=1) from None
-            console.print(f"[green]{name}[/green]: cached at {path}")
+            success(f"[green]{name}[/green]: cached at {path}")
             continue
         if is_cached(name):
             console.print(f"[dim]{name}: already cached[/dim]")
@@ -1108,10 +1141,10 @@ def fetch_command(source: FetchSource = None, limit: ItemLimit = None) -> None:
         try:
             path = ensure_dataset(name, limit=limit)
         except CacheError as exc:
-            err_console.print(f"[red]{exc}[/red]")
+            error(f"[red]{exc}[/red]")
             raise typer.Exit(code=1) from None
         dataset = load_dataset(str(path))
-        console.print(
+        success(
             f"[green]{name}[/green]: {dataset.item_count} items · {dataset.content_hash}"
         )
 
@@ -1131,7 +1164,7 @@ _SOURCE_STATUS = {
 }
 
 
-@app.command("datasets")
+@app.command("datasets", rich_help_panel=PANEL_SETUP, epilog=epilog("datasets"))
 def datasets_command() -> None:
     """Lists the available datasets and the cache status."""
     remote = Table(title="Downloadable sources")
@@ -1238,7 +1271,7 @@ def _ask_passphrase() -> str | None:
     do.
     """
     if not sys.stdin.isatty():
-        err_console.print(
+        error(
             "[red]There is no interactive terminal to ask for the passphrase.[/red]\n"
             "  Run it by hand, or pass it via the environment: $env:OPAAS_KEY_PASSPHRASE = '...'"
         )
@@ -1258,17 +1291,18 @@ def _ask_passphrase() -> str | None:
         return None
 
     if getpass.getpass("Repeat it: ") != first:
-        err_console.print("[red]The passphrases do not match.[/red]")
+        error("[red]The passphrases do not match.[/red]")
         raise typer.Exit(code=1)
     if len(first) < _MIN_PASSPHRASE:
-        console.print(
-            f"[yellow]Warning:[/yellow] {len(first)} characters. For a certifier's root of "
-            f"trust, {_MIN_PASSPHRASE} is the reasonable minimum."
+        warning(
+            f"{len(first)} characters. For a certifier's root of "
+            f"trust, {_MIN_PASSPHRASE} is the reasonable minimum.",
+            out=console,
         )
     return first
 
 
-@app.command("keygen")
+@app.command("keygen", rich_help_panel=PANEL_SIGNED, epilog=epilog("key-custody"))
 def keygen(
     out_dir: KeysDir = Path("keys"),
     passphrase: Passphrase = None,
@@ -1279,21 +1313,22 @@ def keygen(
     if passphrase is None:
         passphrase = _ask_passphrase()
     elif not os.environ.get("OPAAS_KEY_PASSPHRASE"):
-        console.print(
-            "[yellow]Warning:[/yellow] the passphrase came in as an argument, so it is in "
+        warning(
+            "The passphrase came in as an argument, so it is in "
             "the shell history and was visible in the process list. For a root key, better "
-            "leave it blank and type it when prompted."
+            "leave it blank and type it when prompted.",
+            out=console,
         )
 
     try:
         paths = generate_root_keypair(out_dir, passphrase=passphrase, did=did, overwrite=overwrite)
     except FileExistsError as exc:
-        err_console.print(f"[red]{exc}[/red]")
+        error(f"[red]{exc}[/red]")
         raise typer.Exit(code=2) from None
 
     public_key = load_public_key(paths.public_key)
     issuer = json.loads(paths.did_document.read_text(encoding="utf-8"))["id"]
-    console.print("[green]Root key pair generated.[/green]")
+    success("[green]Root key pair generated.[/green]")
     console.print(f"  issuer      : {issuer}")
     console.print(f"  private     : {paths.private_key}")
     console.print(f"  public      : {paths.public_key}")
@@ -1346,7 +1381,7 @@ SigningDelegation = Annotated[
         "--delegation",
         help="Delegation from the root to this key ('opaas delegate'). The credential is "
         "issued under the root's name and carries it; refused if it has expired or names "
-        "another key (D65).",
+        "another key.",
     ),
 ]
 
@@ -1378,7 +1413,7 @@ def _issuing_identity(
     return named, key_id, document
 
 
-@app.command("sign")
+@app.command("sign", rich_help_panel=PANEL_SIGNED, epilog=epilog("signed", 60, 65))
 def sign(
     input_path: InputReport,
     key: SigningKey,
@@ -1390,21 +1425,21 @@ def sign(
     log: LogFile = None,
     delegation: SigningDelegation = None,
 ) -> None:
-    """Issues the signed W3C credential from a report, or from a system report (D60)."""
+    """Issues the signed W3C credential from a report, or from a system report."""
     if not input_path.exists():
-        err_console.print(f"[red]The report does not exist:[/red] {input_path}")
+        error(f"[red]The report does not exist:[/red] {input_path}")
         raise typer.Exit(code=2)
 
     try:
         report = json.loads(input_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        err_console.print(f"[red]The report is not valid JSON:[/red] {exc}")
+        error(f"[red]The report is not valid JSON:[/red] {exc}")
         raise typer.Exit(code=2) from None
 
     try:
         private_key = _load_signing_key(key, passphrase)
     except (OSError, TypeError, ValueError) as exc:
-        err_console.print(f"[red]The private key could not be loaded:[/red] {exc}")
+        error(f"[red]The private key could not be loaded:[/red] {exc}")
         raise typer.Exit(code=2) from None
 
     try:
@@ -1412,7 +1447,7 @@ def sign(
             key, private_key, issuer, delegation
         )
     except (OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
     is_system = isinstance(report, dict) and report.get("kind") == "system-report"
@@ -1427,7 +1462,7 @@ def sign(
             report_url=report_url,
         )
     except CredentialError as exc:
-        err_console.print(f"[red]{exc}[/red]")
+        error(f"[red]{exc}[/red]")
         raise typer.Exit(code=2) from None
 
     try:
@@ -1435,7 +1470,7 @@ def sign(
             credential, private_key, key_id=key_id, delegation=delegation_document
         )
     except CredentialError as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(signed, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -1445,11 +1480,11 @@ def sign(
         try:
             entry = append_entry(log, signed, file_digest(input_path))
         except TransparencyError as exc:
-            err_console.print(f"[red]Could not record in the log:[/red] {exc}")
+            error(f"[red]Could not record in the log:[/red] {exc}")
             raise typer.Exit(code=2) from None
 
     subject = signed["credentialSubject"]
-    console.print("[green]Credential signed.[/green]")
+    success("[green]Credential signed.[/green]")
     console.print(f"  id       : {signed['id']}")
     console.print(f"  public   : {public_identifier(signed)}")
     console.print(f"  report   : {file_digest(input_path)}")
@@ -1513,17 +1548,17 @@ VerifyRevocations = Annotated[
 ]
 
 
-@app.command("log-verify")
+@app.command("log-verify", rich_help_panel=PANEL_SIGNED, epilog=epilog("signed"))
 def log_verify(log: Annotated[Path, typer.Argument(help="JSONL log to check.")]) -> None:
     """Checks that the transparency log has not been altered."""
     try:
         entries = load_log(log)
         summary = verify_log(entries)
     except TransparencyError as exc:
-        err_console.print(f"[red]{exc}[/red]")
+        error(f"[red]{exc}[/red]")
         raise typer.Exit(code=1) from None
 
-    console.print(f"[green]Log intact:[/green] {summary['entries']} entries")
+    success(f"[green]Log intact:[/green] {summary['entries']} entries")
     console.print(f"  head: {summary['headHash']}")
     for entry in entries[-5:]:
         console.print(f"  [dim]{entry.index:>4}  {entry.issuedAt}  {entry.credentialId}[/dim]")
@@ -1534,7 +1569,7 @@ def log_verify(log: Annotated[Path, typer.Argument(help="JSONL log to check.")])
     )
 
 
-@app.command("trust")
+@app.command("trust", rich_help_panel=PANEL_SIGNED, epilog=epilog("signed", 65))
 def trust_command(add: TrustAdd = None, yes: TrustYes = False) -> None:
     """Lists the pinned trust anchors, or pins a new one.
 
@@ -1550,10 +1585,10 @@ def trust_command(add: TrustAdd = None, yes: TrustYes = False) -> None:
         try:
             document = json.loads(add.read_text(encoding="utf-8-sig"))
         except FileNotFoundError:
-            err_console.print(f"[red]Does not exist:[/red] {add}")
+            error(f"[red]Does not exist:[/red] {add}")
             raise typer.Exit(code=2) from None
         except json.JSONDecodeError as exc:
-            err_console.print(f"[red]{add} is not valid JSON:[/red] {exc}")
+            error(f"[red]{add} is not valid JSON:[/red] {exc}")
             raise typer.Exit(code=2) from None
 
         if is_revocation_list(document):
@@ -1566,7 +1601,7 @@ def trust_command(add: TrustAdd = None, yes: TrustYes = False) -> None:
         # keys.py raises bare ValueErrors and vc.py raises CredentialError, which
         # subclasses it: one clause covers a malformed document either way.
         except ValueError as exc:
-            err_console.print(f"[red]{_plain(exc)}[/red]")
+            error(f"[red]{_plain(exc)}[/red]")
             raise typer.Exit(code=2) from None
 
         console.print(f"  issuer      : {_plain(issuer)}")
@@ -1582,7 +1617,7 @@ def trust_command(add: TrustAdd = None, yes: TrustYes = False) -> None:
         directory.mkdir(parents=True, exist_ok=True)
         target = directory / f"{slugify(issuer) or 'anchor'}.json"
         target.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
-        console.print(f"[green]Pinned:[/green] {target}")
+        success(f"[green]Pinned:[/green] {target}")
         return
 
     if not directory.is_dir() or not (found := sorted(directory.glob("*.json"))):
@@ -1618,7 +1653,7 @@ def _install_revocation_list(document: dict[str, Any], source: Path, yes: bool) 
     try:
         root = resolve_trust(issuer)
     except TrustAnchorError as exc:
-        err_console.print(f"[red]Pin the issuer's anchor first.[/red] {_plain(exc)}")
+        error(f"[red]Pin the issuer's anchor first.[/red] {_plain(exc)}")
         raise typer.Exit(code=2) from None
     signed_by = (document.get("proof") or {}).get("verificationMethod")
     root_key = root.exact(signed_by)
@@ -1628,15 +1663,15 @@ def _install_revocation_list(document: dict[str, Any], source: Path, yes: bool) 
         else (False, f"signed by {signed_by!r}, which is not a key of {root.origin}")
     )
     if not ok:
-        err_console.print(f"[red]{source} does not verify under {_plain(issuer)}:[/red] "
-                          f"{_plain(detail)}")
+        error(f"[red]{source} does not verify under {_plain(issuer)}:[/red] "
+              f"{_plain(detail)}")
         raise typer.Exit(code=2)
 
     target = user_anchor_dir() / REVOCATIONS_DIRNAME / f"{slugify(issuer) or 'issuer'}.json"
     if target.is_file():
         current = read_json(target)
         if str(current.get("updated", "")) > str(document.get("updated", "")):
-            err_console.print(
+            error(
                 f"[red]The installed list ({current.get('updated')}) is newer than this one "
                 f"({document.get('updated')}).[/red] Installing it would un-revoke keys."
             )
@@ -1651,10 +1686,10 @@ def _install_revocation_list(document: dict[str, Any], source: Path, yes: bool) 
         raise typer.Exit(code=1)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
-    console.print(f"[green]Installed:[/green] {target}")
+    success(f"[green]Installed:[/green] {target}")
 
 
-@app.command("verify")
+@app.command("verify", rich_help_panel=PANEL_SIGNED, epilog=epilog("signed"))
 def verify(
     credential: CredentialIn,
     key: VerifyKey = None,
@@ -1665,13 +1700,13 @@ def verify(
 ) -> None:
     """Verifies a third-party credential, without a network."""
     if not credential.exists():
-        err_console.print(f"[red]The credential does not exist:[/red] {credential}")
+        error(f"[red]The credential does not exist:[/red] {credential}")
         raise typer.Exit(code=2)
 
     try:
         document = json.loads(credential.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        err_console.print(f"[red]The credential is not valid JSON:[/red] {exc}")
+        error(f"[red]The credential is not valid JSON:[/red] {exc}")
         raise typer.Exit(code=2) from None
 
     issuer = str(document.get("issuer", ""))
@@ -1680,7 +1715,7 @@ def verify(
             document, key=key, did_document=did_document, revocations=revocations
         )
     except (TrustAnchorError, ValueError) as exc:
-        err_console.print(f"[red]Cannot verify:[/red] {exc}")
+        error(f"[red]Cannot verify:[/red] {exc}")
         raise typer.Exit(code=2) from None
     origin = root.origin
 
@@ -1706,13 +1741,14 @@ def verify(
         mark = "[green]OK  [/green]" if check.ok else "[red]FAIL[/red]"
         console.print(f"  {mark} {check.name}: {check.detail}")
 
-    for warning in result.warnings:
-        console.print(f"\n[yellow]{warning}[/yellow]")
+    for note in result.warnings:
+        console.print()
+        warning(str(note), out=console)
 
     if result.valid:
         console.print("\n[green bold]Credential valid.[/green bold]")
     else:
-        err_console.print("\n[red bold]Credential NOT valid.[/red bold]")
+        error("[red]Credential NOT valid.[/red]")
         raise typer.Exit(code=1)
 
 
@@ -1731,7 +1767,7 @@ CertificateOut = Annotated[
 CertificateRun = Annotated[
     str | None,
     typer.Option("--run", help="A run in the store: renders the audit certificate of its "
-                 "report as a new version, checked by the report's hash (D81)."),
+                 "report as a new version, checked by the report's hash."),
 ]
 CertificateBase = Annotated[
     str | None,
@@ -1748,7 +1784,7 @@ CertificateUrl = Annotated[
 ]
 
 
-@app.command("certificate")
+@app.command("certificate", rich_help_panel=PANEL_RESULTS, epilog=epilog("readme", 81))
 def certificate_command(
     ctx: typer.Context,
     report: CertificateReport = None,
@@ -1761,24 +1797,25 @@ def certificate_command(
     certificate_base: CertificateBase = None,
     force: Force = False,
 ) -> None:
-    """Renders a printable certificate (A4, to PDF) from a credential that verifies.
+    """Renders the audit certificate of a run (A4, to PDF), or a signed credential's.
 
-    The signature is checked first, with the same key resolution as `verify`:
-    a printed certificate for a credential that would fail verification is a
-    forgery with good typography. With --run, it renders instead the audit
-    certificate of a stored run's report, as a new version (D81): generated
-    with OPAAS, carrying no signature, checked by the report's hash.
+    With --run, it renders the audit certificate of a stored run's report, as
+    a new version: generated with OPAAS, carrying no signature, checked by the
+    report's hash. With --report and --credential, the signature is checked
+    first, with the same key resolution as `verify`: a printed certificate for
+    a credential that would fail verification is a forgery with good
+    typography.
     """
     if run is not None:
         if report is not None or credential is not None:
-            err_console.print("[red]--run renders a run's audit certificate: it takes no "
-                              "--report or --credential.[/red]")
+            error("[red]--run renders a run's audit certificate: it takes no "
+                  "--report or --credential.[/red]")
             raise typer.Exit(code=2)
         _audit_certificate(ctx, run, out=out, base_url=certificate_base, force=force)
         return
     if report is None or credential is None:
-        err_console.print("[red]Pass --run <run-id> for the audit certificate of a stored run, "
-                          "or --report and --credential for a signed one.[/red]")
+        error("[red]Pass --run <run-id> for the audit certificate of a stored run, "
+              "or --report and --credential for a signed one.[/red]")
         raise typer.Exit(code=2)
     out = out or Path("certificate.html")
     try:
@@ -1786,21 +1823,21 @@ def certificate_command(
         if url is not None:
             check_verify_url(url)
     except SiteError as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
     document = entry.credential
     try:
         root, lists, _ = _verification_trust(document, key=key, did_document=did_document)
     except (TrustAnchorError, ValueError) as exc:
-        err_console.print(f"[red]Cannot verify, so it will not be printed:[/red] {exc}")
+        error(f"[red]Cannot verify, so it will not be printed:[/red] {exc}")
         raise typer.Exit(code=2) from None
     origin = root.origin
 
     result = verify_credential(document, root, report_path=report, revocation_lists=lists)
     if not result.valid:
-        err_console.print(
-            "[red bold]The credential does NOT verify; nothing was written.[/red bold]"
+        error(
+            "[red]The credential does NOT verify; nothing was written.[/red]"
         )
         for check in result.checks:
             if not check.ok:
@@ -1810,7 +1847,7 @@ def certificate_command(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_printable(entry, verify_url=url), encoding="utf-8")
 
-    console.print(f"[green]Certificate written:[/green] {out}")
+    success(f"[green]Certificate written:[/green] {out}")
     console.print(f"  credential : {document.get('id')}")
     console.print(f"  key        : {origin}")
     console.print(f"  valid until: {document.get('expirationDate')}")
@@ -1854,16 +1891,17 @@ def _audit_certificate(ctx: typer.Context, source: str, *, out: Path | None,
     try:
         record = load_run(directory)
     except (StoreError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red] `opaas runs list` shows the runs there are.")
+        error(f"[red]{_plain(exc)}[/red] `opaas runs list` shows the runs there are.")
         raise typer.Exit(code=2) from None
     name = next((n for n in _CERTIFIABLE if n in record.get("files", {})), None)
     if name is None:
-        err_console.print(f"[red]Run {_plain(source)} has no report to certify[/red] (it is a "
-                          f"{_plain(record.get('kind'))} run).")
+        error(f"[red]Run {_plain(source)} has no report to certify:[/red] it is a "
+              f"{_plain(record.get('kind'))} run. Pick a run of opaas run, smith run or "
+              "audit run: `opaas runs list` shows them.")
         raise typer.Exit(code=2)
     if verify_files(directory).get(name) != "ok":
-        err_console.print(f"[red]{name} in run {_plain(source)} no longer matches the hash the "
-                          "run recorded: no certificate is rendered from it.[/red]")
+        error(f"[red]{name} in run {_plain(source)} no longer matches the hash the "
+              "run recorded: no certificate is rendered from it.[/red]")
         raise typer.Exit(code=1)
     report_path = directory / name
     try:
@@ -1871,7 +1909,7 @@ def _audit_certificate(ctx: typer.Context, source: str, *, out: Path | None,
             check_verify_url(f"{base_url.rstrip('/')}/cert/x/index.html")
         html = render_audit_certificate(report_path, base_url=base_url)
     except (SiteError, ValueError) as exc:
-        err_console.print(f"[red]No certificate:[/red] {_plain(exc)}")
+        error(f"[red]No certificate:[/red] {_plain(exc)}")
         raise typer.Exit(code=2) from None
     refuse_overwrite(out, force)
     version = 1 + sum(1 for r in list_runs()
@@ -1921,7 +1959,7 @@ WatchInventory = Annotated[
     typer.Option(
         "--inventory/--no-inventory",
         help="Also re-discover what the host serves and compare it with the certified "
-        "inventory (D40). It reports, but never decides 'current' on its own.",
+        "inventory. It reports, but never decides 'current' on its own.",
     ),
 ]
 WatchMember = Annotated[
@@ -1934,7 +1972,7 @@ WatchMember = Annotated[
 ]
 
 
-@app.command("watch")
+@app.command("watch", rich_help_panel=PANEL_AUDIT, epilog=epilog("monitoring", 36, 40))
 def watch_command(
     report: CertificateReport,
     credential: CredentialIn,
@@ -1958,14 +1996,14 @@ def watch_command(
     try:
         entry = load_entry(report, credential)
     except SiteError as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
     document = entry.credential
     try:
         root, lists, _ = _verification_trust(document, key=key, did_document=did_document)
     except (TrustAnchorError, ValueError) as exc:
-        err_console.print(f"[red]Cannot verify the certificate to watch:[/red] {exc}")
+        error(f"[red]Cannot verify the certificate to watch:[/red] {exc}")
         raise typer.Exit(code=2) from None
 
     verification = verify_credential(
@@ -1985,7 +2023,7 @@ def watch_command(
             try:
                 append_watch_log(log, result)
             except SentinelError as exc:
-                err_console.print(f"[red]{_plain(exc)}[/red]")
+                error(f"[red]{_plain(exc)}[/red]")
                 raise typer.Exit(code=2) from None
         _print_watch(result, out)
         raise typer.Exit(code=EXIT_CODES[state])
@@ -1993,7 +2031,7 @@ def watch_command(
     if set(failed) - {"validity"}:
         for name, detail in failed.items():
             err_console.print(f"  [red]FAIL[/red] {name}: {_plain(detail)}")
-        err_console.print(
+        error(
             "[red]This certificate does not verify, so there is nothing to watch against.[/red]"
         )
         raise typer.Exit(code=2)
@@ -2004,21 +2042,21 @@ def watch_command(
             body = _watch_system(entry, report, member or [], api_key=api_key, full=full,
                                  inventory=inventory)
         except ValueError as exc:
-            err_console.print(f"[red]{_plain(exc)}[/red]")
+            error(f"[red]{_plain(exc)}[/red]")
             raise typer.Exit(code=2) from None
         finish(body["state"], body)
 
     effective = entry.report.get("configuration", {}).get("effectiveConfig", {})
     backend_name, model = effective.get("backend"), effective.get("model")
     if not backend_name or not model:
-        err_console.print(
+        error(
             "[red]The report does not record which backend and model it ran against.[/red]"
         )
         raise typer.Exit(code=2)
     try:
         backend = get_backend(str(backend_name))
     except BackendError as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
     # The canaries must go through the prompt mode and window that were certified.
@@ -2190,7 +2228,7 @@ def _print_watch(result: dict[str, Any], out: Path) -> None:
     console.print(f"\n[dim]Result: {out}. Not a certificate: the sentinel signs nothing.[/dim]")
 
 
-@app.command("version")
+@app.command("version", rich_help_panel=PANEL_SETUP, epilog=epilog("readme"))
 def version_command() -> None:
     """Tool and methodology version."""
     print_banner(console)
@@ -2243,7 +2281,7 @@ def _print_run_summary(report: dict[str, Any]) -> None:
         if result.get("status") == "completed" and printer:
             printer(result.get("metrics", {}))
         elif result.get("status") != "completed":
-            err_console.print(
+            error(
                 f"[red]Suite '{_plain(result.get('suite'))}' {_plain(result.get('status'))}:"
                 f"[/red] {_plain(result.get('error'))}"
             )
@@ -2850,21 +2888,34 @@ from opaas.cli import smith as _smith_cli  # noqa: E402
 from opaas.cli import swarm as _swarm_cli  # noqa: E402
 from opaas.cli import ui as _ui_cli  # noqa: E402
 
-app.add_typer(_discover_cli.app, name="discover")
-app.add_typer(_smith_cli.app, name="smith")
-app.add_typer(_swarm_cli.app, name="swarm")
-app.add_typer(_sentinel_cli.app, name="sentinel")
-app.add_typer(_inquest_cli.app, name="inquest")
-app.add_typer(_card_cli.app, name="card")
-app.add_typer(_evidence_cli.app, name="evidence")
-app.add_typer(_audit_cli.app, name="audit")
-app.add_typer(_runs_cli.app, name="runs")
+app.add_typer(_discover_cli.app, name="discover", rich_help_panel=PANEL_AUDIT,
+              epilog=epilog("environment"))
+app.add_typer(_smith_cli.app, name="smith", rich_help_panel=PANEL_AUDIT,
+              epilog=epilog("agents", 71))
+app.add_typer(_swarm_cli.app, name="swarm", rich_help_panel=PANEL_AUDIT,
+              epilog=epilog("auditability"))
+app.add_typer(_sentinel_cli.app, name="sentinel", rich_help_panel=PANEL_AUDIT,
+              epilog=epilog("monitoring", 36))
+app.add_typer(_inquest_cli.app, name="inquest", rich_help_panel=PANEL_AUDIT,
+              epilog=epilog("auditability"))
+app.add_typer(_card_cli.app, name="card", rich_help_panel=PANEL_RESULTS,
+              epilog=epilog("auditability"))
+app.add_typer(_evidence_cli.app, name="evidence", rich_help_panel=PANEL_SIGNED,
+              epilog=epilog("signed"))
+app.add_typer(_audit_cli.app, name="audit", rich_help_panel=PANEL_AUDIT,
+              epilog=epilog("system", 60))
+app.add_typer(_runs_cli.app, name="runs", rich_help_panel=PANEL_RESULTS,
+              epilog=epilog("run-store", 76))
 # The local dashboard (D79): top-level, it is where a newcomer starts.
-app.command("ui")(_ui_cli.ui)
+app.command("ui", rich_help_panel=PANEL_RESULTS,
+            epilog=epilog("dashboard", 79))(_ui_cli.ui)
 # What the offline root signs (D65): top-level, beside keygen, sign and trust.
-app.command("root-document")(_root_cli.root_document)
-app.command("delegate")(_root_cli.delegate)
-app.command("revoke")(_root_cli.revoke)
+app.command("root-document", rich_help_panel=PANEL_SIGNED,
+            epilog=epilog("ceremony", 65))(_root_cli.root_document)
+app.command("delegate", rich_help_panel=PANEL_SIGNED,
+            epilog=epilog("ceremony", 65))(_root_cli.delegate)
+app.command("revoke", rich_help_panel=PANEL_SIGNED,
+            epilog=epilog("ceremony", 65))(_root_cli.revoke)
 
 
 if __name__ == "__main__":

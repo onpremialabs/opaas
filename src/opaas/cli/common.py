@@ -10,6 +10,7 @@ from __future__ import annotations
 import getpass
 import json
 import os
+import re
 import sys
 import time
 from collections.abc import Iterator
@@ -21,7 +22,10 @@ from urllib.parse import urlsplit, urlunsplit
 
 import typer
 from rich.console import Console
+from rich.errors import MarkupError
 from rich.markup import escape
+from rich.style import Style
+from rich.text import Text
 
 from opaas import OPAAS_SPEC_VERSION, __version__
 from opaas.core.credential import (
@@ -39,6 +43,97 @@ from opaas.core.store import Run, StoreError, open_run
 # as "did🔑z6Mk…". A tool that prints identifiers must print them verbatim.
 console = Console(emoji=False)
 err_console = Console(stderr=True, emoji=False)
+
+
+# ------------------------------------------------------------ status lines
+#
+# Every command reports the same way: ✓ for what worked, ! for what the user
+# should know, ✗ for what stopped it. An error comes in two parts — what
+# happened, then what to do — because a red line that only says what went
+# wrong leaves the user to guess the rest. Messages are written as they always
+# were here, the part in red saying what happened and the sentence after it
+# what to do; these helpers lay that out, so the wording of a hundred
+# messages did not have to be rewritten to get one look.
+
+#: The marks, and the only colours a status line uses.
+MARK_OK, MARK_WARN, MARK_ERROR = "✓", "!", "✗"
+#: The accent of OPAAS's palette (`cli/banner.py`), for commands to copy.
+ACCENT = "#c8873f"
+
+#: A sentence boundary: the first one splits a one-part message in two.
+_SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z`'\"(])")
+
+
+def _split_message(message: str) -> tuple[Text, Text | None]:
+    """(what happened, what to do) from a message written in this CLI's markup.
+
+    The red span at the start is what happened, the rest what to do. A span
+    ending in a colon only introduces a detail ("Backend error: …"), so it and
+    the detail are one statement, split at its first sentence instead.
+    """
+    try:
+        text = Text.from_markup(message.strip())
+    except MarkupError:
+        text = Text(message.strip())
+    red_end = 0
+    for span in text.spans:
+        if span.start == 0 and "red" in str(span.style):
+            red_end = max(red_end, span.end)
+    plain = text.plain
+    if 0 < red_end < len(plain) and not plain[:red_end].rstrip().endswith(":"):
+        what, rest = text.divide([red_end])
+    else:
+        boundary = _SENTENCE.search(plain)
+        if boundary is None:
+            return Text(plain), None
+        what, rest = Text(plain[: boundary.start()]), Text(plain[boundary.end():])
+    rest = Text(rest.plain.strip(" :\n"))
+    return Text(what.plain.strip()), rest if rest.plain else None
+
+
+def error(message: str, todo: str | None = None, *, docs: str | None = None) -> None:
+    """✗ what happened, then → what to do, and where to read more. On stderr.
+
+    `todo` given, `message` is only what happened; otherwise the message is
+    split as `_split_message` says. Exiting stays the caller's: the exit code
+    is part of each command's contract.
+    """
+    if todo is None:
+        what, then = _split_message(message)
+    else:
+        what, then = Text.from_markup(message), Text(todo)
+    line = Text(f"{MARK_ERROR} ", Style(color="red", bold=True))
+    line.append_text(what.copy())
+    line.stylize(Style(color="red", bold=True), 0, len(line))
+    err_console.print(line)
+    if then is not None:
+        err_console.print(Text("  → ", Style(dim=True)) + then)
+    if docs:
+        err_console.print(Text(f"  Docs: {docs}", Style(dim=True)))
+
+
+def warning(message: str, *, out: Console | None = None) -> None:
+    """! something the user should know; the command goes on."""
+    (out or err_console).print(f"[yellow bold]{MARK_WARN}[/yellow bold] {message}")
+
+
+def success(message: str, *, out: Console | None = None) -> None:
+    """✓ something done."""
+    (out or console).print(f"[green bold]{MARK_OK}[/green bold] {message}")
+
+
+def next_steps(steps: list[tuple[str, str]], *, docs: str | None = None) -> None:
+    """What to run now, the way `gh` closes a command: the exact line, and why."""
+    if not steps and not docs:
+        return
+    console.print()
+    console.print("[dim]Next:[/dim]")
+    width = max((len(command) for command, _ in steps), default=0)
+    for command, why in steps:
+        console.print(Text("  ") + Text(command.ljust(width), Style(color=ACCENT))
+                      + Text(f"   {why}", Style(dim=True)))
+    if docs:
+        console.print(Text(f"  Docs: {docs}", Style(dim=True)))
 
 
 def _load_signing_key(key: Path, passphrase: str | None) -> Any:
@@ -348,4 +443,25 @@ def recorded_run(ctx: typer.Context, kind: str, *,
         raise
     else:
         run.close(recorded.status, **recorded.fields)
-    console.print(f"[dim]Recorded as run {run.run_id} in {run.directory.parent}[/dim]")
+    success(f"Recorded as run [bold]{run.run_id}[/bold] [dim]in {run.directory.parent}[/dim]")
+    next_steps(run_next_steps(kind, run.run_id))
+
+
+#: Kinds whose run holds a report the audit certificate is rendered from.
+_CERTIFIABLE_KINDS = frozenset({"bench", "smith", "audit"})
+#: Kinds whose reports `opaas compare` reads.
+_COMPARABLE_KINDS = frozenset({"bench", "smith", "audit"})
+
+
+def run_next_steps(kind: str, run_id: str) -> list[tuple[str, str]]:
+    """What usually comes after a run of this kind, as the lines to type."""
+    steps: list[tuple[str, str]] = []
+    if kind in _CERTIFIABLE_KINDS:
+        steps.append((f"opaas certificate --run {run_id}", "the audit certificate of this run"))
+    if kind == "discover":
+        steps.append(("opaas audit draft -o system.json", "a system manifest from what was found"))
+    steps.append((f"opaas runs show {run_id}", "what was recorded, and every file's hash"))
+    if kind in _COMPARABLE_KINDS:
+        steps.append(("opaas compare <report> <report>", "against an earlier run of the same kind"))
+    steps.append(("opaas ui", "read it, and the run history, in the dashboard"))
+    return steps

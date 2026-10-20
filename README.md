@@ -128,6 +128,15 @@ flowchart LR
 uv tool install "opaas[ui] @ git+https://github.com/onpremialabs/opaas.git"
 ```
 
+**In the terminal** — `opaas` on its own opens the menu: every task, the exact command it
+runs and the page that documents it, with the meerkat keeping watch:
+
+```bash
+opaas
+```
+
+<img alt="The full-screen opaas: the meerkat on the left, the menu grouped by task on the right, the selected entry's command and documentation link, and the environment status" src="docs/img/readme/cli-tui.svg">
+
 **From the dashboard** — launch audits, follow them live, read and compare the results:
 
 ```bash

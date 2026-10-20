@@ -11,7 +11,7 @@ from opaas.cli.common import (
     Force,
     _plain,
     console,
-    err_console,
+    error,
     read_json,
     recorded_run,
     refuse_overwrite,
@@ -67,7 +67,7 @@ def audit_command(
         environment: dict[str, Any] | None = (
             {"inventory": read_json(inventory).get("inventory")} if inventory else None)
     except (PolicyError, AuditError, ImportError_, OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     refuse_overwrite(out, force)
     with recorded_run(ctx, "inquest") as recorded:

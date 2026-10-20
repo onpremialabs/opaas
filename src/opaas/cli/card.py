@@ -12,7 +12,7 @@ from opaas.cli.common import (
     Force,
     _plain,
     console,
-    err_console,
+    error,
     read_json,
     recorded_run,
     refuse_overwrite,
@@ -37,7 +37,7 @@ def build_command(
     try:
         card = build_card(evidence, retention=read_json(retention) if retention else None)
     except (EvidenceError, OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     refuse_overwrite(out, force)
     refuse_overwrite(html, force)
@@ -70,7 +70,7 @@ def manifest_command(
     try:
         manifest = build_manifest(members, name=name)
     except ManifestError as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     refuse_overwrite(out, force)
     with recorded_run(ctx, "card") as recorded:

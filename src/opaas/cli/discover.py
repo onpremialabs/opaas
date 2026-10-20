@@ -12,7 +12,7 @@ from opaas.cli.common import (
     _load_signing_key,
     _plain,
     console,
-    err_console,
+    error,
     read_json,
     recorded_run,
     refuse_overwrite,
@@ -65,7 +65,7 @@ def scan_command(
     """
     for path in [*(config or []), *(manifest or []), *(skills or [])]:
         if not path.exists():
-            err_console.print(f"[red]Not found:[/red] {path}")
+            error(f"[red]Not found:[/red] {path}")
             raise typer.Exit(code=2)
     refuse_overwrite(out, force)
     with recorded_run(ctx, "discover") as recorded:
@@ -135,11 +135,11 @@ def gaps_command(
         public_key = load_public_key(key) if key else None
         skill_keys = [load_public_key(path) for path in skill_key or []]
     except (EvidenceError, OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     for path in log or []:
         if not path.exists():
-            err_console.print(f"[red]Log not found:[/red] {path}")
+            error(f"[red]Log not found:[/red] {path}")
             raise typer.Exit(code=2)
     refuse_overwrite(out, force)
     with recorded_run(ctx, "discover") as recorded:
@@ -178,7 +178,7 @@ def sign_skill_command(
         signing = _load_signing_key(key, passphrase)
         signature = sign_skill(skill, signing)
     except (OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     console.print(f"Signed {skill} ({signature['skillHash']}) with key "
                   f"{signature['keyFingerprint']}.")

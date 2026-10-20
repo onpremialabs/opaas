@@ -19,6 +19,7 @@ from opaas.cli.common import (
     _plain,
     console,
     err_console,
+    error,
     read_json,
     recorded_run,
     refuse_overwrite,
@@ -92,7 +93,7 @@ def observe_command(
 ) -> None:
     """Runs the proxy. Observe changes nothing in the traffic; gate is opt-in."""
     if mode not in MODES:
-        err_console.print(f"[red]--mode is one of {', '.join(MODES)}.[/red]")
+        error(f"[red]--mode is one of {', '.join(MODES)}.[/red]")
         raise typer.Exit(code=2)
     try:
         loaded = load_policies(read_json(policies)) if policies else []
@@ -111,11 +112,11 @@ def observe_command(
 
             plan = FaultPlan(read_json(faults))
     except (PolicyError, GateError, OSError, ValueError, TypeError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     host, _, port = listen.rpartition(":")
     if not port.isdigit():
-        err_console.print("[red]--listen is host:port.[/red]")
+        error("[red]--listen is host:port.[/red]")
         raise typer.Exit(code=2)
 
     def alert(decision: dict) -> None:
@@ -132,7 +133,7 @@ def observe_command(
             approval_timeout_s=approval_timeout, faults=plan, alert=alert,
         )
     except ValueError as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     console.print(f"[bold]{mode}[/bold] {upstream} · log {log}"
                   + (" · sealed" if signing else " · [yellow]unsealed[/yellow]")
@@ -171,7 +172,7 @@ def _decide(queue: Path, pending_id: str, decision: str, by: str, note: str) -> 
     try:
         made = ApprovalQueue(queue).decide(pending_id, decision, by=by, note=note)
     except GateError as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     console.print(f"{made.decision} by {made.by} at {made.at}")
 
@@ -213,7 +214,7 @@ def inventory_command(
         base = read_document(baseline, kind="inventory")["inventory"]
         certified = {str((read_json(p).get("model") or {}).get("name")) for p in report or []}
     except (EvidenceError, OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     current = discover(endpoints=endpoint or [], configs=config or [],
                        manifests=manifest or [], skill_dirs=skills or [],
@@ -244,7 +245,7 @@ def overhead_command(
         environment = ({"inventory": read_document(inventory, kind="inventory")["inventory"]}
                        if inventory else None)
     except (PolicyError, EvidenceError, OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     refuse_overwrite(out, force)
     with recorded_run(ctx, "sentinel") as recorded:
