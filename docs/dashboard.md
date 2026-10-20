@@ -22,7 +22,7 @@ Every invariant in `CLAUDE.md` holds, and the dashboard is one more output they 
 And from the decisions taken for 0.4.0 (work plan, *Releases 0.3.1 and 0.4.0*):
 
 - **The dashboard never signs.** No key, no passphrase and no token PIN passes through it. Signing stays `opaas sign`, in a terminal.
-- **Nothing is published.** The draft certificate carries no QR code unless the user names a base URL (D72).
+- **Nothing is published.** The audit certificate carries no QR code unless the user names a base URL (D72, D81).
 
 ---
 
@@ -117,7 +117,7 @@ These files are the interface between the CLI and the dashboard. Each carries a 
   - the OPAAS version;
   - the template hash;
   - the generation time.
-- Every version is marked **draft, not signed** (D72).
+- Every version is the audit certificate of the run, checked by its report's hash and carrying no signature (D81; earlier versions were marked as drafts, D72).
 
 **Sentinel and the gate** keep their own files: the hash-chained event log, and the approval queue directory (D50). The dashboard reads both where the operator says they are. It does not move them into the store.
 

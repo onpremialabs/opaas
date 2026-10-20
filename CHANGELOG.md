@@ -10,6 +10,30 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Changed — the audit certificate (D81)
+
+- **The certificate of a run is the final certificate of the audit**, not a
+  draft. `opaas certificate --run <id>`, the dashboard's *Generate
+  certificate* and the end of `opaas audit run` render it.
+  - No watermark, no "not issued" band, no "once issued".
+  - The header says *Generated with OPAAS by onpremIA Labs*.
+  - The page is checked by the report's SHA-256, printed with
+    `sha256sum report.json`.
+  - Its *Signature* line says it has none: it was generated on the audited
+    system.
+- `audit run` and the dashboard no longer suggest signing; `keygen`, `sign`
+  and `verify` stay for when onpremIA Labs issues its own certificates.
+- Phases 10 and 15 are pending integration in the work plan until that is
+  decided.
+
+### Upgrading — the audit certificate
+
+- **`opaas audit run` writes `certificate.html`**, no longer
+  `certificate-draft.html`. Scripts that open or copy the old name need the
+  new one. Runs already in the store keep their files as they were.
+- `opaas.web.render_draft` and `opaas.web.certificate.draft_entry` are now
+  `render_audit_certificate` and `audit_entry`.
+
 ### Fixed
 
 - Every link to the repository now names `onpremialabs/opaas`: the install

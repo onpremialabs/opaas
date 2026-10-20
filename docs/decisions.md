@@ -50,6 +50,26 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D81 — The certificate of a run is the final audit certificate, not a draft
+
+**Status:** applied · **Revises:** [D72](#d72--audit-run-shows-the-certificate-it-will-become-as-an-unsigned-draft) and [D77](#d77--an-unsigned-draft-of-any-stored-report-as-a-new-version-each-time) · **Affects:** [`web/certificate.py`](../src/opaas/web/certificate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), `opaas certificate --run`, the dashboard's run page, [`workplan.md`](workplan.md) phases 10 and 15
+
+D72 and D77 rendered the certificate of a run as a draft: a DRAFT watermark, a band on every sheet saying *not issued, pending signature by onpremIALabs*, and "once issued, verify with…". That assumed onpremIALabs would sign every certificate after the audit. It will not, for now. Whoever installs OPAAS audits their own system, and the certificate they generate, from the CLI or the dashboard, is the certificate of that audit.
+
+**What it is now.**
+- `opaas certificate --run <id>` and the dashboard's *Generate certificate* render the **audit certificate** of a stored run, a new version each time, as D77 did. `opaas audit run` writes it as `certificate.html`, no longer `certificate-draft.html`.
+- No watermark, no band, no "once issued". The header says **Generated with OPAAS by onpremIA Labs**, and the page keeps what the signed certificate had: results per block or per cell, what was not measured, every limitation, the validity window.
+- **What ties the page to the audit is the report's SHA-256.** The footer prints it with `sha256sum report.json` (or `system-report.json`) as the check. The *Signature* line says none: it was generated on the audited system and is checked by the report hash.
+- **It names no signer, because none signed it.** The brand says who made the tool and the methodology, not that onpremIA Labs vouches for the run. The page says it was generated on the system that ran the audit.
+- No optional signing step appears in the user's flow: `audit run` no longer suggests `opaas evidence sign`, and the dashboard no longer points to `opaas sign`.
+
+**What stays.** `keygen`, `sign`, `verify`, `delegate`, `revoke`, `publish` and the browser verifier are untouched (D65–D67). They are for the day onpremIA Labs issues, signs and validates its own certificates from the platform. Phase 10, which needs the production keys for that, and phase 15 are now *pending integration* in the work plan, until that is decided.
+
+**What is lost:**
+- **Anyone can produce a page with the same brand.** An audit certificate has no signature, so an edited HTML file, or a run whose report was edited before rendering, shows the same header. Two checks remain. The report hash on the page must match `sha256sum` of the report the reader is given. `certificate --run` refuses a report whose bytes no longer match the hash its run recorded. Neither proves who ran the audit or that the report was not fabricated. Only a signature from a key the reader trusts can, and none is offered in the user's flow.
+- The page no longer warns that it is unsigned in large letters. It says so once, on the *Signature* line.
+- The methodology version printed on every certificate is still `1.0-draft` (`OPAAS_SPEC_VERSION`). That names the methodology's state, not the certificate's, and changes only with the methodology.
+
 ## D80 — `opaas compare` compares agents and systems, figure by figure and cell by cell
 
 **Status:** applied (phase 23 of the work plan) · **Revises:** the model-only scope of [`bench/compare.py`](../src/opaas/bench/compare.py) · **Affects:** [`bench/compare.py`](../src/opaas/bench/compare.py), [`cli/main.py`](../src/opaas/cli/main.py) (`compare`), [`ui/views.py`](../src/opaas/ui/views.py), [`run.html`](../src/opaas/ui/templates/run.html)
@@ -157,7 +177,7 @@ The dashboard must show a command's progress without sharing a process with it (
 
 ## D77 — An unsigned draft of any stored report, as a new version each time
 
-**Status:** applied (phase 19 of the work plan) · **Extends:** [D72](#d72--audit-run-shows-the-certificate-it-will-become-as-an-unsigned-draft) · **Builds on:** [D76](#d76--every-result-is-recorded-in-a-run-store-written-once) · **Affects:** `opaas certificate`, [`web/certificate.py`](../src/opaas/web/certificate.py)
+**Status:** applied (phase 19 of the work plan); revised by [D81](#d81--the-certificate-of-a-run-is-the-final-audit-certificate-not-a-draft): each version is the audit certificate, not a draft · **Extends:** [D72](#d72--audit-run-shows-the-certificate-it-will-become-as-an-unsigned-draft) · **Builds on:** [D76](#d76--every-result-is-recorded-in-a-run-store-written-once) · **Affects:** `opaas certificate`, [`web/certificate.py`](../src/opaas/web/certificate.py)
 
 D72 drafted the certificate only for system reports, and only at the end of `audit run`, into the audit's own directory. The dashboard needs a draft for any stored report, and the run store never lets a closed run gain a file.
 
@@ -302,7 +322,7 @@ D71's packs were in English. Block D measures Spanish since D70, but smith had n
 
 ## D72 — `audit run` shows the certificate it will become, as an unsigned draft
 
-**Status:** applied, revised before release: no QR code unless a site is named · **Affects:** [`web/certificate.py`](../src/opaas/web/certificate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), `audit run --certificate-base-url`, `--open/--no-open`
+**Status:** applied, revised before release: no QR code unless a site is named; revised by [D81](#d81--the-certificate-of-a-run-is-the-final-audit-certificate-not-a-draft): the page is the final audit certificate, `certificate.html`, no longer a draft · **Affects:** [`web/certificate.py`](../src/opaas/web/certificate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), `audit run --certificate-base-url`, `--open/--no-open`
 
 Whoever runs an audit wants to see the certificate at the end of it, and the production root that would let onpremIALabs issue one on the spot does not exist yet (phase 10). Certificates will be issued by onpremIALabs after the audit and published on its site. Until then, a person who ran `audit run` got a JSON report and a hint to sign it.
 

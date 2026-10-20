@@ -20,7 +20,7 @@ The flow is phase 22's, end to end:
    overview, the history, *New audit*, each run page, the sentinel page, the
    static files and the meerkat;
 4. two jobs launched as the dashboard launches them, as real child processes
-   of `python -m opaas`: a draft certificate of a model run, and a
+   of `python -m opaas`: an audit certificate of a model run, and a
    comparison of the two model runs; then their run pages;
 5. a signing command refused by the dashboard.
 
@@ -167,12 +167,12 @@ def _pages(client: Any, runs: dict[str, Any]) -> None:
            "New audit offers the packs, the system form and stored runs to cite")
     model = client.get(f"/runs/{runs['models'][0]}").text
     _check("<h1>smoke/model-1b</h1>" in model and 'class="ibar"' in model
-           and "matches run.json" in model and "Generate draft v1" in model,
-           "a model run shows its intervals, its checked files and its draft button")
+           and "matches run.json" in model and "Generate certificate v1" in model,
+           "a model run shows its intervals, its checked files and its certificate button")
     agent = client.get(f"/runs/{runs['agent']}").text
     _check("Behaviour" in agent and "Task completed" in agent and "pack:banking" in agent
-           and "Generate draft" not in agent,
-           "an agent run shows its behaviour and offers no draft of its own")
+           and "Generate certificate" not in agent,
+           "an agent run shows its behaviour and offers no certificate of its own")
     system = client.get(f"/runs/{runs['audit']}").text
     _check("<h1>System · support</h1>" in system and "cell-measured" in system
            and "<h3>Q1 · " in system and "agent → llm" in system,
@@ -212,11 +212,12 @@ def _jobs(client: Any, store: Path, runs: dict[str, Any]) -> None:
     """Step 4 and 5: what the dashboard launches, and what it will not."""
     print("Launching jobs as child processes, as the dashboard does")
     first, second = runs["models"]
-    draft = _job(client, ["certificate", "--run", first])
-    directory = store / draft["run"]["runId"]
-    _check(draft["run"]["kind"] == "certificate" and draft["run"]["status"] == "completed"
+    certificate = _job(client, ["certificate", "--run", first])
+    directory = store / certificate["run"]["runId"]
+    _check(certificate["run"]["kind"] == "certificate"
+           and certificate["run"]["status"] == "completed"
            and (directory / "certificate-v1.html").is_file(),
-           "a draft certificate job records version 1 as a run of its own")
+           "a certificate job records version 1 as a run of its own")
     reports = [str(store / run / "report.json") for run in (first, second)]
     compared = _job(client, ["compare", "--report", reports[0], "--report", reports[1]])
     _check(compared["run"]["kind"] == "compare" and compared["run"]["status"] == "completed",

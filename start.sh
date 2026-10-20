@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# One command from a fresh clone to a verified certificate:
+# One command from a fresh clone to the audit certificate of a run:
 #
 #   uv → datasets + classifiers (first time only) → run (blocks A–E)
-#      → keygen (first time only) → sign → verify → printable certificate
-#      → static site
+#      → audit certificate, checked by the report's hash (D81)
 #
 # Runs on Linux, macOS, and Windows under Git Bash (or WSL). uv is installed if
 # missing, and uv in turn fetches a Python if the machine has none, so the only
@@ -36,7 +35,6 @@
 #                   Write it with `opaas compliance --out declaration.json`.
 #                   Without it, block E reports only what OPAAS probes itself
 #                   and records the documentary part as uncovered.
-#   OPAAS_KEY_PASSPHRASE  passphrase of the signing key; asked for if unset
 #
 # Any argument is passed through to `opaas run`, e.g.
 #
@@ -56,13 +54,6 @@ CAPABILITY_MAX_TOKENS="${OPAAS_CAPABILITY_MAX_TOKENS:-2048}"
 CLASSIFIERS="${OPAAS_CLASSIFIERS:-1}"
 DECLARATION="${OPAAS_DECLARATION:-}"
 
-KEY_DIR="keys"
-PRIVATE_KEY="$KEY_DIR/opaas-root-ed25519.pem"
-PUBLIC_KEY="$KEY_DIR/opaas-root-ed25519.pub.pem"
-DID_DOCUMENT="$KEY_DIR/did.json"
-# One ledger for every run on this machine: the hash chain is only worth
-# something if issuances accumulate in it rather than starting over each time.
-LEDGER="runs/ledger.jsonl"
 OUT_DIR="runs/start-$(date +%Y%m%d-%H%M%S)"
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
@@ -126,7 +117,6 @@ opaas fetch
 
 mkdir -p "$OUT_DIR"
 REPORT="$OUT_DIR/report.json"
-CREDENTIAL="$OUT_DIR/credential.json"
 
 run_args=(--model "$MODEL" --backend "$BACKEND" --suite all --dataset "$DATASET" --offline
           --output "$REPORT")
@@ -148,65 +138,40 @@ opaas run "${run_args[@]}" "$@" || run_status=$?
 report_status="$(uv run --locked --no-sync python -c \
     'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["status"])' \
     "$REPORT")"
-# A partial report (a block failed) is not signed here: certifying it should be
-# a decision someone takes after reading why the block failed, not a side
-# effect of a convenience script.
+# A partial report (a block failed) gets no certificate here: certifying it
+# should be a decision someone takes after reading why the block failed, not a
+# side effect of a convenience script.
 if [ "$report_status" = "partial" ]; then
     fail "The run finished as partial: a block failed. Read it with
        uv run opaas show $REPORT
-       and sign it by hand if it is still worth certifying."
+       and render its certificate by hand if it is still worth certifying:
+       uv run opaas certificate --run <run-id>"
 fi
 if [ "$run_status" -ne 0 ]; then
     echo "opaas run exited with code $run_status, but the report is complete (status: $report_status)."
 fi
 
-# --- Signing key --------------------------------------------------------------
-
-# Read the passphrase here rather than letting Python prompt for it: Python's
-# hidden prompt misbehaves in Git Bash's terminal on Windows.
-if [ -z "${OPAAS_KEY_PASSPHRASE:-}" ]; then
-    [ -t 0 ] || fail "No terminal to ask for the key passphrase. Set OPAAS_KEY_PASSPHRASE."
-    read -r -s -p "Signing key passphrase: " OPAAS_KEY_PASSPHRASE
-    echo
-    [ -n "$OPAAS_KEY_PASSPHRASE" ] || fail "The passphrase cannot be empty."
-    if [ ! -f "$PRIVATE_KEY" ]; then
-        read -r -s -p "Repeat it: " confirm
-        echo
-        [ "$OPAAS_KEY_PASSPHRASE" = "$confirm" ] || fail "The passphrases do not match."
-    fi
-fi
-export OPAAS_KEY_PASSPHRASE
-
-if [ ! -f "$PRIVATE_KEY" ]; then
-    step "Generating the root signing key in $KEY_DIR/ (first time only)"
-    opaas keygen --out "$KEY_DIR"
-    echo "This key is your root of trust. Back it up and keep it out of git;"
-    echo "see docs/key-custody.md."
-fi
-
 # --- Certificate --------------------------------------------------------------
 
-step "Signing the report"
-opaas sign --input "$REPORT" --key "$PRIVATE_KEY" --out "$CREDENTIAL" --log "$LEDGER"
+# The run store recorded the run that wrote the report; its certificate is
+# rendered from the store's copy, checked against the hash the run recorded.
+RUN_ID="$(uv run --locked --no-sync python -c '
+import sys
+from pathlib import Path
+from opaas.core.hashing import file_digest
+from opaas.core.store import list_runs
+digest = file_digest(Path(sys.argv[1]))
+runs = [r for r in list_runs() if r.get("kind") == "bench"
+        and digest in r.get("files", {}).values()]
+print(runs[-1]["runId"] if runs else "")' "$REPORT")"
+[ -n "$RUN_ID" ] || fail "The run store has no run for $REPORT: \`opaas runs list\` shows what it holds."
 
-step "Verifying the credential, offline"
-# The public key is passed explicitly: verify never trusts the key a
-# credential carries about itself.
-opaas verify --credential "$CREDENTIAL" --report "$REPORT" --key "$PUBLIC_KEY" --log "$LEDGER"
-
-step "Rendering the printable certificate"
-opaas certificate --report "$REPORT" --credential "$CREDENTIAL" --key "$PUBLIC_KEY" \
-    --out "$OUT_DIR/certificate.html"
-
-step "Generating the static certificate site"
-opaas publish --report "$REPORT" --credential "$CREDENTIAL" \
-    --did-document "$DID_DOCUMENT" --out "$OUT_DIR/site"
+step "Rendering the audit certificate of run $RUN_ID"
+opaas certificate --run "$RUN_ID" --out "$OUT_DIR/certificate.html"
 
 step "Done"
 cat <<EOF
+  Run          $RUN_ID   (opaas runs show $RUN_ID)
   Report       $REPORT
-  Credential   $CREDENTIAL
   Certificate  $OUT_DIR/certificate.html   (open it and print to PDF)
-  Site         $OUT_DIR/site/               (cd there and: uv run python -m http.server 8000)
-  Ledger       $LEDGER
 EOF

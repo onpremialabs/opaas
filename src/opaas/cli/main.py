@@ -121,7 +121,7 @@ from opaas.sentinel.drift import (
 from opaas.sentinel.drift import watch as run_watch
 from opaas.system.watch import system_result
 from opaas.web import SiteError, build_site, check_verify_url, load_entry, render_printable
-from opaas.web.certificate import render_draft, template_hash
+from opaas.web.certificate import render_audit_certificate, template_hash
 
 app = typer.Typer(
     name="opaas",
@@ -1724,18 +1724,18 @@ CertificateCredential = Annotated[
 CertificateOut = Annotated[
     Path | None,
     typer.Option("--out", "-o", help="HTML file to write, ready to print to PDF. Defaults to "
-                 "certificate.html; with --run, the draft is kept in the run store and this is "
-                 "an extra copy."),
+                 "certificate.html; with --run, the certificate is kept in the run store and this "
+                 "is an extra copy."),
 ]
 CertificateRun = Annotated[
     str | None,
-    typer.Option("--run", help="A run in the store: renders the unsigned draft of its report "
-                 "as a new version, without a credential (D77)."),
+    typer.Option("--run", help="A run in the store: renders the audit certificate of its "
+                 "report as a new version, checked by the report's hash (D81)."),
 ]
 CertificateBase = Annotated[
     str | None,
     typer.Option("--certificate-base-url", help="With --run: the site the certificate will be "
-                 "published on, for the draft's QR code. Without it the draft has none."),
+                 "published on, for its QR code. Without it the certificate has none."),
 ]
 CertificateUrl = Annotated[
     str | None,
@@ -1764,19 +1764,20 @@ def certificate_command(
 
     The signature is checked first, with the same key resolution as `verify`:
     a printed certificate for a credential that would fail verification is a
-    forgery with good typography. With --run, it renders instead the unsigned
-    draft of a stored run's report, as a new version (D77).
+    forgery with good typography. With --run, it renders instead the audit
+    certificate of a stored run's report, as a new version (D81): generated
+    with OPAAS, carrying no signature, checked by the report's hash.
     """
     if run is not None:
         if report is not None or credential is not None:
-            err_console.print("[red]--run renders an unsigned draft: it takes no --report or "
-                              "--credential.[/red]")
+            err_console.print("[red]--run renders a run's audit certificate: it takes no "
+                              "--report or --credential.[/red]")
             raise typer.Exit(code=2)
-        _draft_certificate(ctx, run, out=out, base_url=certificate_base, force=force)
+        _audit_certificate(ctx, run, out=out, base_url=certificate_base, force=force)
         return
     if report is None or credential is None:
-        err_console.print("[red]Pass --report and --credential for a signed certificate, or "
-                          "--run <run-id> for the unsigned draft of a stored run.[/red]")
+        err_console.print("[red]Pass --run <run-id> for the audit certificate of a stored run, "
+                          "or --report and --credential for a signed one.[/red]")
         raise typer.Exit(code=2)
     out = out or Path("certificate.html")
     try:
@@ -1833,19 +1834,20 @@ def certificate_command(
     )
 
 
-#: Where a run keeps the report a draft is rendered from, in order of preference.
-_DRAFTABLE = ("report.json", "system-audit/system-report.json")
+#: Where a run keeps the report its certificate is rendered from, in order of preference.
+_CERTIFIABLE = ("report.json", "system-audit/system-report.json")
 
 
-def _draft_certificate(ctx: typer.Context, source: str, *, out: Path | None,
+def _audit_certificate(ctx: typer.Context, source: str, *, out: Path | None,
                        base_url: str | None, force: bool) -> None:
-    """Renders the unsigned draft of a stored run's report, as its next version (D77).
+    """Renders the audit certificate of a stored run's report, as its next version (D77, D81).
 
-    The source run is closed and its files read-only, so a draft is a run of
-    its own (`kind: certificate`, `sourceRun`), and its version is one more
-    than the drafts of that run already in the store. An earlier version is
-    never touched. The report is checked against the hash its run recorded
-    first: a draft of an edited report would certify something nobody measured.
+    The source run is closed and its files read-only, so a certificate is a run
+    of its own (`kind: certificate`, `sourceRun`), and its version is one more
+    than the certificates of that run already in the store. An earlier version
+    is never touched. The report is checked against the hash its run recorded
+    first: a certificate of an edited report would certify something nobody
+    measured.
     """
     directory = runs_dir() / source
     try:
@@ -1853,22 +1855,22 @@ def _draft_certificate(ctx: typer.Context, source: str, *, out: Path | None,
     except (StoreError, ValueError) as exc:
         err_console.print(f"[red]{_plain(exc)}[/red] `opaas runs list` shows the runs there are.")
         raise typer.Exit(code=2) from None
-    name = next((n for n in _DRAFTABLE if n in record.get("files", {})), None)
+    name = next((n for n in _CERTIFIABLE if n in record.get("files", {})), None)
     if name is None:
-        err_console.print(f"[red]Run {_plain(source)} has no report to draft a certificate "
-                          f"from[/red] (it is a {_plain(record.get('kind'))} run).")
+        err_console.print(f"[red]Run {_plain(source)} has no report to certify[/red] (it is a "
+                          f"{_plain(record.get('kind'))} run).")
         raise typer.Exit(code=2)
     if verify_files(directory).get(name) != "ok":
         err_console.print(f"[red]{name} in run {_plain(source)} no longer matches the hash the "
-                          "run recorded: no draft is rendered from it.[/red]")
+                          "run recorded: no certificate is rendered from it.[/red]")
         raise typer.Exit(code=1)
     report_path = directory / name
     try:
         if base_url is not None:
             check_verify_url(f"{base_url.rstrip('/')}/cert/x/index.html")
-        html = render_draft(report_path, base_url=base_url)
+        html = render_audit_certificate(report_path, base_url=base_url)
     except (SiteError, ValueError) as exc:
-        err_console.print(f"[red]No draft certificate:[/red] {_plain(exc)}")
+        err_console.print(f"[red]No certificate:[/red] {_plain(exc)}")
         raise typer.Exit(code=2) from None
     refuse_overwrite(out, force)
     version = 1 + sum(1 for r in list_runs()
@@ -1892,11 +1894,10 @@ def _draft_certificate(ctx: typer.Context, source: str, *, out: Path | None,
         if out is not None:
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(html, encoding="utf-8")
-    console.print(f"[bold]Draft certificate v{version}[/bold] of run {source}: {page}")
+    console.print(f"[bold]Audit certificate v{version}[/bold] of run {source}: {page}")
     if out is not None:
         console.print(f"  copy: {out}")
-    console.print("  [dim]unsigned: a rendering of the report, not a certificate until "
-                  "onpremIALabs signs it (D72)[/dim]")
+    console.print(f"  [dim]checked by the report's hash: {record['files'][name]}[/dim]")
 
 
 WatchFull = Annotated[

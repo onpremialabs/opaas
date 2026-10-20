@@ -288,7 +288,7 @@ if (jobBox) {
         const files = Object.keys((done.run && done.run.files) || {});
         // The server says which file is the run's report: an agent's is named freely.
         const report = done.reportFile;
-        const draft = files.find((f) => f.startsWith("certificate-v") && f.endsWith(".html"));
+        const certificate = files.find((f) => f.startsWith("certificate-v") && f.endsWith(".html"));
         const ready = jobBox.querySelector("[data-ready]");
         const link = `/runs/${job.run.runId}`;
         if (done.run && done.run.kind === "compare" && status === "completed") {
@@ -299,12 +299,12 @@ if (jobBox) {
           a.textContent = `Comparison ready · run ${job.run.runId}`;
           ready.append(a);
           ready.classList.remove("hidden");
-        } else if (draft && status === "completed") {
-          // A draft is not a report: no mob, a link to the run it was drawn from.
+        } else if (certificate && status === "completed") {
+          // A certificate is not a report: no mob, a link to the run it certifies.
           ready.innerHTML = "";
           const a = document.createElement("a");
           a.href = `/runs/${done.run.sourceRun}`;
-          a.textContent = `Draft certificate v${done.run.version} ready · run ${done.run.sourceRun}`;
+          a.textContent = `Certificate v${done.run.version} ready · run ${done.run.sourceRun}`;
           ready.append(a);
           ready.classList.remove("hidden");
         } else if ((status === "completed" || status === "partial") && report) {

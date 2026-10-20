@@ -3,7 +3,7 @@
 CI runs the script from a wheel installed into an empty environment, which is
 the point of it. Here it runs from the source tree, so a change to a page or a
 command that breaks the script is caught by `pytest`, not by the release.
-Its jobs are real child processes of `python -m opaas` (a draft and a
+Its jobs are real child processes of `python -m opaas` (a certificate and a
 comparison: neither needs a backend); nothing reaches the network.
 """
 

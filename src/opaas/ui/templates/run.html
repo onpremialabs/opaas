@@ -338,7 +338,7 @@
   {% if report and report.kind in ('comparison', 'agent-comparison', 'system-comparison') %}
   <section class="card">
     <h2>Certificate</h2>
-    <p class="dim">A comparison certifies nothing: each run it cites has its own report and its own draft.</p>
+    <p class="dim">A comparison certifies nothing: each run it cites has its own report and its own certificate.</p>
   </section>
   {% elif report and report.kind == 'agent' %}
   <section class="card">
@@ -347,16 +347,16 @@
   </section>
   {% elif report %}
   <section class="card">
-    <h2>Certificate, unsigned draft</h2>
+    <h2>Audit certificate</h2>
     {% for d in drafts %}
       <div class="file"><span>v{{ d.version }} <span class="dim mono">{{ d.endedAt or d.startedAt }}</span></span>
         <span><a href="/runs/{{ d.runId }}/files/certificate-v{{ d.version }}.html" target="_blank" rel="noopener">Open</a> ·
         <a href="/runs/{{ d.runId }}/files/certificate-v{{ d.version }}.html?download=1">Download</a></span></div>
     {% else %}
-      <p class="dim">No draft yet. Each one is kept as a new version.</p>
+      <p class="dim">No certificate yet. Each one is kept as a new version.</p>
     {% endfor %}
-    <button type="button" class="btn" data-launch='["certificate", "--run", "{{ record.runId }}"]'>Generate draft v{{ (drafts | length) + 1 }}</button>
-    <p class="fine">Unsigned: a rendering of this report, not a certificate. Signing stays <code>opaas sign</code>, in a terminal.</p>
+    <button type="button" class="btn" data-launch='["certificate", "--run", "{{ record.runId }}"]'>Generate certificate v{{ (drafts | length) + 1 }}</button>
+    <p class="fine">The final certificate of this audit, generated with OPAAS by onpremIA Labs. It carries this report's SHA-256, which is how anyone checks it.</p>
   </section>
   {% endif %}
 </div>

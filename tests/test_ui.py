@@ -118,7 +118,7 @@ def test_the_run_page_shows_intervals_files_and_the_command(client, bench_run):
     assert "<h1>fake/model-1b</h1>" in page  # the model's name, not its record
     assert 'class="ibar"' in page and "No total" in page
     assert "matches run.json" in page and "report.json" in page
-    assert "Generate draft v1" in page
+    assert "Generate certificate v1" in page
     assert bench_run in client.get("/runs").text and bench_run in client.get("/").text
 
 
@@ -242,8 +242,8 @@ def test_the_agent_page_shows_behaviour_auditability_and_absences(client, agent_
     assert page.count("OPAAS ran the loop") == 1
     assert "ACR, RF, LPC, GB, SPDR, AC, IS" in page
     assert "Not certifiable on its own" in page and "pack:banking" in page
-    # An agent is certified within a system audit: no draft of its own.
-    assert "Generate draft" not in page and "opaas audit run" in page
+    # An agent is certified within a system audit: no certificate of its own.
+    assert "Generate certificate" not in page and "opaas audit run" in page
     assert "banking-destructive-close-account" in page
     # The job page learns which file is the report from the server: an agent's is named freely.
     from opaas.core.store import load_run
@@ -326,7 +326,7 @@ def test_the_system_page_shows_coverage_card_composition_and_members(client, sys
         assert f"<h3>{q} · " in page
     assert "Action recoverability" in page and "actionRecoverability</h3>" not in page
     assert "agent → llm" in page and "system-audit/bench-llm.json" in page
-    assert "Generate draft v1" in page  # a system report can be drafted
+    assert "Generate certificate v1" in page  # a system report can be certified
 
 
 def test_the_system_form_cites_stored_runs(client, bench_run):
@@ -431,7 +431,7 @@ def test_the_comparison_page_says_what_opaas_compare_says(client, tmp_path):
         assert escape(row["verdict"]["detail"]) in page
     for run in (first, second):
         assert f'href="/runs/{run}"' in page
-    assert "Generate draft" not in page and "certifies nothing" in page
+    assert "Generate certificate" not in page and "certifies nothing" in page
 
 
 def test_a_jobs_output_is_plain_lines_whatever_the_server_forces(client, launched, monkeypatch):
@@ -529,7 +529,7 @@ def test_the_agent_comparison_page_says_what_opaas_compare_says(client, tmp_path
         assert f'<h3 class="dim-title">{question} · ' in page
     for run, _ in runs:
         assert f'href="/runs/{run}"' in page
-    assert "Generate draft" not in page and "certifies nothing" in page
+    assert "Generate certificate" not in page and "certifies nothing" in page
     # The history offers both agent runs, tagged with their kind.
     history = client.get("/runs", params={"kind": "smith"}).text
     assert history.count('data-compare-kind="agent"') == 2
