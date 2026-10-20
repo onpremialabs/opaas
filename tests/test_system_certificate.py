@@ -259,13 +259,14 @@ def _report_file(tmp_path):
     return path
 
 
-def test_the_draft_is_the_certificate_it_will_become_marked_unsigned(tmp_path):
+def test_the_audit_certificate_is_final_and_checked_by_its_report_hash(tmp_path):
+    """No draft mark and no signer: what ties the page to the audit is the report's hash (D81)."""
     from opaas.core.hashing import file_digest
-    from opaas.web import certificate_url, render_draft
-    from opaas.web.certificate import draft_entry
+    from opaas.web import certificate_url, render_audit_certificate
+    from opaas.web.certificate import audit_entry
 
     path = _report_file(tmp_path)
-    entry = draft_entry(path)
+    entry = audit_entry(path)
     signed_later = build_system_credential(json.loads(path.read_text(encoding="utf-8")),
                                            file_digest(path), issuer="did:web:onpremialabs.com",
                                            key_id="did:web:onpremialabs.com#issuing")
@@ -274,37 +275,41 @@ def test_the_draft_is_the_certificate_it_will_become_marked_unsigned(tmp_path):
     assert public_identifier(entry.credential).startswith("onpremialabs.com:system:")
     url = certificate_url(entry)
     assert url == f"https://onpremialabs.com/cert/{entry.slug}/index.html"
-    html = render_draft(path)
-    assert html.count("Draft — not issued") == 2  # on both sheets
-    assert "Draft Certificate of System Audit" in html and "not signed" in html
-    assert "Valid from" not in html  # validity starts at issuance
+    html = render_audit_certificate(path)
+    assert "Certificate of System Audit" in html and "Valid from" in html
+    assert "Generated with OPAAS by onpremIA Labs" in html
+    assert "Draft —" not in html and "DRAFT" not in html and "not issued" not in html
+    assert "sha256sum system-report.json" in html and file_digest(path) in html
+    # It names no signer, because none signed it.
+    assert "#issuing" not in html and "Signature</dt>" in html
     assert "<svg" not in html and "/cert/" not in html  # no site named, so no QR code
-    assert url in render_draft(path, base_url="https://onpremialabs.com")
+    assert url in render_audit_certificate(path, base_url="https://onpremialabs.com")
 
 
-def test_the_draft_qr_follows_the_site_it_is_published_on(tmp_path):
-    from opaas.web import render_draft
+def test_the_certificate_qr_follows_the_site_it_is_published_on(tmp_path):
+    from opaas.web import render_audit_certificate
 
-    html = render_draft(_report_file(tmp_path), base_url="https://certs.example.test/opaas/")
+    html = render_audit_certificate(_report_file(tmp_path), base_url="https://certs.example.test/opaas/")
     assert "<svg" in html and "https://certs.example.test/opaas/cert/" in html
 
 
-def test_the_draft_opens_in_the_browser_only_when_asked_or_interactive(tmp_path, _no_browser):
-    from opaas.cli.audit import _write_draft
+def test_the_certificate_opens_in_the_browser_only_when_asked_or_interactive(tmp_path,
+                                                                              _no_browser):
+    from opaas.cli.audit import _write_certificate
 
     path = _report_file(tmp_path)
-    _write_draft(path, tmp_path / "a.html", "https://onpremialabs.com", None)
+    _write_certificate(path, tmp_path / "a.html", "https://onpremialabs.com", None)
     assert _no_browser == []  # pytest's stdout is not a terminal
-    _write_draft(path, tmp_path / "b.html", "https://onpremialabs.com", True)
+    _write_certificate(path, tmp_path / "b.html", "https://onpremialabs.com", True)
     assert _no_browser == [(tmp_path / "b.html").resolve().as_uri()]
 
 
-def test_a_report_the_issuer_would_reject_gets_no_draft_and_says_why(tmp_path):
-    """A draft that could never be issued would mislead whoever reads it (D22, D72)."""
-    from opaas.cli.audit import _write_draft
+def test_a_report_no_credential_covers_gets_no_certificate_and_says_why(tmp_path):
+    """A certificate over a cloud baseline would mislead whoever reads it (D22, D72)."""
+    from opaas.cli.audit import _write_certificate
 
     body = _body(tmp_path, [("llm", _bench(referenceType="cloud-baseline"))])
     path = tmp_path / "system-report.json"
     write_document(path, envelope("system-report", body, environment=None))
-    _write_draft(path, tmp_path / "draft.html", "https://onpremialabs.com", False)
-    assert not (tmp_path / "draft.html").exists()
+    _write_certificate(path, tmp_path / "certificate.html", "https://onpremialabs.com", False)
+    assert not (tmp_path / "certificate.html").exists()

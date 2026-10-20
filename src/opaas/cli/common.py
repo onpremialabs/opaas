@@ -272,7 +272,7 @@ class RecordedRun:
     #: Set by the command when the result is weaker than a clean completion.
     status: str = "completed"
     kept: list[Path] = field(default_factory=list)
-    #: Extra fields for `run.json`, set by the command (a draft's `sourceRun`).
+    #: Extra fields for `run.json`, set by the command (a certificate's `sourceRun`).
     fields: dict[str, Any] = field(default_factory=dict)
     _last_tick: float = 0.0
 

@@ -311,9 +311,9 @@ def test_audit_run_end_to_end_with_fake_engines(tmp_path):
     assert report["coverage"]["agent"]["actionRecoverability"] == "not-applicable"
     assert {m["kind"] for m in report["members"]} == {"model-report", "smith-report"}
     assert "coverage" in result.output
-    draft = (out / "certificate-draft.html").read_text(encoding="utf-8")
-    assert "Draft — not issued" in draft and "not signed" in draft
-    assert "<svg" not in draft and "QR" not in result.output
+    certificate = (out / "certificate.html").read_text(encoding="utf-8")
+    assert "Certificate of System Audit" in certificate and "Draft —" not in certificate
+    assert "<svg" not in certificate and "QR" not in result.output
 
 
 def test_a_system_with_a2a_and_langgraph_agents_runs_with_no_pending_behaviour(tmp_path):

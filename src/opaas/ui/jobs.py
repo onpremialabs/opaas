@@ -71,7 +71,8 @@ def check_command(args: Sequence[str], *, confirmed_rerouted: bool = False) -> N
         raise JobError(f"`opaas {name}` is not launched from the dashboard. Run it in a "
                        "terminal: signing, keys, the sentinel proxy and approvals stay there.")
     if command == "certificate" and "--run" not in args:
-        raise JobError("The dashboard renders only unsigned drafts: `certificate --run <id>`.")
+        raise JobError("The dashboard renders only a run's audit certificate: "
+                       "`certificate --run <id>`.")
     if command == "smith" and _option(args, "--agent", "-a") in REROUTED_AGENTS \
             and not confirmed_rerouted:
         raise JobError("This agent's tools must point at OPAAS's mock MCP server before the "

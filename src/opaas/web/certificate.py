@@ -18,16 +18,18 @@ tiers). Each block gets its own line, a block that was not evaluated says so
 as visibly as one that was, and every limitation the run declared is printed,
 even when that takes a second page.
 
-**The draft is shown before anything is signed** (D72). `opaas audit run`
-ends by writing `certificate-draft.html` next to the system report and
-opening it, so whoever ran the audit sees the certificate it will become. It
-is the same page over the same unsigned credential `opaas sign` would build
-with onpremIALabs as issuer, so its identifier is the one the issued
-certificate will carry. It has no QR code unless the site it will be
+**The audit certificate is the certificate of a run** (D81, revising the
+drafts of D72 and D77). `opaas audit run` ends by writing `certificate.html`
+next to the system report and opening it, and `opaas certificate --run`
+renders one for any stored report, a new version each time. It is the final
+certificate of that audit: generated with OPAAS by onpremIA Labs, on the
+system that ran it, and carrying no signature. What ties the page to the
+measurement is the report's SHA-256, printed on it: `sha256sum report.json`
+must give the same value. It names no signer, because none signed it; the
+signed credential of `opaas sign` stays for when onpremIA Labs issues
+certificates itself (phase 10). It has no QR code unless the site it will be
 published on is named; then the code is the address `opaas publish` gives
-that certificate there. A band on every sheet, the title and the footer say
-it is a draft and unsigned: until onpremIALabs signs it, the page proves
-nothing.
+that certificate there.
 
 Rendered self-contained (inline CSS, inline SVG, no fonts or scripts from
 anywhere) so it prints the same offline and years later.
@@ -75,6 +77,12 @@ BLOCK_NAMES = {
 #: How many capability categories fit on the block's single line.
 _MAX_CATEGORIES = 4
 
+#: Who an audit certificate says produced it: the tool and its maker, never a signer.
+AUDIT_BRAND = "Generated with OPAAS by onpremIA Labs"
+
+#: How a reader checks an audit certificate: it has no signature, only its report's hash.
+_AUDIT_SIGNATURE = "none: generated on the audited system, checked by the report hash"
+
 
 def check_verify_url(url: str) -> str:
     """The QR is the only route from paper to signature: it has to be a web address."""
@@ -88,7 +96,7 @@ def check_verify_url(url: str) -> str:
 
 
 #: Where onpremIALabs publishes issued certificates: the root of the site
-#: `opaas publish` builds. A draft's QR code points under it.
+#: `opaas publish` builds. An audit certificate's QR code points under it.
 PUBLISH_BASE_URL = "https://onpremialabs.com"
 
 
@@ -97,8 +105,8 @@ def certificate_url(entry: Entry, base_url: str = PUBLISH_BASE_URL) -> str:
     return check_verify_url(f"{base_url.rstrip('/')}/cert/{entry.slug}/index.html")
 
 
-def draft_entry(report_path: Path) -> Entry:
-    """A report with the unsigned credential onpremIALabs would sign over it.
+def audit_entry(report_path: Path) -> Entry:
+    """A report with the unsigned credential its audit certificate is laid out from.
 
     A system report gets a system credential; a model report, a model one. A
     report no credential can be built over (a cloud baseline, invariant 10)
@@ -112,23 +120,23 @@ def draft_entry(report_path: Path) -> Entry:
                  credential=credential, report_bytes=report_bytes)
 
 
-def render_draft(report_path: Path, *, base_url: str | None = None) -> str:
-    """The certificate a report will become, marked unsigned on every sheet.
+def render_audit_certificate(report_path: Path, *, base_url: str | None = None) -> str:
+    """The audit certificate of a report: final, unsigned, checked by the report's hash.
 
     With `base_url`, a QR code to the page it will be published at; without it,
-    none: a code to a page that does not exist yet would only mislead.
+    none: a code to a page that does not exist would only mislead.
     """
-    entry = draft_entry(report_path)
+    entry = audit_entry(report_path)
     url = certificate_url(entry, base_url) if base_url else None
     if entry.is_system:
-        return _render_system_printable(entry, verify_url=url, draft=True)
-    return render_printable(entry, verify_url=url, draft=True)
+        return _render_system_printable(entry, verify_url=url, audit=True)
+    return render_printable(entry, verify_url=url, audit=True)
 
 
 def template_hash() -> str:
-    """Hash of the code that lays a certificate out, recorded beside every draft (D77).
+    """Hash of the code that lays a certificate out, recorded beside every version (D77).
 
-    Two drafts of one report can differ only if this differs: the report hash
+    Two versions of one report's certificate can differ only if this differs: the report hash
     pins the content, this pins the rendering.
     """
     return file_digest(Path(__file__))
@@ -136,11 +144,15 @@ def template_hash() -> str:
 
 def render_printable(
     entry: Entry, *, verify_url: str | None = None, now: datetime | None = None,
-    draft: bool = False,
+    audit: bool = False,
 ) -> str:
-    """The certificate as a standalone HTML document ready to print."""
+    """The certificate as a standalone HTML document ready to print.
+
+    `audit` lays out the audit certificate of a run (D81): no signature, so it is
+    checked by its report's hash rather than by `opaas verify`.
+    """
     if entry.is_system:
-        return _render_system_printable(entry, verify_url=verify_url, draft=draft)
+        return _render_system_printable(entry, verify_url=verify_url, audit=audit)
     report, credential = entry.report, entry.credential
     subject = credential.get("credentialSubject", {})
     configuration = subject.get("configuration", {})
@@ -148,22 +160,30 @@ def render_printable(
 
     qr_html = ""
     if verify_url is not None:
+        caption = ("Where this certificate is published" if audit
+                   else "Scan to verify the signature")
         qr_html = f"""<figure class="qr">{_qr_svg(check_verify_url(verify_url))}
-      <figcaption>Scan to verify the signature</figcaption></figure>"""
-        verify_text = (
-            f"{'Once issued, verify' if draft else 'Verify'} at "
-            f"<span class='mono'>{esc(verify_url)}</span>, or offline with:"
-        )
+      <figcaption>{caption}</figcaption></figure>"""
+    if audit:
+        published = (f"Published at <span class='mono'>{esc(verify_url)}</span>. "
+                     if verify_url is not None else "")
+        verify_text = (published + "Check it against its report: this SHA-256 of report.json "
+                       "must match the one below.")
+        command = "sha256sum report.json"
+        signature_label, signature = "Signature", _AUDIT_SIGNATURE
+        note = (f"{AUDIT_BRAND}, on the system that ran the audit, from the report whose hash "
+                "is above. The figures are that report's: if anything here differs from it, "
+                "the report is right and this page is not.")
     else:
-        verify_text = "Once issued, verify offline with:" if draft else "Verify offline with:"
-    band = ("<p class='draft-band'>Draft — not issued. Pending signature and issuance by "
-            "onpremIALabs. Not a certificate until then.</p>" if draft else "")
-    issuer_key = ("none: this draft is not signed" if draft
-                  else esc(proof.get("verificationMethod")))
-    note = ("This draft is unsigned, and anyone can edit an HTML page. The certificate is the "
-            "credential onpremIALabs signs over the report whose hash is above." if draft
-            else "This page is a rendering. The certificate is the signed credential: if "
-            "anything here differs from it, the credential is right and this page is not.")
+        verify_text = (f"Verify at <span class='mono'>{esc(verify_url)}</span>, or offline with:"
+                       if verify_url is not None else "Verify offline with:")
+        command = "opaas verify --credential credential.json --report report.json"
+        signature_label, signature = "Issuer key", esc(proof.get("verificationMethod"))
+        note = ("This page is a rendering. The certificate is the signed credential: if "
+                "anything here differs from it, the credential is right and this page is not.")
+    brand = (f"{AUDIT_BRAND} · On-Prem AI Audit Suite" if audit
+             else "onpremIALabs · OPAAS — On-Prem AI Audit Suite")
+    statement_by = " on the system where it is deployed" if audit else ""
 
     partial_html = ""
     if not entry.complete:
@@ -183,20 +203,20 @@ def render_printable(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{"OPAAS Draft Certificate" if draft else "OPAAS Certificate"}</title>
+<title>{"OPAAS Audit Certificate" if audit else "OPAAS Certificate"}</title>
 <style>{_CSS}</style>
 </head>
 <body>
-<main class="sheet{" draft" if draft else ""}">
-  {band}
+<main class="sheet">
   <header>
-    <p class="issuer">onpremIALabs · OPAAS — On-Prem AI Audit Suite</p>
-    <h1>{"Draft Certificate of Evaluation" if draft else "Certificate of Evaluation"}</h1>
+    <p class="issuer">{brand}</p>
+    <h1>Certificate of Evaluation</h1>
     <p class="identifier mono">{esc(public_identifier(credential))}</p>
   </header>
 
   <p class="statement">This certifies that the deployment described below was evaluated
-  with OPAAS methodology {esc(report.get("opaasVersion", "unknown"))} on {esc(issued)}.
+  with OPAAS methodology {esc(report.get("opaasVersion", "unknown"))} on
+  {esc(issued)}{statement_by}.
   Results are reported per block. OPAAS issues no overall score or grade.</p>
 
   <section class="subject">
@@ -229,13 +249,13 @@ def render_printable(
     {qr_html}
     <div class="trace">
       <p>{verify_text}</p>
-      <p class="mono command">opaas verify --credential credential.json --report report.json</p>
+      <p class="mono command">{command}</p>
       <dl>
         <dt>Report SHA-256</dt><dd class="mono">{esc(entry.eval_run.get("reportHash"))}</dd>
         <dt>Deployment</dt><dd><span class="mono">{esc(configuration.get("deploymentHash")
           or "not recorded")}</span>{_fingerprint_html(report)}</dd>
-        <dt>Credential</dt><dd class="mono">{esc(credential.get("id"))}</dd>
-        <dt>Issuer key</dt><dd class="mono">{issuer_key}</dd>
+        <dt>Certificate</dt><dd class="mono">{esc(credential.get("id"))}</dd>
+        <dt>{signature_label}</dt><dd class="mono">{signature}</dd>
       </dl>
       <p class="note">{note}</p>
     </div>
@@ -248,7 +268,7 @@ def render_printable(
 
 
 def _render_system_printable(entry: Entry, *, verify_url: str | None,
-                             draft: bool = False) -> str:
+                             audit: bool = False) -> str:
     """A system certificate (D60): components × dimensions, never a combined mark."""
     report, credential = entry.report, entry.credential
     subject = credential.get("credentialSubject", {})
@@ -257,31 +277,35 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None,
     expires = str(credential.get("expirationDate", ""))[:10]
 
     qr_html = ""
-    verify_text = "Once issued, verify offline with:" if draft else "Verify offline with:"
     if verify_url is not None:
-        caption = ("Where onpremIALabs will publish it once issued" if draft
+        caption = ("Where this certificate is published" if audit
                    else "Scan to verify the signature")
         qr_html = f"""<figure class="qr">{_qr_svg(check_verify_url(verify_url))}
       <figcaption>{caption}</figcaption></figure>"""
-        verify_text = (f"Once issued, at <span class='mono'>{esc(verify_url)}</span>, or "
-                       "offline with:" if draft else
-                       f"Verify at <span class='mono'>{esc(verify_url)}</span>, or offline with:")
-    band = ("<p class='draft-band'>Draft — not issued. Pending signature and issuance by "
-            "onpremIALabs. Not a certificate until then.</p>" if draft else "")
-    title = "Draft Certificate of System Audit" if draft else "Certificate of System Audit"
     validity = (
-        f"<p><strong>Audited on {esc(issued)}.</strong> Validity starts when onpremIALabs "
-        "issues the certificate; as soon as any component changes, the system requires a new "
-        "audit.</p>" if draft else
         f"<p><strong>Valid from {esc(issued)} until {esc(expires)}.</strong> After that date, "
         "or as soon as any component changes, the system requires re-certification.</p>")
-    issuer_key = ("none: this draft is not signed" if draft
-                  else proof.get("verificationMethod"))
-    rendering_note = (
-        "This draft is unsigned, and anyone can edit an HTML page. The certificate is the "
-        "credential onpremIALabs signs over the system report whose hash is above." if draft
-        else "This page is a rendering. The certificate is the signed credential: if anything "
-        "here differs from it, the credential is right and this page is not.")
+    if audit:
+        published = (f"Published at <span class='mono'>{esc(verify_url)}</span>. "
+                     if verify_url is not None else "")
+        verify_text = (published + "Check it against its report: this SHA-256 of "
+                       "system-report.json must match the one below.")
+        command = "sha256sum system-report.json"
+        signature_label, signature = "Signature", _AUDIT_SIGNATURE
+        rendering_note = (
+            f"{AUDIT_BRAND}, on the system that ran the audit, from the system report whose "
+            "hash is above. The figures are that report's: if anything here differs from it, "
+            "the report is right and this page is not.")
+    else:
+        verify_text = (f"Verify at <span class='mono'>{esc(verify_url)}</span>, or offline with:"
+                       if verify_url is not None else "Verify offline with:")
+        command = "opaas verify --credential credential.json --report system-report.json"
+        signature_label, signature = "Issuer key", proof.get("verificationMethod")
+        rendering_note = (
+            "This page is a rendering. The certificate is the signed credential: if anything "
+            "here differs from it, the credential is right and this page is not.")
+    brand = (f"{AUDIT_BRAND} · On-Prem AI Audit Suite" if audit
+             else "onpremIALabs · OPAAS — On-Prem AI Audit Suite")
 
     reasons = subject.get("notCertifiableBecause") or []
     status_html = (
@@ -331,15 +355,14 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None,
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{"OPAAS Draft Certificate" if draft else "OPAAS System Certificate"}</title>
+<title>{"OPAAS Audit Certificate" if audit else "OPAAS System Certificate"}</title>
 <style>{_CSS}</style>
 </head>
 <body>
-<main class="sheet{" draft" if draft else ""}">
-  {band}
+<main class="sheet">
   <header>
-    <p class="issuer">onpremIALabs · OPAAS — On-Prem AI Audit Suite</p>
-    <h1>{title}</h1>
+    <p class="issuer">{brand}</p>
+    <h1>Certificate of System Audit</h1>
     <p class="identifier mono">{esc(public_identifier(credential))}</p>
   </header>
 
@@ -367,20 +390,18 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None,
     {qr_html}
     <div class="trace">
       <p>{verify_text}</p>
-      <p class="mono command">opaas verify --credential credential.json --report
-      system-report.json</p>
+      <p class="mono command">{command}</p>
       <dl>
         <dt>System report SHA-256</dt><dd class="mono">{esc(entry.report_hash)}</dd>
         <dt>Manifest SHA-256</dt><dd class="mono">{esc(entry.system.get("manifestHash"))}</dd>
-        <dt>Credential</dt><dd class="mono">{esc(credential.get("id"))}</dd>
-        <dt>Issuer key</dt><dd class="mono">{esc(issuer_key)}</dd>
+        <dt>Certificate</dt><dd class="mono">{esc(credential.get("id"))}</dd>
+        <dt>{signature_label}</dt><dd class="mono">{esc(signature)}</dd>
       </dl>
       <p class="note">{rendering_note}</p>
     </div>
   </footer>
 </main>
-<section class="sheet limitations{" draft" if draft else ""}">
-  {band}
+<section class="sheet limitations">
   <h2>Results, per component and dimension</h2>
   <p class="note">A few measured figures per cell, each read from a member document listed
   below by its hash. Nothing is combined across cells.</p>
@@ -738,12 +759,6 @@ footer { display: flex; gap: 6mm; align-items: flex-start; margin-top: 4mm; }
 .certifiable { border-left: 4px solid #1f4e3d; background: #eef5f1; padding: 2mm 4mm; }
 .results { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
 .results td { border-bottom: 1px solid #e3dfd4; padding: 1mm 1.5mm; vertical-align: top; }
-.sheet.draft { border-color: #a3471b; position: relative; }
-.sheet.draft::before { content: "DRAFT"; position: absolute; inset: 0; display: flex;
-  align-items: center; justify-content: center; font-size: 110pt; letter-spacing: .2em;
-  color: rgba(163, 71, 27, .08); transform: rotate(-24deg); pointer-events: none; }
-.draft-band { margin: 0 0 4mm; padding: 2mm 4mm; text-align: center; font-weight: bold;
-  color: #fff; background: #a3471b; letter-spacing: .03em; }
 @media print {
   body { background: #fff; }
   .sheet { margin: 0; max-width: none; box-shadow: none; }

@@ -16,7 +16,7 @@ It reads the run store and launches `opaas` commands; it measures nothing
 - Every POST carries the token in a header as well. There is no CORS, and no
   GET request changes anything.
 - Pages may load nothing from elsewhere (a strict Content-Security-Policy).
-  Files from a run (a draft certificate) are served sandboxed, scripts off.
+  Files from a run (an audit certificate) are served sandboxed, scripts off.
 
 Starlette and Jinja2 come with the `ui` extra and are imported only here.
 """
@@ -58,7 +58,7 @@ HEADER = "x-opaas-token"
 
 _PAGE_CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
              "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-#: A run's files (a draft certificate, a report) render as documents, never as code.
+#: A run's files (an audit certificate, a report) render as documents, never as code.
 _FILE_CSP = ("sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; "
              "frame-ancestors 'self'")
 

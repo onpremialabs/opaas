@@ -1,4 +1,4 @@
-"""Versioned unsigned certificates of stored runs (D77)."""
+"""Versioned audit certificates of stored runs (D77, D81)."""
 
 import json
 
@@ -34,30 +34,35 @@ def _bench() -> str:
     return record["runId"]
 
 
-def _drafts(source):
+def _certificates(source):
     return sorted((r for r in list_runs()
                    if r["kind"] == "certificate" and r.get("sourceRun") == source),
                   key=lambda r: r["version"])
 
 
-def test_each_draft_is_a_new_version_and_none_replaces_another():
+def test_each_certificate_is_a_new_version_and_none_replaces_another():
     source = _bench()
     _ok(runner.invoke(app, ["certificate", "--run", source]))
     _ok(runner.invoke(app, ["certificate", "--run", source]))
-    first, second = _drafts(source)
+    first, second = _certificates(source)
     assert (first["version"], second["version"]) == (1, 2)
     assert set(first["files"]) == {"certificate-v1.html", "certificate-v1.json"}
     assert set(second["files"]) == {"certificate-v2.html", "certificate-v2.json"}
     page = (runs_dir() / first["runId"] / "certificate-v1.html").read_text(encoding="utf-8")
-    assert "Draft Certificate of Evaluation" in page and "not signed" in page
+    assert "Certificate of Evaluation" in page
+    assert "Generated with OPAAS by onpremIA Labs" in page
+    # The final certificate: no draft mark anywhere, and checked by the report's hash.
+    assert "Draft" not in page and "DRAFT" not in page and "not issued" not in page
+    assert "sha256sum report.json" in page
+    assert file_digest(runs_dir() / source / "report.json") in page
     assert "<svg" not in page  # no QR code without a base URL
 
 
-def test_a_draft_records_what_it_was_rendered_from():
+def test_a_certificate_records_what_it_was_rendered_from():
     source = _bench()
     _ok(runner.invoke(app, ["certificate", "--run", source]))
-    (draft,) = _drafts(source)
-    meta = json.loads((runs_dir() / draft["runId"] / "certificate-v1.json")
+    (certificate,) = _certificates(source)
+    meta = json.loads((runs_dir() / certificate["runId"] / "certificate-v1.json")
                       .read_text(encoding="utf-8"))
     report = runs_dir() / source / "report.json"
     assert meta["reportHash"] == file_digest(report)
@@ -65,17 +70,17 @@ def test_a_draft_records_what_it_was_rendered_from():
     assert meta["templateHash"].startswith("sha256:")
 
 
-def test_no_draft_is_rendered_from_a_report_edited_after_its_run():
+def test_no_certificate_is_rendered_from_a_report_edited_after_its_run():
     source = _bench()
     report = runs_dir() / source / "report.json"
     report.chmod(0o644)
     report.write_text(report.read_text(encoding="utf-8").replace("fake", "real"),
                       encoding="utf-8")
     result = runner.invoke(app, ["certificate", "--run", source])
-    assert result.exit_code == 1 and _drafts(source) == []
+    assert result.exit_code == 1 and _certificates(source) == []
 
 
-def test_a_run_without_a_report_has_no_draft(tmp_path):
+def test_a_run_without_a_report_has_no_certificate(tmp_path):
     _ok(runner.invoke(app, ["discover", "scan", "--no-containers",
                             "-o", str(tmp_path / "inventory.json")]))
     (record,) = list_runs()

@@ -1,8 +1,7 @@
 """`opaas audit`: the system audit (D60).
 
 `run` audits a system from its manifest and writes the system report (S1),
-then the draft certificate it would become, which it opens for whoever ran it
-(D72).
+then its audit certificate, which it opens for whoever ran it (D72, D81).
 `validate` checks a manifest; `extract` reads any OPAAS document into the
 common measurement format (S0). None of them writes over a document: each
 member keeps its bytes and its hash.
@@ -42,8 +41,8 @@ from opaas.system import (
 )
 from opaas.system.orchestrate import STEPS, AuditPlanError, run_audit
 from opaas.system.report import SYSTEM_ROW, SystemReportError, build_report, load_thresholds
-from opaas.web import SiteError, certificate_url, check_verify_url, render_draft
-from opaas.web.certificate import draft_entry
+from opaas.web import SiteError, certificate_url, check_verify_url, render_audit_certificate
+from opaas.web.certificate import audit_entry
 
 app = typer.Typer(help="System audit: manifest and measurements (D60).", no_args_is_help=True)
 
@@ -71,20 +70,20 @@ def run_command(
     repeats: Annotated[int, typer.Option("--repeats", "-n", min=1,
                                          help="smith runs per scenario.")] = 3,
     certificate_base: Annotated[str | None, typer.Option(
-        "--certificate-base-url", help="Site where the issued certificate will be published, "
-        "e.g. https://onpremialabs.com: the draft then carries a QR code to "
-        "<url>/cert/<id>/index.html. Without it the draft has no QR code.")] = None,
-    open_draft: Annotated[bool | None, typer.Option(
-        "--open/--no-open", help="Open the draft certificate in the browser. By default only "
+        "--certificate-base-url", help="Site where the certificate will be published, "
+        "e.g. https://onpremialabs.com: it then carries a QR code to "
+        "<url>/cert/<id>/index.html. Without it the certificate has no QR code.")] = None,
+    open_certificate: Annotated[bool | None, typer.Option(
+        "--open/--no-open", help="Open the audit certificate in the browser. By default only "
         "when run from a terminal.")] = None,
     force: Force = False,
 ) -> None:
     """Audits a system: runs only what its manifest calls for, then writes the system report
-    and the draft certificate it would become."""
+    and its audit certificate."""
     base = system.resolve().parent
     try:
         # Checked before anything runs: a wrong address found after the audit would mean
-        # running it again for its draft.
+        # running it again for its certificate.
         if certificate_base is not None:
             check_verify_url(f"{certificate_base.rstrip('/')}/cert/x/index.html")
     except SiteError:
@@ -107,7 +106,7 @@ def run_command(
 
     refuse_overwrite(out, force)
     # Each step it invokes records its own run; this one keeps the whole
-    # directory: members, system report and draft, as they were (D76).
+    # directory: members, system report and certificate, as they were (D76).
     with recorded_run(ctx, "audit") as recorded:
         try:
             def invoke(args: list[str]) -> int:
@@ -130,8 +129,8 @@ def run_command(
         digest = write_document(report, envelope(
             "system-report", body, environment={"inventory": inventory} if inventory else None))
         _print_summary(body)
-        console.print(f"\n{report} ({digest}). Sign it with `opaas evidence sign`.")
-        _write_draft(report, out / "certificate-draft.html", certificate_base, open_draft)
+        console.print(f"\n{report} ({digest})")
+        _write_certificate(report, out / "certificate.html", certificate_base, open_certificate)
         recorded.keep(out, "system-audit")
         failed = [s for s in body["steps"] if s["status"] == "failed"]
         if failed:
@@ -140,21 +139,21 @@ def run_command(
         raise typer.Exit(code=1)
 
 
-def _write_draft(report: Path, path: Path, base_url: str | None,
-                 open_draft: bool | None) -> None:
-    """The certificate this report would become, unsigned and marked so (D72)."""
+def _write_certificate(report: Path, path: Path, base_url: str | None,
+                       open_certificate: bool | None) -> None:
+    """The audit certificate of this report, checked by its hash (D72, D81)."""
     try:
-        html = render_draft(report, base_url=base_url)
-        url = certificate_url(draft_entry(report), base_url) if base_url else None
+        html = render_audit_certificate(report, base_url=base_url)
+        url = certificate_url(audit_entry(report), base_url) if base_url else None
     except (SiteError, ValueError) as exc:  # a report no credential can be built over
-        err_console.print(f"[yellow]No draft certificate:[/yellow] {_plain(exc)}")
+        err_console.print(f"[yellow]No certificate:[/yellow] {_plain(exc)}")
         return
     path.write_text(html, encoding="utf-8")
-    console.print(f"[bold]Draft certificate:[/bold] {path}")
-    console.print("  [dim]unsigned until onpremIALabs issues it"
+    console.print(f"[bold]Audit certificate:[/bold] {path}")
+    console.print("  [dim]checked by the system report's hash"
                   + (f"; its QR code points to {url}, where it will be published" if url
                      else "") + "[/dim]")
-    if open_draft if open_draft is not None else sys.stdout.isatty():
+    if open_certificate if open_certificate is not None else sys.stdout.isatty():
         webbrowser.open(path.resolve().as_uri())
 
 

@@ -102,19 +102,20 @@ opaas run --model qwen2.5:7b-instruct --backend ollama --num-ctx 8192 --suite al
 opaas show report.json
 ```
 
-**Certify it** — a key once, then sign and verify offline:
+**Certify it** — the audit certificate of that run, from the run store:
 
 ```bash
-opaas keygen --out keys
+opaas runs list
 ```
 
 ```bash
-opaas sign --input report.json --key keys/opaas-root-ed25519.pem --out credential.json
+opaas certificate --run <run-id>
 ```
 
-```bash
-opaas verify --credential credential.json --report report.json --key keys/opaas-root-ed25519.pub.pem
-```
+It is the final certificate of the audit, generated with OPAAS by onpremIA Labs: results per
+block, what was not measured, every limitation, and the report's SHA-256. That hash is how
+anyone checks it: `sha256sum report.json` must give the value printed on it. It carries no
+signature (D81). Each call keeps a new version in the store.
 
 **Audit a whole system** — let OPAAS find its components, then audit and certify it:
 
@@ -126,18 +127,14 @@ opaas audit draft -o system.json --records events.jsonl
 opaas audit run system.json -o out/
 ```
 
-The audit ends by opening `out/certificate-draft.html`: the certificate this report will
-become, marked **draft, not signed**. It carries no QR code unless you name the site it will
-be published on (`--certificate-base-url https://…`).
-
-```bash
-opaas sign --input out/system-report.json --key keys/opaas-root-ed25519.pem --out out/credential.json
-```
+The audit ends by opening `out/certificate.html`, the audit certificate of the system,
+checked by the SHA-256 of `out/system-report.json` printed on it. It carries no QR code unless
+you name the site it will be published on (`--certificate-base-url https://…`).
 
 <details>
 <summary><b>One command from a fresh clone: <code>start.sh</code></b></summary>
 
-From a fresh clone to a verified, printable certificate with nothing prepared beforehand. It
+From a fresh clone to the audit certificate of a run, with nothing prepared beforehand. It
 needs bash (on Windows, Git Bash or WSL) and an inference server already serving the model:
 
 ```bash
@@ -146,8 +143,8 @@ OPAAS_MODEL=qwen2.5:7b-instruct ./start.sh
 
 It installs `uv` if missing and OPAAS exactly as `uv.lock` pins it (classifiers included),
 downloads every dataset and classifier once (each verified against its pinned hash),
-evaluates blocks A–E with `--offline`, generates the signing key on first use, then signs,
-verifies, renders the printable certificate and the static site. On PowerShell, set the
+evaluates blocks A–E with `--offline`, then renders the run's audit certificate, ready to
+print to PDF. On PowerShell, set the
 variables first: `$env:OPAAS_MODEL = "qwen2.5:7b-instruct"; & "C:\Program Files\Git\bin\bash.exe" ./start.sh`.
 
 | Variable | Default | Effect |
@@ -408,7 +405,7 @@ opaas ui
 Open the address it prints: the token in it is the session's key. The dashboard serves your
 run store on `127.0.0.1` only. It shows every run with its command and its files checked
 against their hashes, per-category intervals, what was not measured, live progress, and
-versioned unsigned drafts of the certificate. It launches measuring commands only, each shown
+versioned audit certificates. It launches measuring commands only, each shown
 before it runs, and jobs against one engine wait their turn. Models, agents and whole systems are
 launched from *New audit*. An agent run shows its behaviour, its task completion by category
 and the five auditability dimensions. A system shows its coverage matrix and Auditability Card.
@@ -657,7 +654,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas sign` | Issues the signed credential from a model or system report; `--delegation` signs under the root's name with an issuing key |
 | `opaas verify` | Verifies a credential, offline, walking root → delegation → issuing key; `--revocations` names a list |
 | `opaas trust` | Lists pinned trust anchors, or pins one (or installs a revocation list) after showing what it is |
-| `opaas certificate` | Printable certificate (A4, to PDF) with a QR code to the published page; `--run <run-id>` renders a stored run's unsigned draft, a new version each time |
+| `opaas certificate` | `--run <run-id>`: the audit certificate of a stored run (A4, to PDF), checked by its report's hash, a new version each time; with `--report` and `--credential`, a signed credential's printable certificate |
 | `opaas publish` | Static certificate site with in-browser verification and badges |
 | `opaas watch` | Checks a certificate still describes the deployment, or every component of a system (exit 0/1/3) |
 | `opaas log-verify` | Checks the transparency log |
@@ -676,7 +673,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas evidence sign` / `verify` | Sign and verify any evidence document |
 | `opaas audit draft` | Draft a system manifest: models, agents, tools and flows the host and records show |
 | `opaas audit template` | Scenario templates for the manifest's tools; you write the answers |
-| `opaas audit run` | Audit a system from its manifest; write the system report and open its draft certificate |
+| `opaas audit run` | Audit a system from its manifest; write the system report and open its audit certificate |
 | `opaas audit validate` / `extract` | Check a system manifest; read any document into measurements |
 | `opaas ui` | The local dashboard over the run store (`ui` extra), loopback only |
 | `opaas runs list` / `show` / `path` / `import` | The run store: every result, with its command and hashes; copy old `./runs` in |
