@@ -8,10 +8,16 @@ releases, for someone deciding whether to upgrade.
 The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 `1.0-draft`) is separate from the package version, and did not change.
 
-## [Unreleased]
+## [0.4.0] — 2026-10-20
 
-For 0.4.0: the run store, first of the pieces behind the local dashboard
-(D75, D76).
+The local dashboard. Every result is now kept in a run store that nothing
+overwrites (D76), each stored report can be rendered as a versioned unsigned
+draft (D77), running commands write their progress (D78), and `opaas ui`
+serves all of it on `127.0.0.1` (D79): launch model, agent and system audits,
+follow them live, read the sentinel, and compare runs through `opaas compare`,
+which now compares agents and whole systems as well as models (D80). The
+dashboard computes nothing of its own, signs nothing and is loopback only
+(D75). `OPAAS_SPEC_VERSION` is unchanged.
 
 ### Upgrading
 
@@ -27,6 +33,11 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
   that write to the same path twice need one or the other.
 - **Old `./runs` directories** are listed by `opaas runs import`, and copied
   into the store with `--copy`. The originals are not moved.
+- **Block B of two model runs on different datasets, answer styles or spec
+  versions is no longer judged.** Its verdict is `not-comparable`, where it
+  used to carry a significance line under a warning. Every verdict in
+  `comparison.json` now also carries a `status` word.
+- **`opaas compare` refuses reports of different kinds** with exit 2.
 
 ### Added — the run store (D76)
 
@@ -115,14 +126,6 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
     detector hash;
   - a figure without an interval is shown side by side, and no difference
     is claimed for it.
-
-### Upgrading — comparison
-
-- **Block B of two model runs on different datasets, answer styles or spec
-  versions is no longer judged.** Its verdict is `not-comparable`, where it
-  used to carry a significance line under a warning. Every verdict in
-  `comparison.json` now also carries a `status` word.
-- **`opaas compare` refuses reports of different kinds** with exit 2.
 
 ## [0.3.1] — 2026-10-19
 
