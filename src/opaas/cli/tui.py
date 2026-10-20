@@ -21,9 +21,11 @@ back after it; an entry that needs arguments leaves the screen and prints the
 exact command, with its placeholders, in the scrollback where it can be copied
 — and every entry names the page of the documentation that explains it.
 
-**The sprite is never cropped or shrunk.** When the terminal is too small for
-it, the screen drops it and keeps the menu (`banner.py` makes the same
-choice). The only frames that differ from the PNG are passing ones: the rows
+**The sprite is never cropped.** A terminal too short for it at its full size
+gets it at half (`mob.shrink`); one too small for that, none, and the menu
+keeps the room, scrolling when even it does not fit. There is no other mode:
+any terminal gets this screen, laid out for its size. The only frames that
+differ from the PNG are passing ones: the rows
 still underground during the entrance, the closed eyelid of a blink, the
 mirror image while it looks the other way.
 """
@@ -70,9 +72,9 @@ TICK = 0.1
 #: How long the meerkat reacts to a chosen entry before the entry runs.
 REACTION = 0.5
 
-#: Below this the full screen is not worth drawing; `opaas` falls back to the
-#: cover page and the inline menu.
-MIN_WIDTH, MIN_HEIGHT = 60, 24
+#: Below this the screen says how big it must be; above it, everything is
+#: laid out for the room there is, the menu scrolling when it does not fit.
+MIN_WIDTH, MIN_HEIGHT = 40, 6
 #: The menu column's narrowest useful width, beside the sprite.
 _MENU_WIDTH = 56
 #: The frame's top and bottom lines.
@@ -355,7 +357,35 @@ class Screen:
         for body in layouts:
             if _height(body, width) <= height:
                 return Group(*body)
-        return Group(*packed, *detail)
+        return Group(*self._scrolled(packed, width, height))
+
+    def _scrolled(self, menu: list[Text], width: int, height: int) -> list[Text]:
+        """A short terminal: the menu scrolls around the selected entry.
+
+        What the entry runs stays under it, cut to its command; the lines the
+        window hides are marked, so the menu never looks shorter than it is.
+        """
+        item = self.selected
+        if item.command:
+            under = [Text.assemble(("$ ", Style(color=PALETTE.muted)),
+                                   (item.command, Style(color=PALETTE.accent)))]
+        elif item.action is not None:
+            under = [Text("Enter runs it here.", Style(color=PALETTE.muted))]
+        else:
+            under = []
+        under = [line for line in under if _height([line], width) < height - 2]
+        room = max(1, height - _height(under, width))
+        chosen = next(i for i, line in enumerate(menu) if line.plain.startswith(" ▸ "))
+        if len(menu) <= room:
+            return [*menu, *under]
+        start = min(max(0, chosen - room // 2), len(menu) - room)
+        window = menu[start:start + room]
+        more = Style(color=PALETTE.muted, italic=True)
+        if start > 0 and start != chosen:
+            window[0] = Text(f"   ↑ {start + 1} more", more)
+        if start + room < len(menu) and start + room - 1 != chosen:
+            window[-1] = Text(f"   ↓ {len(menu) - start - room + 1} more", more)
+        return [*window, *under]
 
     def _menu(self, *, spaced: bool = True) -> list[Text]:
         lines: list[Text] = []
@@ -412,13 +442,14 @@ def _height(lines: list[Text], width: int) -> int:
 
 
 def supported(console: Console) -> bool:
-    """Whether this terminal gets the full screen, or the inline cover and menu."""
-    if os.environ.get("OPAAS_NO_TUI") or os.environ.get("TERM") == "dumb":
+    """Whether this terminal can draw the screen at all; its size never decides.
+
+    A small terminal still gets the screen, laid out for it. The legacy
+    Windows console and `TERM=dumb` have no alternate screen to draw on.
+    """
+    if os.environ.get("TERM") == "dumb":
         return False
-    # The legacy Windows console has no alternate screen to draw on.
-    if console.legacy_windows or not console.is_terminal:
-        return False
-    return console.width >= MIN_WIDTH and console.height >= MIN_HEIGHT
+    return console.is_terminal and not console.legacy_windows
 
 
 def _animate() -> bool:

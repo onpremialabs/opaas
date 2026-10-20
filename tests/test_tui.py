@@ -109,8 +109,8 @@ def test_a_short_terminal_keeps_the_documentation_link():
     assert "Exit" in text
 
 
-@pytest.mark.parametrize(("width", "height"), [(60, 24), (90, 30), (104, 34), (120, 30),
-                                               (160, 50)])
+@pytest.mark.parametrize(("width", "height"), [(40, 6), (60, 8), (158, 11), (60, 24),
+                                               (90, 30), (104, 34), (120, 30), (160, 50)])
 def test_the_screen_fills_the_terminal_and_never_overflows_it(width, height):
     lines = _text(_screen().render(width, height, _still(), 0.0), width, height).splitlines()
     assert len(lines) == height
@@ -118,24 +118,46 @@ def test_the_screen_fills_the_terminal_and_never_overflows_it(width, height):
 
 
 def test_a_terminal_too_small_says_how_big_it_must_be():
-    text = _text(_screen().render(50, 20, _still(), 0.0), 50, 20)
-    assert "60×24" in text and "press q" in text
+    text = _text(_screen().render(30, 5, _still(), 0.0), 30, 5)
+    assert "40×6" in text
 
 
-def test_the_full_screen_needs_a_real_terminal_of_some_size(monkeypatch):
-    monkeypatch.delenv("OPAAS_NO_TUI", raising=False)
+def test_any_real_terminal_gets_the_screen_whatever_its_size(monkeypatch):
+    """One mode: size lays the screen out, it never sends you elsewhere."""
+    monkeypatch.delenv("TERM", raising=False)
 
     def console(**kwargs):
-        return Console(file=io.StringIO(), height=40, legacy_windows=False, **kwargs)
+        return Console(file=io.StringIO(), legacy_windows=False, **kwargs)
 
-    big = console(width=120, force_terminal=True)
-    assert tui.supported(big)
-    assert not tui.supported(console(width=120))
-    assert not tui.supported(console(width=50, force_terminal=True))
+    assert tui.supported(console(width=120, height=40, force_terminal=True))
+    assert tui.supported(console(width=158, height=11, force_terminal=True))
+    assert not tui.supported(console(width=120, height=40)), "no terminal, no screen"
     assert not tui.supported(Console(file=io.StringIO(), width=120, height=40,
                                      force_terminal=True, legacy_windows=True))
-    monkeypatch.setenv("OPAAS_NO_TUI", "1")
-    assert not tui.supported(big)
+    monkeypatch.setenv("TERM", "dumb")
+    assert not tui.supported(console(width=120, height=40, force_terminal=True))
+
+
+@pytest.mark.parametrize("index", range(14))
+def test_a_short_terminal_scrolls_the_menu_and_keeps_the_choice_in_view(index):
+    """158×11, a VS Code panel: every entry can be reached, and is seen chosen."""
+    screen = _screen(index=index)
+    lines = _text(screen.render(158, 11, _still(), 0.0), 158, 11).splitlines()
+    assert len(lines) == 11
+    chosen = [line for line in lines if "▸" in line]
+    assert len(chosen) == 1 and screen.selected.label in chosen[0]
+
+
+def test_the_scrolled_menu_says_how_much_it_hides():
+    text = _text(_screen(index=13).render(158, 11, _still(), 0.0), 158, 11)
+    assert "↑" in text and "more" in text
+    text = _text(_screen(index=0).render(158, 11, _still(), 0.0), 158, 11)
+    assert "↓" in text and "more" in text
+
+
+def test_a_short_terminal_still_shows_the_command_to_copy():
+    text = _text(_screen(index=0).render(158, 11, _still(), 0.0), 158, 11)
+    assert "$ opaas run --model <id>" in text
 
 
 # ------------------------------------------------------------------- mouse

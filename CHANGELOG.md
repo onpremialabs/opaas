@@ -18,9 +18,10 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
   or a command is chosen. Beside it is the menu, grouped by task,
   with the selected entry's command and documentation link. Read-only entries
   run in place; the others print the exact command to copy. `o` opens the
-  entry's documentation. `OPAAS_NO_ANIMATION=1` stills the meerkats, and
-  `OPAAS_NO_TUI=1` brings back the cover page and inline menu. Small and
-  legacy terminals get those anyway.
+  entry's documentation. `OPAAS_NO_ANIMATION=1` stills the meerkats.
+- **One interactive mode.** `opaas` alone opens that screen in any terminal,
+  laid out for its size; in a short one the menu scrolls. The inline cover
+  page and menu are gone. Piped output still prints the help.
 - **An audit has company.** While `run`, `smith run`, `audit run`, `swarm`,
   `inquest` or `sentinel` record a run in a terminal, the sentinel keeps watch
   on a screen of its own and other meerkats come up out of their burrows and
@@ -46,6 +47,9 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 - Scripts are unaffected: no command, option or exit code changed, and
   piped output still gets the plain help.
+- `opaas` alone in the legacy Windows console, which has no screen to draw
+  on, now says to open it in Windows Terminal and exits 2. Every command
+  still works there.
 - Errors now start with `✗` and put what to do on a second line, after `→`.
   A script that matched a whole error line may need to match one of the two.
 

@@ -71,7 +71,7 @@ from opaas.cli.common import (  # noqa: E402 - shared with the module command gr
     warning,
 )
 from opaas.cli.docs import PANEL_AUDIT, PANEL_RESULTS, PANEL_SETUP, PANEL_SIGNED, doc, epilog
-from opaas.cli.menu import MenuItem, is_interactive, present
+from opaas.cli.menu import MenuItem, is_interactive
 from opaas.core.credential import (
     CredentialError,
     TrustAnchorError,
@@ -199,20 +199,20 @@ def _menu_items() -> list[MenuItem]:
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context) -> None:
-    """Cover page and menu. Only with no subcommand and an interactive terminal:
-    command output gets piped to files and to `jq`, and a menu there would get
-    in the way. A terminal big enough gets the full screen (`cli/tui.py`); a
-    small or legacy one, the cover page and the inline menu."""
+    """`opaas` on its own: the full screen (`cli/tui.py`), the one interactive
+    way in (D82). Only with an interactive terminal: command output gets piped
+    to files and to `jq`, and there it prints the help instead."""
     if ctx.invoked_subcommand is not None:
         return
-    if is_interactive() and tui.supported(console):
-        tui.run(console, _menu_items())
-        return
-    print_banner(console)
-    if is_interactive():
-        present(console, _menu_items())
-    else:
+    if not is_interactive():
         console.print(ctx.get_help())
+        return
+    if not tui.supported(console):
+        error("[red]This console cannot draw OPAAS's screen.[/red] Open it in Windows "
+              "Terminal, or any terminal that speaks VT sequences; every command works "
+              "here as well (opaas --help).")
+        raise typer.Exit(code=2)
+    tui.run(console, _menu_items())
 
 
 def _parse_int_list(raw: str, flag: str) -> list[int]:

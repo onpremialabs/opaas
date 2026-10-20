@@ -174,7 +174,7 @@ docs/     guide.md (every audit mode), reference.md (commands, options, what is 
           is cut; releases are never replaced, D74), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60),
           dashboard.md (proposal: `opaas ui`, the local dashboard, and its file contract, D75)
-tests/    1345 tests, one file per module, plus conftest.py with the fake backends
+tests/    1355 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;
           rehearse_ceremony.py — runs every opaas step of the key ceremony (D67);
           smoke_ui_install.py — the dashboard's flow from an installed opaas[ui] (CI)
@@ -221,7 +221,7 @@ a round trip.
 
 ### Known test state
 
-`uv run pytest` reports **1344 passed, 1 skipped**. The suite is green: treat any failure as yours.
+`uv run pytest` reports **1354 passed, 1 skipped**. The suite is green: treat any failure as yours.
 Most of its wall time is `nvidia-smi` being called by the bench tests; on a machine without
 it the suite is much faster.
 
@@ -367,7 +367,6 @@ naming what is missing, rather than breaking mid-evaluation.
 | `OPAAS_TOKEN_PIN` | Non-interactive PIN of the root's hardware token for `delegate`/`revoke` |
 | `OPAAS_RUNS_DIR` | Overrides `~/.opaas/runs`, the run store every result is recorded in |
 | `OPAAS_JOB_ID` | Set by `opaas ui` on the commands it launches; recorded as `jobId` in `run.json` |
-| `OPAAS_NO_TUI` | `opaas` in a terminal shows the inline cover page and menu instead of the full screen |
 | `OPAAS_NO_ANIMATION` | The menu's meerkat stands still, and an audit runs without the meerkats' company |
 
 ## Documentation duties
