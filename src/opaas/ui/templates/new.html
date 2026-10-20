@@ -29,6 +29,37 @@
   <button class="btn primary" type="submit">Queue run</button>
 </form>
 
+<form class="launch" id="launch-agent" data-kind="agent" data-rerouted="{{ rerouted | join(',') }}">
+  <h2>Test an agent <span class="dim">· scenarios with mock tools</span></h2>
+  <p class="dim">Fixed scenarios whose tools are OPAAS's mocks, so what the agent did is known without a judge: task completed, forbidden tools, injections resisted, and how auditable its own record is.</p>
+  <div class="fields">
+    <label>Adapter
+      <select name="agent">{% for a in adapters %}<option{{ ' selected' if a == 'http' }}>{{ a }}</option>{% endfor %}</select>
+    </label>
+    <label data-for="endpoint">Agent URL <input name="endpoint" placeholder="http://127.0.0.1:9000"></label>
+    <label data-for="backend" class="hidden">Engine backend
+      <select name="backend"><option>ollama</option><option>vllm</option><option>openai</option></select>
+    </label>
+    <label data-for="model" class="hidden">Model <input name="model" placeholder="qwen2.5:7b-instruct"></label>
+    <label data-for="base_url" class="hidden">Engine URL <input name="base_url" placeholder="adapter's default"></label>
+    <label data-for="assistant" class="hidden">Assistant or chatflow id <input name="assistant" placeholder="agent"></label>
+    <label>Scenarios
+      <select name="scenarios">{% for s in sources %}<option value="{{ s.value }}">{{ s.label }}</option>{% endfor %}<option value="path">A directory of your own…</option></select>
+    </label>
+    <label data-for="path" class="hidden">Scenario directory <input name="path" placeholder="C:\audits\scenarios"></label>
+    <label>Repeats <input name="repeats" value="3" inputmode="numeric"></label>
+  </div>
+  <div class="rerouted hidden" data-rerouted-box>
+    <p class="warn">This adapter drives an agent whose tools you point at OPAAS's mock MCP server, <span class="mono">http://127.0.0.1:8765/mcp</span>, before the run. If they still point at real tools, the destructive and permission scenarios act on them (D68).</p>
+    <label class="inline"><input type="checkbox" name="confirm"> The agent's only tools are OPAAS's mock server</label>
+    <p class="fine">If the agent needs an API key, set <code>OPAAS_AGENT_TOKEN</code> before starting <code>opaas ui</code>: the dashboard never takes a key.</p>
+  </div>
+  <p class="fine">Reference scenarios and packs test a domain, not your deployment: the result is not certifiable alone. <code>opaas audit template</code> writes scenarios for your own tools.</p>
+  <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono" data-preview></code></div></div>
+  <p class="error hidden" data-error></p>
+  <button class="btn" type="submit">Queue agent run</button>
+</form>
+
 <form class="launch" id="launch-discover" data-kind="discover">
   <h2>Look at this machine <span class="dim">· inventory and gaps</span></h2>
   <label class="inline"><input type="checkbox" name="well_known" checked> Read the MCP configurations of known clients (names only)</label>

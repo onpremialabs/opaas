@@ -398,11 +398,13 @@ Open the address it prints: the token in it is the session's key. The dashboard 
 run store on `127.0.0.1` only. It shows every run with its command and its files checked
 against their hashes, per-category intervals, what was not measured, live progress, and
 versioned unsigned drafts of the certificate. It launches measuring commands only, each shown
-before it runs, and jobs against one engine wait their turn. Signing stays `opaas sign`, in a
+before it runs, and jobs against one engine wait their turn. Models and agents are launched
+from *New audit*: an agent run shows its behaviour, its task completion by category and the five
+auditability dimensions, each with what was not measured and why. Signing stays `opaas sign`, in a
 terminal. From another machine, tunnel to it:
 
 ```bash
-ssh -L 8765:127.0.0.1:8765 your-host
+ssh -L 8780:127.0.0.1:8780 your-host
 ```
 
 ### Every result is kept

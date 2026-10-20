@@ -159,7 +159,7 @@ A server on `127.0.0.1` is still reachable by every local user and by any web pa
 | Overview | `/` | Prerequisites (Python, `nvidia-smi`, cached datasets and classifiers, offline mode), what discovery found, the latest runs, the queue |
 | New audit | `/audit/new` | The guided flow: discover → models → agents → system → run. Every step shows its command |
 | Live | `/runs/{id}/live` | Progress per phase, the event lines, the command, elapsed time; cancel |
-| Run | `/runs/{id}` | Results per block and category with intervals; *not measured* with reasons; deployment fingerprint; files with hashes; certificate versions to download |
+| Run | `/runs/{id}` | Results per block and category with intervals; *not measured* with reasons; deployment fingerprint; files with hashes; certificate versions to download. For an agent: behaviour with what each line counts, instability, task completion by category, the five auditability dimensions each on its own, bias, toxicity and every run; no draft of its own, since an agent is certified within a system audit |
 | History | `/runs` | Every run, filtered by kind, model, backend, fingerprint, OPAAS version, date and status |
 | Compare | `/compare?runs=a,b,…` | Per category, side by side; overlapping intervals marked as no difference; figures that cannot be compared said so, with why |
 | Sentinel | `/sentinel` | Events as they arrive (digests, actor chains, verdicts), held actions with their approver |

@@ -1,7 +1,7 @@
 """`opaas ui`: start the local dashboard (D79).
 
 Loopback only: any other address is refused, and remote use goes through an
-SSH tunnel (`ssh -L 8765:127.0.0.1:8765 host`). The session token is printed in
+SSH tunnel (`ssh -L 8780:127.0.0.1:8780 host`). The session token is printed in
 the address, and the browser trades it for a cookie on the first request.
 """
 
@@ -22,8 +22,10 @@ LOOPBACK = ("127.0.0.1", "localhost", "::1")
 
 
 def ui(
-    port: Annotated[int, typer.Option("--port", "-p", min=1, max=65535,
-                                      help="Port on 127.0.0.1.")] = 8765,
+    port: Annotated[int, typer.Option(
+        "--port", "-p", min=1, max=65535,
+        help="Port on 127.0.0.1. Not 8765: smith serves rerouted agents' mock tools there.")]
+    = 8780,
     host: Annotated[str, typer.Option(
         "--host", help="Loopback only: 127.0.0.1, localhost or ::1. For another machine, "
         "tunnel with ssh -L.")] = "127.0.0.1",

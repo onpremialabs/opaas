@@ -169,7 +169,10 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         return StreamingResponse(stream(), media_type="text/event-stream")
 
     async def new_job(request: Request) -> Response:
-        return page(request, "new.html")
+        from opaas.ui.jobs import REROUTED_AGENTS
+
+        return page(request, "new.html", sources=views.scenario_sources(),
+                    adapters=views.agent_adapters(), rerouted=sorted(REROUTED_AGENTS))
 
     async def job_page(request: Request) -> Response:
         job = jobs.jobs.get(request.path_params["job_id"])
@@ -200,7 +203,8 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         log = ""
         if job.log and job.log.is_file():
             log = job.log.read_bytes()[-4000:].decode("utf-8", "replace")
-        return JSONResponse({**job.as_dict(), "run": run, "log": log})
+        report = views.report_name(store / run["runId"], run) if run else None
+        return JSONResponse({**job.as_dict(), "run": run, "log": log, "reportFile": report})
 
     async def favicon(request: Request) -> Response:
         return Response(views.head_svg(), media_type="image/svg+xml")

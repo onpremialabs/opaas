@@ -57,7 +57,7 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
 
 ### Added — `opaas ui`, the local dashboard (D79)
 
-- `opaas ui` serves a dashboard over your run store on `127.0.0.1:8765`.
+- `opaas ui` serves a dashboard over your run store on `127.0.0.1:8780`.
   Install it with the `ui` extra (`uv sync --extra ui`, or
   `pip install "opaas[ui]"`). Open the address it prints: the token in it is
   the session's key.
@@ -73,6 +73,17 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
   the terminal.
 - The meerkat stays: its head is the icon, and its mob comes out when a run
   writes a report.
+- **Agents in the dashboard.** *New audit* runs `smith` against any
+  adapter, on the reference scenarios, a domain pack or your own directory.
+  A rerouted agent needs your confirmation that its tools are OPAAS's mock
+  server. An agent's run page shows:
+  - its behaviour, with intervals;
+  - task completion by category;
+  - the five auditability dimensions, each on its own;
+  - bias and toxicity, and every run;
+  - each absence, with its reason.
+- The dashboard listens on port 8780 by default: 8765 is where `smith`
+  serves the mock tools of rerouted agents.
 
 ## [0.3.1] — 2026-10-19
 

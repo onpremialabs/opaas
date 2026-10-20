@@ -52,6 +52,44 @@ function benchArgs(form) {
   for (const s of suites.includes("all") ? ["all"] : suites) args.push("--suite", s);
   return args;
 }
+// Which fields each agent adapter needs (smith/agents.py, smith/rerouted.py).
+function agentFields(adapter, rerouted) {
+  if (adapter === "bare-model") return ["backend", "model", "base_url"];
+  const fields = ["endpoint"];
+  if (adapter === "open-webui") fields.push("model");
+  if (adapter === "langgraph" || adapter === "flowise") fields.push("assistant");
+  return fields;
+}
+function agentArgs(form) {
+  const f = new FormData(form);
+  const adapter = f.get("agent");
+  const rerouted = form.getAttribute("data-rerouted").split(",");
+  const args = ["smith", "run", "--agent", adapter];
+  const value = (name) => (f.get(name) || "").trim();
+  for (const field of agentFields(adapter, rerouted)) {
+    const flag = {endpoint: "--endpoint", backend: "--backend", model: "--model",
+                  base_url: "--base-url", assistant: "--assistant"}[field];
+    if (value(field)) args.push(flag, value(field));
+  }
+  const scenarios = f.get("scenarios") === "path" ? value("path") : f.get("scenarios");
+  if (scenarios) args.push("--scenarios", scenarios);
+  if (value("repeats")) args.push("-n", value("repeats"));
+  return args;
+}
+function agentProblem(form) {
+  const f = new FormData(form);
+  const adapter = f.get("agent");
+  const rerouted = form.getAttribute("data-rerouted").split(",");
+  const has = (name) => (f.get(name) || "").trim() !== "";
+  if (adapter === "bare-model" && !has("model")) return "Name the model the bare agent runs on.";
+  if (adapter !== "bare-model" && !has("endpoint")) return "Enter the agent's URL.";
+  if (adapter === "open-webui" && !has("model")) return "Enter the Open WebUI model or agent id.";
+  if (adapter === "flowise" && !has("assistant")) return "Enter the Flowise chatflow id.";
+  if (f.get("scenarios") === "path" && !has("path")) return "Enter the scenario directory.";
+  if (rerouted.includes(adapter) && !f.get("confirm"))
+    return "Confirm that the agent's only tools are OPAAS's mock server.";
+  return null;
+}
 function discoverArgs(form) {
   const args = ["discover", "scan"];
   if (new FormData(form).get("well_known")) args.push("--well-known");
@@ -60,11 +98,25 @@ function discoverArgs(form) {
 for (const form of document.querySelectorAll("form.launch")) {
   // getAttribute, not form.dataset: a control named "dataset" shadows it on a form.
   const kind = form.getAttribute("data-kind");
-  const build = kind === "bench" ? benchArgs : discoverArgs;
+  const build = {bench: benchArgs, agent: agentArgs, discover: discoverArgs}[kind];
   const preview = form.querySelector("[data-preview]");
   const error = form.querySelector("[data-error]");
   const refresh = () => {
     preview.textContent = "$ opaas " + build(form).join(" ");
+    if (kind === "agent") {
+      const adapter = form.querySelector('[name="agent"]').value;
+      const rerouted = form.getAttribute("data-rerouted").split(",");
+      const shown = agentFields(adapter, rerouted);
+      for (const label of form.querySelectorAll("[data-for]")) {
+        const field = label.getAttribute("data-for");
+        const visible = field === "path"
+          ? form.querySelector('[name="scenarios"]').value === "path"
+          : shown.includes(field);
+        label.classList.toggle("hidden", !visible);
+      }
+      form.querySelector("[data-rerouted-box]").classList.toggle(
+        "hidden", !rerouted.includes(adapter));
+    }
     const warn = form.querySelector('[data-warn="ollama-ctx"]');
     if (warn) {
       const f = new FormData(form);
@@ -81,7 +133,14 @@ for (const form of document.querySelectorAll("form.launch")) {
       error.classList.remove("hidden");
       return;
     }
-    try { await launch(args); }
+    const problem = kind === "agent" ? agentProblem(form) : null;
+    if (problem) {
+      error.textContent = problem;
+      error.classList.remove("hidden");
+      return;
+    }
+    const confirmed = kind === "agent" && Boolean(new FormData(form).get("confirm"));
+    try { await launch(args, confirmed ? {confirmRerouted: true} : undefined); }
     catch (e) { error.textContent = e.message; error.classList.remove("hidden"); }
   });
   refresh();
@@ -176,7 +235,8 @@ if (jobBox) {
         const done = await api(`/api/jobs/${id}`).catch(() => job);
         log.textContent = done.log || "";
         const files = Object.keys((done.run && done.run.files) || {});
-        const report = files.find((f) => f.endsWith("report.json"));
+        // The server says which file is the run's report: an agent's is named freely.
+        const report = done.reportFile;
         const draft = files.find((f) => f.startsWith("certificate-v") && f.endsWith(".html"));
         const ready = jobBox.querySelector("[data-ready]");
         const link = `/runs/${job.run.runId}`;

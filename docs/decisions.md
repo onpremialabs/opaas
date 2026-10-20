@@ -56,7 +56,7 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 D75 designed the dashboard; D76–D78 gave it a store, versioned drafts and progress to read. This builds the server.
 
-**`opaas ui`** serves the dashboard over `~/.opaas/runs` on `127.0.0.1:8765` by default. Starlette, uvicorn and Jinja2 come from the `ui` extra and are imported only by this command; without them it says what to install.
+**`opaas ui`** serves the dashboard over `~/.opaas/runs` on `127.0.0.1:8780` by default, not 8765, where `smith` serves its mock tools for rerouted agents. Starlette, uvicorn and Jinja2 come from the `ui` extra and are imported only by this command; without them it says what to install.
 
 **It measures nothing.** Pages are built by `ui.views` from `run.json`, `progress.jsonl` and the reports in the store. Jobs are `opaas` commands run as child processes (`python -m opaas …`), shown before they start. Each job runs in its own working directory under `<store>/.jobs/<id>/`, with its output in `job.log` there. `OPAAS_JOB_ID` is copied into the run's `run.json` as `jobId`, which is how the job page finds its run while it is still running.
 

@@ -18,7 +18,7 @@ from .conftest import FakeBackend
 
 runner = CliRunner()
 TOKEN = "test-token"
-HOST = "127.0.0.1:8765"
+HOST = "127.0.0.1:8780"
 
 
 class FakeProcess:
@@ -91,7 +91,7 @@ def test_a_request_without_the_session_token_is_refused():
 
 def test_a_foreign_host_is_turned_away(client):
     """Against DNS rebinding: the page must be served under the name it was started on."""
-    assert client.get("/", headers={"host": "evil.example:8765"}).status_code == 400
+    assert client.get("/", headers={"host": "evil.example:8780"}).status_code == 400
 
 
 def test_a_post_without_the_session_header_is_refused(client):
@@ -211,3 +211,74 @@ def test_the_run_a_job_produced_carries_its_id(monkeypatch):
     assert result.exit_code == 0, result.output
     (record,) = list_runs()
     assert record["jobId"] == "abc123"
+
+
+# --- Agents (phase 22) ------------------------------------------------------
+
+@pytest.fixture
+def agent_run(tmp_path):
+    from .conftest import ScriptedBackend
+
+    class Answering(ScriptedBackend):
+        name = "fake-answering"
+
+        def __init__(self):
+            super().__init__(lambda prompt: '{"final": "I cannot tell."}')
+
+    register_backend(Answering)
+    result = runner.invoke(cli, ["smith", "run", "--agent", "bare-model", "--backend",
+                                 "fake-answering", "--model", "m", "-n", "2", "--no-toxicity",
+                                 "-s", "pack:banking", "-o", str(tmp_path / "agent.json")])
+    assert result.exit_code == 0, result.output
+    (record,) = list_runs()
+    return record["runId"]
+
+
+def test_the_agent_page_shows_behaviour_auditability_and_absences(client, agent_run):
+    page = client.get(f"/runs/{agent_run}").text
+    assert "Behaviour" in page and "Task completed" in page and 'class="ibar"' in page
+    # Every dimension is listed, each on its own; a bare model keeps no record.
+    # A bare model keeps no record: every metric is not measured, for one reason, said once.
+    assert page.count("OPAAS ran the loop") == 1
+    assert "ACR, RF, LPC, GB, SPDR, AC, IS" in page
+    assert "Not certifiable on its own" in page and "pack:banking" in page
+    # An agent is certified within a system audit: no draft of its own.
+    assert "Generate draft" not in page and "opaas audit run" in page
+    assert "banking-destructive-close-account" in page
+    # The job page learns which file is the report from the server: an agent's is named freely.
+    from opaas.core.store import load_run
+    from opaas.ui import views
+
+    directory = runs_dir() / agent_run
+    assert views.report_name(directory, load_run(directory)) == "agent.json"
+
+
+def test_the_new_audit_page_offers_every_adapter_and_pack(client):
+    page = client.get("/new").text
+    for adapter in ("http", "mcp", "bare-model", "a2a", "langgraph", "open-webui"):
+        assert f"<option>{adapter}</option>" in page or f"<option selected>{adapter}</option>" \
+            in page
+    assert 'value="pack:banking"' in page and 'value="pack:health-es"' in page
+    assert "OPAAS_AGENT_TOKEN" in page and "127.0.0.1:8765/mcp" in page
+
+
+def test_measured_dimensions_are_drawn_each_on_its_own():
+    """An agent that keeps a record: intervals where there are some, the IS level as text."""
+    from opaas.ui import views
+
+    report = views._agent({
+        "agent": {"adapter": "http", "endpoint": "http://agent.test"},
+        "auditability": {
+            "ACR": {"measured": True, "point": 0.75, "low": 0.5, "high": 0.9, "n": 8},
+            "RF": {"measured": True, "point": 0.9, "n": 8},
+            "SPDR": {"measured": False, "reason": "No policy in the scenarios."},
+            "AC": {"measured": True, "AC": {"point": 0.5, "low": 0.2, "high": 0.8, "n": 6}},
+            "IS": {"levels": ["append-only", "hash-chained"], "weakest": "append-only"},
+        },
+    })
+    metrics = {m["name"]: m for d in report["dimensions"] for m in d["metrics"]}
+    assert metrics["ACR"]["row"]["point"] == 0.75 and metrics["RF"]["text"] == "0.9"
+    assert metrics["AC"]["row"]["low"] == 0.2 and metrics["IS"]["text"] == "append-only"
+    assert metrics["SPDR"]["notMeasured"] == "No policy in the scenarios."
+    assert report["auditabilityReason"] is None
+    assert report["model"] == "Agent · http · http://agent.test"
