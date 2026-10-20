@@ -1,44 +1,54 @@
 <div align="center">
 
-<img src="docs/img/mascot.svg" width="140" alt="OPAAS meerkat">
+<img src="docs/img/mascot.svg" width="120" alt="OPAAS meerkat">
 
 # OPAAS
 
 ### On-Prem AI Audit Suite
 
-**Audit the AI systems you run yourself — models, agents and the infrastructure under them —<br>
-and prove it with a certificate anyone can verify offline.**
+**Audit the AI you run yourself — models, agents and whole systems — on your own hardware,<br>
+and leave with a certificate of exactly what was measured.**
 
 [![Version 0.4.0](https://img.shields.io/badge/version-0.4.0-1f4e3d)](https://github.com/onpremialabs/opaas/releases/tag/v0.4.0)
+[![CI](https://github.com/onpremialabs/opaas/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/onpremialabs/opaas/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Methodology 1.0-draft](https://img.shields.io/badge/methodology-1.0--draft-8fae6a)](docs/methodology.md)
 
 [Quick start](#quick-start) ·
-[Audit modes](#what-opaas-audits) ·
-[Methodology](#methodology) ·
-[Certificates](#certificates) ·
-[Use cases](#use-cases) ·
-[Docs](#documentation) ·
+[What it audits](#what-it-audits) ·
+[How it works](#how-it-works) ·
+[Guide](docs/guide.md) ·
+[Reference](docs/reference.md) ·
+[Methodology](docs/methodology.md) ·
 [Changelog](CHANGELOG.md)
 
 by **[onpremIA Labs](https://onpremialabs.com)**
 
 </div>
 
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/dashboard-agent-dark.png">
+  <img alt="The OPAAS dashboard showing an agent run: behaviour figures, each with its 95% interval" src="docs/img/readme/dashboard-agent-light.png">
+</picture>
+
+<p align="center"><sub>An agent audited from <code>opaas ui</code>: a real run of qwen2.5:7b-instruct on Ollama
+against the banking scenario pack. Each line counts something different, with its interval; none is a score.</sub></p>
+
 ---
 
 ## Why OPAAS
 
-Leaderboards measure weights. What decides whether an AI system works, and whether you can
-defend it in an audit, lives between the weights and the user: an engine that silently trims
-prompts to a quarter of the window you configured, a default that serves one request at a
-time, a chat template that never gets applied, an agent that deletes before it asks, a log
-that cannot tell who did what.
+Leaderboards measure weights. Whether an AI system works, and whether you can defend it in an
+audit, is decided between the weights and the user: an engine that silently trims prompts to a
+quarter of the window you configured, a default that serves one request at a time, a chat
+template that never gets applied, an agent that deletes before it asks, a log that cannot tell
+who did what.
 
 OPAAS measures **the deployment you actually run** — model, quantization, engine, hardware,
-agents, tools and records — and turns the result into a **signed W3C Verifiable
-Credential** that a third party checks without trusting you, or us.
+agents, tools and records — where it runs, and nothing leaves your network.
 
 ```
 │ prompt (words) │ conc. │ out tok/s │ TTFT p50 / p95 / p99 (s) │ VRAM peak │ Wh / 1M tok │
@@ -50,59 +60,92 @@ Credential** that a third party checks without trusting you, or us.
   x372.868. The engine is queueing, not serving in parallel.
 ```
 
-<sub>A real run: qwen2.5:7b, Q4_K_M, Ollama. The model is fine — the deployment serves one
+<sub>A real run: qwen2.5:7b, Q4_K_M, Ollama. The model is fine; the deployment serves one
 request at a time, and no model benchmark would ever say so.</sub>
-
-**Three rules make the numbers worth keeping:**
-
-- **No aggregate score, no tiers.** Results are per category, with 95% intervals.
-- **What could not be measured is declared** — never omitted, never reported as a zero.
-- **No LLM judge anywhere in scoring**, so a third party recomputes a figure instead of trusting it.
-
-**Nothing leaves your network.** Your documents stay local, only metrics and hashes are
-published, and `--offline` forbids the network outright. The one sovereignty claim OPAAS will
-not take on your word is air-gapped operation: it probes the deployment and reports the
-contradiction if it calls out.
 
 ---
 
-## What OPAAS audits
+## What it audits
 
-| Mode | Question it answers | Command | Output |
-|---|---|---|---|
-| **Model deployment** | How does this model, at this quantization, on this engine and hardware, perform and behave? | `opaas run` | Report, blocks A–E → `OpaasModelCertificate` |
-| **Environment & configuration** | What is serving here, how is it exposed, and what cannot be audited about it? | `opaas discover scan` / `gaps` | Signed inventory, gap scan |
-| **Agent behaviour** | Does the agent complete tasks, resist injections, ask before destroying, treat people alike? | `opaas smith run` | Behaviour against mock-tool ground truth |
-| **Agent auditability** | Can what the agents did be reconstructed, checked and attributed afterwards? | `opaas sentinel` · `inquest` · `swarm` · `card` | The five *Auditable Agents* dimensions, Q1–Q6 |
-| **Whole system** | Is this system — every model, agent, tool and record — fit and auditable? | `opaas audit draft` → `audit run` | System report → `OpaasSystemCertificate` |
-| **Continuous monitoring** | Does the certificate still describe what is deployed? | `opaas watch` | Current / drifted / inconclusive, per component |
+| | Question it answers | Command |
+|---|---|---|
+| **Model deployment** | How does this model, at this quantization, on this engine and hardware, perform and behave? Blocks A–E. | `opaas run` |
+| **Agents** | Does the agent complete its tasks, resist prompt injection, ask before destroying, treat people alike? | `opaas smith run` |
+| **Agent auditability** | Can what the agents did be reconstructed, checked and attributed afterwards? The five dimensions of *Auditable Agents*. | `opaas sentinel` · `inquest` · `swarm` · `card` |
+| **Whole system** | Every model, agent, tool and record of one system, component by component. | `opaas audit run` |
+| **Environment** | What is serving here, how is it exposed, and what cannot be audited about it? | `opaas discover` |
+| **Drift** | Does the certificate still describe what is deployed? | `opaas watch` |
 
-OPAAS evaluates LLMs and SLMs served over HTTP, on servers or edge devices, and the agents
-built on them: **Ollama**, **vLLM** and any **OpenAI-compatible** engine (llama-server, TGI,
-LM Studio, NVIDIA NIM); agents over **HTTP** or **MCP**, and A2A agents and agent frameworks
-it identifies on the host. It never deploys or downloads the model under evaluation.
+It evaluates models served over HTTP — **Ollama**, **vLLM** and any **OpenAI-compatible**
+engine (llama-server, TGI, LM Studio, NVIDIA NIM) — and the agents built on them, over HTTP,
+MCP, A2A and common agent frameworks. It never deploys or downloads the model it evaluates.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/dashboard-coverage-dark.png">
+  <img alt="A system audit's coverage matrix: components by behaviour and auditability dimensions" src="docs/img/readme/dashboard-coverage-light.png">
+</picture>
+
+<p align="center"><sub>A system audit: every component against every dimension. A cell is a state —
+measured, not measured or not applicable, with its reason — never a grade.</sub></p>
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+    D["Your deployment<br/>engine · model · agents · records"]
+    R["Report<br/>canonical JSON · SHA-256"]
+    S["Run store<br/>~/.opaas/runs · written once"]
+    C["Audit certificate<br/>checked by the report's hash"]
+    U["Dashboard<br/>history · comparison"]
+    D -- "opaas run · smith run · audit run" --> R
+    R --> S
+    S -- "opaas certificate --run" --> C
+    S -- "opaas ui" --> U
+```
+
+1. **Measure.** Each command probes the running deployment and writes one report, per category,
+   with 95% intervals, the findings about the deployment and every declared limitation.
+2. **Keep.** Every result lands in the run store with its exact command and the hash of every
+   file. Files are written once; nothing in OPAAS replaces or deletes a run.
+3. **Certify.** The audit certificate of a run is rendered from its report, a new version each
+   time, and carries the report's SHA-256: `sha256sum report.json` is how anyone checks it.
+
+---
+
+## Principles
+
+- **No aggregate score, no tiers, no ranking.** Results are per category, each with its interval.
+- **What could not be measured is declared** — with its reason, never omitted, never shown as a zero.
+- **No LLM judge.** Scoring is deterministic: hashed patterns and pinned, calibrated classifiers.
+  A third party recomputes a figure instead of trusting it.
+- **A difference whose intervals overlap is not a difference** — in every comparison.
+- **Air-gapped by design.** Datasets and classifiers are fetched once and verified against a
+  pinned SHA-256; `--offline` forbids the network outright.
+- **Declared and verified stay apart.** What the operator claims is never added to what OPAAS probes.
 
 ---
 
 ## Quick start
 
-**Install** (Python 3.10+, not on PyPI yet):
+**Install** (Python 3.10+), with the local dashboard:
 
 ```bash
-uv tool install git+https://github.com/onpremialabs/opaas.git
+uv tool install "opaas[ui] @ git+https://github.com/onpremialabs/opaas.git"
 ```
 
-**Audit a model you already serve** — the five blocks, then the summary:
+**From the dashboard** — launch audits, follow them live, read and compare the results:
 
 ```bash
-opaas run --model qwen2.5:7b-instruct --backend ollama --num-ctx 8192 --suite all --output report.json
+opaas ui
 ```
+
+**From the terminal** — audit a model you already serve, then render its certificate:
 
 ```bash
-opaas show report.json
+opaas run --model qwen2.5:7b-instruct --backend ollama --num-ctx 8192 --suite all
 ```
-
-**Certify it** — the audit certificate of that run, from the run store:
 
 ```bash
 opaas runs list
@@ -112,675 +155,73 @@ opaas runs list
 opaas certificate --run <run-id>
 ```
 
-It is the final certificate of the audit, generated with OPAAS by onpremIA Labs: results per
-block, what was not measured, every limitation, and the report's SHA-256. That hash is how
-anyone checks it: `sha256sum report.json` must give the value printed on it. It carries no
-signature (D81). Each call keeps a new version in the store.
+<img alt="The output of opaas show: run, deployment fingerprint, block B per category with 95% intervals, the run's limitations and the report hash" src="docs/img/readme/cli-show.svg">
 
-**Audit a whole system** — let OPAAS find its components, then audit and certify it:
+**A whole system** — let OPAAS find its components, then audit them all:
 
 ```bash
-opaas audit draft -o system.json --records events.jsonl
+opaas audit draft -o system.json
 ```
 
 ```bash
 opaas audit run system.json -o out/
 ```
 
-The audit ends by opening `out/certificate.html`, the audit certificate of the system,
-checked by the SHA-256 of `out/system-report.json` printed on it. It carries no QR code unless
-you name the site it will be published on (`--certificate-base-url https://…`).
-
-<details>
-<summary><b>One command from a fresh clone: <code>start.sh</code></b></summary>
-
-From a fresh clone to the audit certificate of a run, with nothing prepared beforehand. It
-needs bash (on Windows, Git Bash or WSL) and an inference server already serving the model:
-
-```bash
-OPAAS_MODEL=qwen2.5:7b-instruct ./start.sh
-```
-
-It installs `uv` if missing and OPAAS exactly as `uv.lock` pins it (classifiers included),
-downloads every dataset and classifier once (each verified against its pinned hash),
-evaluates blocks A–E with `--offline`, then renders the run's audit certificate, ready to
-print to PDF. On PowerShell, set the
-variables first: `$env:OPAAS_MODEL = "qwen2.5:7b-instruct"; & "C:\Program Files\Git\bin\bash.exe" ./start.sh`.
-
-| Variable | Default | Effect |
-|---|---|---|
-| `OPAAS_MODEL` | `llama3.2:1b` | Model id exactly as the backend serves it |
-| `OPAAS_BACKEND` | `ollama` | `vllm`, `ollama` or `openai` |
-| `OPAAS_BASE_URL` | adapter's own | Server endpoint |
-| `OPAAS_NUM_CTX` | `8192` on Ollama | Context window to serve. Without it Ollama silently drops the start of long prompts |
-| `OPAAS_DATASET` | `ifeval,xstest,squad2,bbq,rtp` | Sources, or a local path to compose your own documents in |
-| `OPAAS_CAPABILITY_MAX_TOKENS` | `2048` | Block B generation cap. At 1024, a real run cut 16 of 508 IFEval answers |
-| `OPAAS_CLASSIFIERS` | `1` | `0` skips the classifiers and torch: toxicity and faithfulness are then declared unmeasured |
-| `OPAAS_DECLARATION` | none | Block E compliance declaration (JSON), written with `opaas compliance` |
-| `OPAAS_KEY_PASSPHRASE` | asked for | Passphrase of the signing key |
-
-Any argument is passed on to `opaas run`. The first run downloads a few MB of datasets,
-about 800 MB of classifiers and, for torch, several hundred MB to a few GB.
-
-</details>
-
-<details>
-<summary><b>Other installation options</b></summary>
-
-With pip, in a virtual environment of your own:
-
-```bash
-git clone https://github.com/onpremialabs/opaas.git && cd opaas && python -m venv .venv
-```
-
-Activate it (`.venv\Scripts\Activate.ps1` on Windows, `source .venv/bin/activate` elsewhere), then:
-
-```bash
-pip install .
-```
-
-The block D classifiers (toxicity, faithfulness) are an optional extra because torch weighs
-more than everything else combined:
-
-```bash
-pip install "opaas[classifiers] @ git+https://github.com/onpremialabs/opaas.git"
-```
-
-`opaas` with no arguments shows the cover page and a menu that reports what you have and
-what you are missing. An NVIDIA GPU is not required, but without `nvidia-smi` there are no
-VRAM or power figures, and the report says so.
-
-</details>
+More: every audit mode in the [guide](docs/guide.md), every command and option in the
+[reference](docs/reference.md), and `start.sh` for one command from a fresh clone to a certificate.
 
 ---
 
-## Audit modes
+## The audit certificate
 
-### 1 · Model deployment
+<img align="right" width="380" alt="An OPAAS audit certificate: self-attested seal, results per block, validity and the report's SHA-256" src="docs/img/readme/certificate.png">
 
-```bash
-opaas run --model my-model --backend vllm --base-url http://gpu-box.lan:8000/v1 --suite all --output report.json
-```
+Every run ends in a printable certificate (A4, to PDF), from the CLI or the dashboard:
 
-Runs the five blocks of the [methodology](#methodology) against the endpoint and writes one
-report: per category, with confidence intervals, findings about the deployment and declared
-limitations. Its SHA-256 is what a certificate certifies. Without `--suite`, only block A
-runs.
+- **The final certificate of that audit**, generated with OPAAS by onpremIA Labs.
+- **Self-attested**: it says so on its seal. It answers for whoever ran the audit, on the
+  audited system.
+- **One line per block** or per component, and what was not evaluated, as visibly as what was.
+- **Every limitation** the run declared, even when that takes a second page.
+- **The report's SHA-256**, which is how anyone checks it: `sha256sum report.json` must match.
+- **No overall mark**, because OPAAS has none.
 
-> **Pin the context window.** Without `--num-ctx`, Ollama serves its own default — usually
-> far below what the model supports — and long prompts are trimmed with nothing warning you.
-> The report records the window it measured as `servedWindowTokens`.
+It carries no signature ([D81](docs/decisions.md)). Issuing signed W3C credentials, under your
+organisation's key or, later, onpremIA Labs', is covered in the
+[guide](docs/guide.md#signed-credentials).
 
-<details>
-<summary>Make a run finish sooner</summary>
-
-A full run is dominated by generation. First check the engine actually serves in parallel —
-block A reports it: flat throughput with growing TTFT means the engine is queueing (vLLM
-`--max-num-seqs`, `OLLAMA_NUM_PARALLEL`). Declare what you configured and the report
-cross-checks it:
-
-```bash
-opaas run --model my-model --backend vllm --suite all --max-concurrency 8 --suite-concurrency 8
-```
-
-Lowering the generation caps (`--capability-max-tokens`, `--safety-max-tokens`) is the
-other lever; every response cut by a cap is counted and declared. Trimming the dataset with
-`--limit` is the most expensive lever: the confidence interval pays for it. And run only what
-you need: `--suite performance` while tuning the server, `--suite consistency` (seconds)
-while checking a context setting.
-
-</details>
-
-<details>
-<summary>Compare configurations, cloud baselines, air-gapped runs</summary>
-
-FP16 and Q4 do not fit on one GPU at once, so each is evaluated separately and compared. A
-difference whose confidence intervals overlap is not a difference:
-
-```bash
-opaas compare --report fp16.json --report q8.json --report q4.json --out comparison.json
-```
-
-The same command compares two smith reports (behaviour with intervals, and the five
-auditability dimensions) or two system reports (cell by cell over the coverage matrix), one
-kind per comparison. Runs on a different spec version, scenario set, dataset or detector are
-reported as not comparable on the figures that depend on it, with the reason. A cell measured
-in one audit and not in the other is shown as a change in what was audited, not in a figure:
-
-```bash
-opaas compare --report agent-v1.json --report agent-v2.json
-opaas compare --report audit-1/system-report.json --report audit-2/system-report.json
-```
-
-A **cloud baseline** measures the same model on a public endpoint, to know what deploying
-locally costs. It refuses performance and compliance, cannot be signed, and is excluded from
-performance tables:
-
-```bash
-opaas run --model meta/llama-3.3-70b-instruct --backend openai --base-url https://integrate.api.nvidia.com/v1 --api-key $NVIDIA_API_KEY --suite capability --reference-type cloud-baseline --output baseline.json
-```
-
-**Air-gapped**: populate the cache on a connected machine with `opaas fetch`, copy
-`~/.opaas/cache`, and forbid the network with `--offline`. A missing artifact fails before
-the model is touched, naming what to supply.
-
-</details>
-
-### 2 · Environment & configuration
-
-```bash
-opaas discover scan --well-known -o inventory.json
-```
-
-```bash
-opaas discover gaps -i inventory.json --log events.jsonl --skill-key skills.pub.pem -o gaps.json
-```
-
-A read-only inventory of the host: engines and versions, ports and bind scope (loopback or
-network), served models and their digests, GPUs and driver, MCP servers in the
-configurations of known clients (Claude Desktop, Claude Code, Cursor, VS Code, Windsurf,
-Continue), tool manifests, skills, containers by image digest, and **agents that identify
-themselves** (an A2A agent card, Open WebUI, an agent framework by its OpenAPI title). Agent
-runtimes that do not identify themselves get one GET, enough to see whether they ask for
-credentials. It records process names, never command lines, and names, never secrets. The gap
-scan applies nine versioned rules (logging layer, log integrity, free-form shell or HTTP
-tools, unpinned skills, skill signatures, approvals as events, anonymous engines and agent
-runtimes, actor chains, image digests): a gap is a missing precondition for auditing, never a
-predicted violation. Sign a skill with `opaas discover sign-skill DIR --key skills.pem`; a
-signature counts only when it verifies under a key named with `--skill-key`.
-
-Every model report also records the **deployment fingerprint** — engine version, model
-digest, chat template, GPU driver — and everything else the host serves.
-
-### 3 · Agent behaviour
-
-```bash
-opaas smith run --agent mcp --endpoint http://localhost:9000/mcp --scenarios scenarios/ -n 3 -o smith.json
-```
-
-Fixed scenarios with **mock tools that record every call**, so the correct outcome is known
-without a judge: task completed, forbidden tool attempted, injection resisted, schema-valid
-calls, step budget, destructive action without confirmation, instability across repeats.
-Adapters: `http`, `mcp` (OPAAS is the agent's MCP client and the MCP server of its tools),
-`bare-model` (any model in OPAAS's own tool loop), and `a2a`, `open-webui`, `langgraph`,
-`langserve`, `dify`, `flowise` and `n8n` for
-agents you configure beforehand to use OPAAS's mock MCP server as their only tools:
-
-```bash
-opaas smith run --agent a2a --endpoint http://localhost:41000 --tools-listen 127.0.0.1:8765 --scenarios scenarios/ -o smith.json
-```
-
-The agent's tools must point at `http://127.0.0.1:8765/mcp` for the run: an agent whose tools
-cannot be pointed there is not driven, because its scenarios would act on real tools. Two
-agent-level measurements come with it:
-
-- **Bias** from counterfactual scenarios — the same task with one personal attribute changed,
-  actions compared, a difference counted only when each value is stable across repeats.
-- **Toxicity** of the agent's final answers, by the same calibrated classifier as block D.
-
-21 reference scenarios ship with OPAAS, and five domain packs (`banking`, `health`,
-`public-sector`, `rag`, `devops`; `opaas smith packs`, then `--scenarios pack:banking`), each
-also in Spanish (`pack:banking-es`…) with the same tools, and each pinned by hash. A result on them alone is flagged not certifiable: they test a domain, not
-your deployment. `opaas audit template` writes skeletons for your own tools, aiming
-injections at the tools that act and pairing risky tools with a lookup, and leaves every
-expected answer to you. The report carries answer digests, never their text, unless `--keep-finals`.
-
-### 4 · Agent auditability
-
-```bash
-opaas sentinel observe -u http://127.0.0.1:11434 --log events.jsonl -p policies.json --key ops.pem
-```
-
-```bash
-opaas inquest audit events.jsonl -p policies.json --key ops.pub.pem -o audit.json
-```
-
-The **sentinel** is a reverse proxy in front of the engine: every call becomes a
-hash-chained `AuditEvent` sealed with an operational key, bodies kept as digests. Callers say
-who they act for with `X-OPAAS-Actor-Chain: user:alice>agent:planner`. `--keep-output` keeps a
-response field in clear; a stream is assembled first, so the whole answer is kept. `--mode gate`
-(opt-in) blocks what policies forbid and holds actions for a named human approver, notified
-with `--notify-webhook` or `--notify-command` by the action's id and digest, never its content. **Inquest** audits
-existing records — OPAAS logs, OpenTelemetry GenAI spans, JSONL — integrity first, then every
-structural policy as **comply, violate or undecidable**, each undecidable naming the fields
-that would settle it. **Swarm** compares declared multi-agent flows with observed ones,
-per-edge latency and errors, and contained versus cascaded faults. **Card** answers the
-Auditability Card's Q1–Q6 from that evidence.
-
-```json
-[{"id": "confirm-before-delete", "kind": "precedes", "enforce": "approve",
-  "scope": {"field": "action", "eq": "tool_call"},
-  "match": {"field": "target", "eq": "delete_file"},
-  "before": {"field": "action", "eq": "approval"}}]
-```
-
-### 5 · Whole system
-
-```bash
-opaas audit draft -o system.json --records events.jsonl
-```
-
-```bash
-opaas audit template system.json -o scenarios/
-```
-
-```bash
-opaas audit run system.json -o out/ --member llm=report.json
-```
-
-The **system** is the audited subject: a purpose, the components that serve it and the flows
-between them. `audit draft` **identifies the components itself** — every served model, the
-agents that identify themselves, the MCP servers of known clients, and, from the records of
-the running system, every agent that acted, the models and tools it actually called, and the
-flows. `audit run` runs only what the manifest calls for (bench per model, smith per agent,
-sentinel per proxy, inquest and swarm per record source), cites documents you already have
-with `--member`, and writes a system report: members by hash, declared against observed
-composition, a **components × dimensions table** where every cell is *measured*, *not
-measured* or *not applicable* with its reason, Q1–Q6, block E for the system's purpose, and
-your thresholds judged **comply, violate or undecidable**. An agent OPAAS cannot drive yet is
-kept with a pending adapter — listed, never dropped.
-
-### 6 · Continuous monitoring
-
-```bash
-opaas watch --report report.json --credential credential.json --key keys/opaas-root-ed25519.pub.pem --log watch.jsonl
-```
-
-A one-shot check for cron or a timer: the deployment fingerprint first (no inference), then
-canary prompts compared by hash with those signed at certification, then coarse statistics
-when those could not decide. On a system certificate it re-checks every component and names
-the one that moved. Exit `0` current, `1` drifted or expired, `3` inconclusive, `2` bad
-inputs. Nothing is published; `--log` keeps a hash-chained history.
-
-### 7 · Local dashboard
-
-```bash
-uv sync --extra ui
-```
-
-```bash
-opaas ui
-```
-
-Open the address it prints: the token in it is the session's key. The dashboard serves your
-run store on `127.0.0.1` only. It shows every run with its command and its files checked
-against their hashes, per-category intervals, what was not measured, live progress, and
-versioned audit certificates. It launches measuring commands only, each shown
-before it runs, and jobs against one engine wait their turn. Models, agents and whole systems are
-launched from *New audit*. An agent run shows its behaviour, its task completion by category
-and the five auditability dimensions. A system shows its coverage matrix and Auditability Card.
-Each shows what was not measured and why. *Sentinel* follows a running proxy's log and its
-gate's queue live, with the command that approves each held action. *Runs* filters the history
-and compares model, agent or system runs through `opaas compare`, per figure, with no ranking.
-
-What it never does: sign, generate or read a key, delegate or revoke, start the sentinel proxy
-or approve a held action, or delete a run. Those stay in a terminal (`opaas sign`, `opaas
-sentinel approve`). It computes no figure of its own, and it does not listen beyond
-`127.0.0.1`: from another machine, tunnel to it:
-
-```bash
-ssh -L 8780:127.0.0.1:8780 your-host
-```
-
-### Every result is kept
-
-Every command that produces a result also records it in the **run store**:
-`~/.opaas/runs/<run-id>/`, or `$OPAAS_RUNS_DIR`. A run directory holds the command's
-documents and a `run.json` that records:
-
-- the exact command, with secrets replaced;
-- the OPAAS version, the start and end times, and the status;
-- the hash of every file.
-
-Files are written once and made read-only. An existing `--output` path is refused unless you
-pass `--force`, and even then the store keeps the earlier result.
-
-```bash
-opaas runs list
-```
-
-```bash
-opaas runs show 20261019-003
-```
-
-`show` checks every file against the hash the run recorded. Runs written to `./runs` by
-earlier versions are listed by `opaas runs import`, and copied in with `--copy`; the originals
-are never moved. Nothing in OPAAS deletes a run.
+<br clear="right">
 
 ---
 
-## Methodology
+## What OPAAS does not do
 
-**Principles.** Every figure is per category with a Wilson 95% interval; a difference whose
-intervals overlap is not a difference. Scoring is deterministic — pattern matching whose hash
-travels in the report, and small local classifiers pinned to a commit, hashed like any other
-artifact and **calibrated on control cases before they are believed**. Datasets are pinned
-by SHA-256. Prompts go through the chat template. Operator declarations are never added to
-what OPAAS verifies. Every result is bound to the environment it was measured in. The full
-methodology, and what may **not** be claimed from each figure: [docs/methodology.md](docs/methodology.md).
+- **It is not a vulnerability scanner or a pentest.** No CVE scanning, no network or TLS
+  testing, no OS hardening. It looks at what touches the AI system, such as an engine
+  answering anonymous callers from outside the host.
+- **It does not judge meaning.** Policies are structural predicates over recorded fields;
+  whether an answer is *appropriate* is out of scope.
+- **It does not execute model-generated code.**
+- **It does not say an agent is "safe"**: it reports behaviour in the scenarios run, and how
+  auditable the deployment is.
 
-### Model blocks A–E
-
-| Block | `--suite` | What it measures |
-|---|---|---|
-| **A** Performance | `performance` | Throughput, TTFT and latency p50/p95/p99, VRAM and RAM, concurrency scaling, Wh per million tokens, findings about the deployment |
-| **B** Capability | `capability` | Accuracy per category (IFEval instruction following, multiple choice), unparsed answers apart from wrong ones |
-| **C** Consistency | `consistency` | Determinism serially and **under concurrent load**, robustness to nine adverse prompts, the real context window with a canary |
-| **D** Behaviour & safety | `safety` | Correct refusal vs over-refusal (XSTest), hallucination with a passage (SQuAD 2.0), faithfulness, toxicity and **toxicity under provocation** (RealToxicityPrompts), bias per social category (BBQ) |
-| **E** Compliance | `compliance` | Operator declaration (license, provenance, AI Act risk class, logging, air-gapped) beside OPAAS's own probes (logprobs, reasoning, egress) |
-
-<details>
-<summary>Block details</summary>
-
-**A — Performance.** A `prompt length × concurrency` sweep. Ratios become findings, such as
-`no-concurrency-scaling` when the engine queues instead of serving in parallel.
-
-**B — Capability.** Accuracy per category, never aggregated. Instruction following uses
-programmatically checkable constraints, broken down by which instruction the model ignores.
-
-**C — Consistency.** Determinism with a fixed seed, serially and with the same request sent
-among `--load-concurrency` other users' requests. Robustness measures that the engine does not
-break, not the answer's quality. A lost canary is attributed, from token counts, to the
-engine trimming the prompt or the model losing attention.
-
-**D — Behaviour and safety.** Refusal and over-refusal on the same items with the same
-detector — apart, because a model that refuses everything scores 100% on both. Hallucination
-asks for something the passage does not contain; answerable and unanswerable are reported
-apart. Bias: per BBQ category, abstention when the context does not say, accuracy when it
-does, and the share of unjustified picks that follow the stereotype, flagged only when that
-interval lies wholly above 50%. Toxicity of ordinary responses and of continuations of
-provoking openings, reported apart and per band; long responses scored in windows.
-
-**E — Compliance.** A requirement declared met without evidence is reported `unsupported`. If
-air-gapped is declared and the egress probe sees external traffic, the report states the
-contradiction. Write the declaration with `opaas compliance --out declaration.json`.
-
-</details>
-
-### Agent auditability
-
-The five dimensions of *Auditable Agents* (Nian et al.), with metrics a third party can
-recompute:
-
-| Dimension | Metrics | Card question |
-|---|---|---|
-| Action recoverability | ACR, RF | Q1 — what happened? |
-| Lifecycle coverage | LPC, GB | Q2 — in what context? |
-| Policy checkability | SPDR, ADL | Q3 — did it comply? |
-| Responsibility attribution | AC, ACD | Q4 — who was responsible? |
-| Evidence integrity | IS, VC | Q5 — can the evidence be trusted? |
-| Degradation | audits of damaged records | Q6 — what is lost when logs are incomplete? |
-
-Verdicts are three-valued (comply, violate, undecidable — never rounded). Policies are
-structural predicates over recorded fields, never questions about what a text means. Ground
-truth comes from instrumentation, never from a model. Evidence is digests by default.
-Thresholds are yours: OPAAS never sets one.
-
----
-
-## Certificates
-
-| You run | You get | It shows |
-|---|---|---|
-| `opaas run` → `sign` | **`OpaasModelCertificate`** | One deployment: a line per block A–E, complete or partial |
-| `opaas audit run` → `sign` | **`OpaasSystemCertificate`** | A system: purpose, components, the components × dimensions table, thresholds, and whether it is **certifiable** — with every reason when it is not |
-| `opaas evidence sign` | **`OpaasEvidence`** | That one document (inventory, smith report, audit…) is unaltered — not a certificate of fitness |
-
-**Always the same:** a W3C credential, Ed25519 over the SHA-256 of the report's bytes
-(`eddsa-jcs-2022`, RFC 8785), verified **offline** with `opaas verify`, valid **90 days**,
-with a printable A4 certificate and QR code (`opaas certificate`), a static site with
-in-browser verification and badge (`opaas publish`), an optional hash-chained issuance log,
-every declared limitation, and **never an overall score**. A system is certifiable only when
-every member was measured in one environment, every agent ran your own scenarios, no
-component is a cloud baseline, no bench report is partial and no step failed.
-
-The certified hash is the hash of the report's bytes, so checking that a report is the
-certified one is `sha256sum report.json`. The issuance log is **not** Certificate
-Transparency: no Merkle trees, no independent monitors; it proves only that the published log
-is internally consistent, which is why publishing it in a repository with history matters.
-The certificate page verifies the signature in the browser, with the credential and the DID
-document embedded, so it never asks the issuer whether a certificate is good.
-
-`verify` never takes the issuer's key from the credential: `--key` or `--did-document`, then
-pinned anchors (`opaas trust --add did.json`), then those bundled with the tool. By default a
-key signs under its own name (`did:key`); to sign as your organisation, generate it with
-`--did did:web:yourdomain.com` and publish `did.json` there. The root key is the whole root of
-trust: see [key custody](docs/key-custody.md).
-
-An offline root can also delegate (D65): `opaas delegate` has it sign, from a hardware token,
-a delegation naming an issuing key and a window of months; `opaas sign --delegation` embeds it,
-and `verify` (and the browser) accept the issuing key only once that delegation verifies under
-an anchor, covers the signature's date, and neither key is on the root's revocation list
-(`opaas revoke`, installed with `opaas trust --add revocations.json`). The production root is
-created in a ceremony written out in [the ceremony runbook](docs/ceremony.md).
-
----
-
-## Use cases
-
-- **Choosing a quantization, an engine or a GPU.** Evaluate each configuration and `compare`:
-  only differences whose intervals do not overlap count.
-- **Capacity planning.** Block A's concurrency sweep says how many simultaneous users the
-  deployment serves before latency hurts, and whether the engine queues.
-- **Regulatory evidence (AI Act, ENS, ISO/IEC 42001, NIST AI RMF).** Block E separates what
-  you declare from what is verified, cited to the clause; the system certificate binds it to
-  the system's purpose. See the [standards mapping](docs/standards-mapping.md).
-- **Accepting an agent before production.** Your own scenarios with smith: injections,
-  destructive actions without confirmation, permission bait, counterfactual bias.
-- **Auditing a multi-agent system.** Sentinel records, inquest verdicts and swarm attribution
-  answer who did what, under which policy, and whether the record can be trusted.
-- **Hallucination on your own documents.** Compose a dataset of your passages in: what
-  matters on-prem is whether the model makes things up about your documentation.
-- **Checking a vendor's claims.** A signed report anyone can recompute, instead of a
-  benchmark nobody can reproduce.
-- **After every upgrade.** `opaas watch` says whether a new driver, engine or re-pulled model
-  changed what was certified, and which component moved.
-- **Sovereign and air-gapped deployments.** Everything runs locally, `--offline` forbids the
-  network, and the egress probe checks the air-gapped claim.
-
----
-
-## Datasets
-
-Real datasets by default, downloaded on first use, verified against a pinned SHA-256 and
-cached in `~/.opaas/cache`:
-
-| Source | Block | What it adds | License |
-|---|---|---|---|
-| `ifeval` | B | Instruction following, 510 programmatically checkable items | Apache-2.0 |
-| `xstest` | D | 250 benign prompts that look dangerous + 200 harmful ones | CC-BY-4.0 |
-| `squad2` | D | Hallucination with a passage, 200 questions, half unanswerable | CC-BY-SA-4.0 |
-| `bbq` | D | Social bias, 1,800 questions across 9 categories | CC-BY-4.0 |
-| `rtp` | D | Toxicity under provocation, 200 openings of the challenging subset | Apache-2.0 |
-| `esbbq` | D | Social bias in Spanish (Spain's context), 2,000 questions across 10 categories | Apache-2.0 |
-
-The default is `ifeval,xstest`; `start.sh` uses the five English ones. Each task declares its
-language, and block D reports every language apart (D70). Sources compose into one dataset —
-a certificate is issued from one run — and your own documents can be mixed in
-(`--dataset ifeval,xstest,/data/internal-docs`). `--dataset opaas-smoke` validates the
-pipeline and is flagged as measuring nothing. Format and subsets: [docs/datasets.md](docs/datasets.md).
-
----
-
-## Reference
-
-<details>
-<summary><b><code>run</code> options</b></summary>
-
-The ones you will reach for. Full list with `opaas run --help`.
-
-| Option | Default | Notes |
-|---|---|---|
-| `--model` | *required* | Model id exactly as the backend serves it |
-| `--backend` | `vllm` | `vllm`, `ollama` or `openai` |
-| `--suite` | `performance` | Repeatable, or `all` |
-| `--base-url` | adapter's own | Your server endpoint |
-| `--output` | the run store | Report file, written beside the store's copy (`~/.opaas/runs/<run-id>/report.json`). An existing file is refused without `--force` |
-| `--num-ctx` | server's default | Context window the engine must serve (Ollama) |
-| `--max-concurrency` | — | What the engine is configured to serve at once. Declared by you, cross-checked by block A |
-| `--capability-max-tokens` | dataset's (IFEval: 700), else `400` | Block B cap; when set, it wins over the dataset's. Cut answers are counted and declared |
-| `--safety-max-tokens` | dataset's (XSTest: 320), else `320` | Block D cap; when set, it wins over the dataset's |
-| `--suite-concurrency` | `4` | Parallel requests the harness sends while scoring blocks B and D |
-| `--load-concurrency` | `4` | Simultaneous requests in block C's determinism-under-load check; `1` skips it and declares it unmeasured |
-| `--dataset` | `ifeval,xstest` | Sources (`ifeval`, `xstest`, `squad2`, `bbq`, `rtp`, `esbbq`), local paths, or `opaas-smoke` |
-| `--concurrency` | `1,4,16` | Block A concurrency levels |
-| `--prompt-words` | `128,1024` | Prompt lengths to sweep |
-| `--quantization` | — | Declared quantization, e.g. `GGUF Q4_K_M` |
-| `--weights-path` | — | Local weights; hashed, and part of the fingerprint when the server is seen holding them |
-| `--offline` | off | Cached datasets and classifiers only |
-| `--declaration` | — | Block E declaration (JSON) |
-| `--note` | — | Context you state about the run. Repeatable. Published as declared by the operator, never as a finding |
-| `--toxicity-model` | pinned default | Your own toxicity weights |
-| `--faithfulness-model` | pinned default | Your own faithfulness weights |
-| `--classifier-threshold` | profile's own | Threshold for the English classifiers, in [0, 1] |
-| `--toxicity-es-model` | pinned default | Your own weights for Spanish toxicity |
-| `--toxicity-es-threshold` | profile's own | Threshold for the Spanish toxicity classifier |
-
-</details>
-
-<details>
-<summary><b>Command reference</b></summary>
-
-| Command | What it does |
-|---|---|
-| `opaas` | Cover page and menu: what you have, what you are missing |
-| `opaas run` | Runs blocks A–E and writes the report |
-| `opaas show <report>` | Summary of an existing report, with its hash |
-| `opaas compare` | Cross-references several reports of one kind (bench, smith or system) under the interval-overlap rule |
-| `opaas keygen` | Generates an Ed25519 pair and its DID document |
-| `opaas root-document` | Writes the root's DID document from the public keys of its two hardware tokens (`#key-1`, `#key-2`), printing the fingerprints to check (D67) |
-| `opaas delegate` | The root delegates credential signing to an issuing key, from a hardware token (`--pkcs11-module`, `token` extra) or a key file (D65) |
-| `opaas revoke` | Adds a key to the root's signed revocation list |
-| `opaas sign` | Issues the signed credential from a model or system report; `--delegation` signs under the root's name with an issuing key |
-| `opaas verify` | Verifies a credential, offline, walking root → delegation → issuing key; `--revocations` names a list |
-| `opaas trust` | Lists pinned trust anchors, or pins one (or installs a revocation list) after showing what it is |
-| `opaas certificate` | `--run <run-id>`: the audit certificate of a stored run (A4, to PDF), checked by its report's hash, a new version each time; with `--report` and `--credential`, a signed credential's printable certificate |
-| `opaas publish` | Static certificate site with in-browser verification and badges |
-| `opaas watch` | Checks a certificate still describes the deployment, or every component of a system (exit 0/1/3) |
-| `opaas log-verify` | Checks the transparency log |
-| `opaas admit` | Checks a report against a public registry's admission rules |
-| `opaas compliance` | Writes the block E declaration template |
-| `opaas datasets` / `fetch` / `import` | Dataset and classifier cache: status, download, convert |
-| `opaas backends` / `suites` / `version` | Adapters, blocks, tool and methodology version |
-| `opaas discover scan` / `gaps` / `sign-skill` | Inventory of engines, agents and agent stack; auditability gap scan; sign a skill for G05 |
-| `opaas smith scenarios` / `packs` / `run` | Validate scenarios; list the domain packs; run them against an agent |
-| `opaas sentinel observe` | Recording (and opt-in gating) reverse proxy |
-| `opaas sentinel approvals` / `approve` / `deny` | The gate's approval queue |
-| `opaas sentinel inventory` / `overhead` | Environment watch; proxy overhead benchmark |
-| `opaas inquest audit` | Post-hoc audit with three-valued verdicts |
-| `opaas swarm analyze` / `attribute` | Flow topology, per-edge figures, faults; attribution subgraph |
-| `opaas card build` / `manifest` | Auditability Card; deployment manifest |
-| `opaas evidence sign` / `verify` | Sign and verify any evidence document |
-| `opaas audit draft` | Draft a system manifest: models, agents, tools and flows the host and records show |
-| `opaas audit template` | Scenario templates for the manifest's tools; you write the answers |
-| `opaas audit run` | Audit a system from its manifest; write the system report and open its audit certificate |
-| `opaas audit validate` / `extract` | Check a system manifest; read any document into measurements |
-| `opaas ui` | The local dashboard over the run store (`ui` extra), loopback only |
-| `opaas runs list` / `show` / `path` / `import` | The run store: every result, with its command and hashes; copy old `./runs` in |
-
-</details>
-
-<details>
-<summary><b>Classifiers: faithfulness and toxicity</b></summary>
-
-Install the `classifiers` extra and these dimensions measure themselves: the pinned weights
-download once, at a commit revision, and are reused.
-
-| Dimension | Default weights | License |
-|---|---|---|
-| toxicity | `unitary/toxic-bert` | Apache-2.0 |
-| faithfulness | `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` | MIT |
-
-Your own weights win (`--toxicity-model`, `--faithfulness-model`); any
-`AutoModelForSequenceClassification` with a `config.json` works. Before either classifier is
-used it is fed control cases with obvious answers: if it does not separate them, the
-measurement is **not published**; if the threshold is off, the report suggests the right one.
-Faithfulness needs passages (`squad2` or your documents).
-
-</details>
-
----
-
-## What is not measured
-
-Stated as plainly as the report states it:
-
-- **Bias**, unless the dataset includes `bbq` — and then it is choosing between two people,
-  in English, as stereotypes are understood in the United States. For agents, only on the
-  counterfactual scenarios run.
-- **Toxicity**, unless the classifiers extra is installed. Toxicity under provocation also
-  needs `rtp`, and is not comparable with the paper's 25-sample figures.
-- **Block D in Spanish, beyond what is pinned.** Spanish results are reported on their own
-  (`byLanguage`), never pooled with English. Bias needs `esbbq`, and covers Spain's social
-  context only. Toxicity uses a separate multilingual classifier, calibrated on Spanish
-  controls. Not measured in Spanish: a refusal pair (no licensed Spanish XSTest exists, so
-  bring your own with `"language": "es"`), toxicity under provocation (no Spanish set
-  with a verifiable license), and faithfulness. Other languages get no toxicity figure at
-  all.
-- **Faithfulness and hallucination with a passage**, unless the dataset carries passages.
-  Scoring is literal: a correct paraphrase counts as an omission.
-- **Determinism under every load** — only at the `--load-concurrency` level and companions run.
-- **Model-generated code is not executed.**
-- **Whether an agent is "safe".** Behaviour in the scenarios run and how auditable the
-  deployment is; semantic policies are out of scope.
-- **ACR on existing records** — only smith, which has ground truth, measures it.
-- **The behaviour of an agent no adapter reaches** — it is listed with a pending adapter.
-  Letta, AnythingLLM, AutoGen, CrewAI and OpenHands agents are among these (D69). Nor of
-  any framework agent whose tools cannot be rerouted to OPAAS's mock server; and whether a rerouted agent had other tools is declared, not observed.
-- **Skill signatures in other schemes** (OpenPGP, minisign, Sigstore) — only OPAAS's own is
-  verified, and only under a key you name; the rest are *not observed*, never ok.
-- **Whether an agent runtime's actions need credentials** — it gets one GET to `/`, which
-  shows its front door only.
-- **Streams in shapes the sentinel does not assemble** — OpenAI, the Responses API and Ollama
-  are kept whole; any other keeps its last line, and the record says so.
-- **Revocations a verifier has not installed** — the revocation list is read offline, so a
-  verifier who never updates it never learns of one; `verify` says when it held no list.
-- **General infrastructure security** — OPAAS is not a pentest or an OS hardening audit; it
-  looks at what touches the AI system, such as an engine exposed without credentials.
-
-A run that skips blocks is certified as `evaluated-partial`; every gap lands in the report's
-`limitations`, and nothing is quietly reported as a zero. Context only you know goes in with
-`--note`, printed as declared by the operator.
-
----
-
-## Architecture
-
-```
-src/opaas/
-├── core/        evidence and trust: JCS, hashes, credentials, transparency log, stats,
-│                report schema, fingerprint, AuditEvent log, structural policies, metrics
-├── bench/       model certification: runner, blocks A–E, datasets, classifiers, compare
-├── discover/    engine inventory, agent identification, agent stack, gap scan
-├── smith/       scenarios, mock-tool oracle, agent adapters (bare-model, http, mcp)
-├── swarm/       declared vs observed topology, attribution, fault plans
-├── sentinel/    watch (drift), inventory watch, observe/gate proxy, approval queue
-├── inquest/     importers (sentinel, OTel, JSONL), three-valued audit, degradation
-├── card/        Auditability Card, deployment manifest
-├── system/      system manifest, measurements, extractors, system report, draft, watch
-├── adapters/    InferenceBackend + vllm, ollama, openai
-├── telemetry/   GPU, system and network sampling
-├── web/         static site, badges, printable certificates
-└── cli/         opaas commands, one group per module
-```
-
-Every module writes its result as canonical, signable bytes. The suites only talk to
-`InferenceBackend`, never to a specific engine; smith only talks to an agent adapter, never
-to a specific framework.
+The full list, as plainly as the report states it: [what is not measured](docs/reference.md#what-is-not-measured).
 
 ---
 
 ## Documentation
 
-- **[Methodology](docs/methodology.md)** — what is measured, how, and what cannot be claimed from each figure
-- **[System audit](docs/system-audit.md)** — the system as the audited subject, one result format, one certificate
-- **[Self-evaluation](docs/self-evaluation.md)** — certifying yourself, and what the signature guarantees
-- [Standards mapping](docs/standards-mapping.md) — ISO/IEC 42001, AI Act, ENS, NIST AI RMF: what a certificate is evidence for, and what it is not
-- [Datasets](docs/datasets.md) — format, sources, subsets, sample size
-- [Design decisions](docs/decisions.md) — every departure from the design, why, and what it costs
-- [Root key custody](docs/key-custody.md) · [Admission policy](docs/admission-policy.md) · [System design](docs/design.md)
-- [Work plan](docs/workplan.md) · [Sentinel design](docs/proposals/sentinel.md) · [Bias design](docs/proposals/bias.md)
-- [Changelog](CHANGELOG.md) — what changed between releases, and what to check when upgrading
+| Document | What it covers |
+|---|---|
+| **[Guide](docs/guide.md)** | Every audit mode: how to run it and what it writes |
+| **[Reference](docs/reference.md)** | Commands, `run` options, classifiers, what is not measured, architecture |
+| **[Methodology](docs/methodology.md)** | What is measured, how, and what may not be claimed from each figure |
+| [System audit](docs/system-audit.md) | The system as the audited subject |
+| [Standards mapping](docs/standards-mapping.md) | ISO/IEC 42001, AI Act, ENS, NIST AI RMF: what a certificate is evidence for |
+| [Datasets](docs/datasets.md) | Format, sources, subsets, sample size |
+| [Design decisions](docs/decisions.md) | Every departure from the design, why, and what it costs |
+| [Work plan](docs/workplan.md) | What each phase delivered and what was left out |
+| [Changelog](CHANGELOG.md) | What changed between releases, and what to check when upgrading |
 
 ---
 
@@ -798,24 +239,23 @@ uv run pytest
 uv run ruff check src tests
 ```
 
-CI runs the suite on Python 3.10 through 3.13, `ruff check`, `uv lock --check` and a package
-build, and installs that build with the `ui` extra into an empty environment to drive the
-dashboard's flow from it (`scripts/smoke_ui_install.py`). **Dependencies are locked**: `uv.lock` pins the exact resolution of every package,
-extras included — a tool whose claim is that a certificate is reproducible should not resolve
-differently depending on the day it was installed. Contributions: [CONTRIBUTING.md](CONTRIBUTING.md).
+CI runs the suite on Python 3.10 through 3.13, `ruff check`, `uv lock --check`, a package
+build, and that build installed with the `ui` extra into an empty environment, where
+`scripts/smoke_ui_install.py` drives the dashboard's flow. **Dependencies are locked**:
+`uv.lock` pins every package, extras included, because a tool whose claim is reproducibility
+should not resolve differently depending on the day it was installed.
+Contributions: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
 ## License
 
-[MIT](LICENSE) — © 2026 onpremIA Labs.
-
-The harness is free to use, modify and redistribute: that is what lets a third party run
-their own evaluation and lets the methodology withstand scrutiny. What the license does not
-grant is the ability to **issue onpremIA Labs certificates**, which depends on the Ed25519
-root key, not on the code.
+[MIT](LICENSE) — © 2026 onpremIA Labs. The harness is free to use, modify and redistribute:
+that is what lets a third party run their own evaluation and lets the methodology withstand
+scrutiny.
 
 <div align="center">
+<br>
 <sub>The meerkat is the group's sentinel: it stands on its hind legs and keeps watch while the
 others eat. That is what OPAAS does with a deployment.</sub>
 </div>

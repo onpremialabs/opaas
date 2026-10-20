@@ -10,6 +10,14 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Documentation
+
+- **A new README**: what OPAAS audits, how it works, its principles, a quick start that
+  installs the dashboard, and the audit certificate. Screens are captured from real runs,
+  in light and dark. The per-mode walkthroughs moved to `docs/guide.md`, and the command
+  reference, the `run` options and "What is not measured" to `docs/reference.md`, word for
+  word.
+
 ### Changed — the audit certificate (D81)
 
 - **The audit certificate carries a seal: *Self-attested audit

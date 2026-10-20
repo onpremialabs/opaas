@@ -167,7 +167,8 @@ src/opaas/
                         signing key, recorded_run/refuse_overwrite), one file per module group,
                         runs.py (`opaas runs`, read-only), menu.py, banner.py, sprite.py
 
-docs/     design.md, methodology.md, decisions.md, workplan.md, datasets.md, key-custody.md,
+docs/     guide.md (every audit mode), reference.md (commands, options, what is not measured),
+          design.md, methodology.md, decisions.md, workplan.md, datasets.md, key-custody.md,
           ceremony.md (production key ceremony runbook, D67), releasing.md (how a release
           is cut; releases are never replaced, D74), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60),
@@ -370,8 +371,11 @@ naming what is missing, rather than breaking mid-evaluation.
   quietly contradicting it (see how D26 revises D17, and D20 revises D9/D15).
 - `docs/methodology.md` states what may **not** be claimed from each figure; keep it in step
   with what the suites actually compute.
-- `README.md` is organized around what a user actually runs. Update the command reference,
-  the `run` options table, and the "What is not measured" section when behaviour changes.
+- `README.md` is the short tour: what OPAAS audits, how it works, the quick start, the audit
+  certificate. `docs/guide.md` walks through every audit mode, and `docs/reference.md` holds
+  the command reference, the `run` options table and the "What is not measured" section:
+  update those when behaviour changes. The README's images in `docs/img/readme/` are
+  captured from real runs; recapture them when the screens they show change.
 - `src/opaas/cli/_sprite_data.py` is generated — regenerate with
   `python scripts/sprite_from_png.py docs/img/mascot.png` (needs pillow + numpy, dev extra)
   and never hand-edit it; `tests/test_sprite_matches_png.py` re-reads the PNG and will catch
