@@ -130,6 +130,59 @@
     <ul class="lims">{% for l in report.limitations %}<li>{{ l }}</li>{% endfor %}</ul>
   </details>
   {% endif %}
+{% elif report and report.kind == 'comparison' %}
+  <section class="block">
+    <h2>Runs compared <span class="dim">· in the order given, not ranked</span></h2>
+    <table class="list compact">
+      <thead><tr><th>Label</th><th>Run</th><th>Backend</th><th>Hardware</th><th>Report</th></tr></thead>
+      <tbody>{% for r in report.runs %}
+        <tr><td><b>{{ r.label }}</b></td><td>{% if r.storeRun %}<a href="/runs/{{ r.storeRun }}" class="mono">{{ r.storeRun }}</a>{% else %}<span class="mono dim">{{ r.runId }}</span>{% endif %}</td>
+          <td>{{ r.backend }}</td><td>{{ r.hardware }}</td><td class="mono dim">{{ (r.reportHash or '')[:19] }}…</td></tr>
+      {% endfor %}</tbody>
+    </table>
+    {% for w in report.warnings %}<p class="notice">{{ w }}</p>{% endfor %}
+  </section>
+
+  {% if report.capability %}
+  <section class="block">
+    <h2>Block B · capability <span class="dim">· per category; overlapping intervals are no difference</span></h2>
+    {% for row in report.capability %}
+      <div class="cmp-category">
+        <h3>{{ row.category }}</h3>
+        {% for bar in row.bars %}{% if bar.missing %}<div class="unmeasured"><span class="dash">not measured</span> {{ bar.label }}</div>{% else %}{{ interval(bar) }}{% endif %}{% endfor %}
+        {% set v = row.verdict %}
+        <p class="verdict-line {{ 'v-cannot' if not v.comparable else ('v-real' if v.significant else 'v-none') }}">
+          <b>{{ 'Cannot compare' if not v.comparable else ('A difference' if v.significant else 'No difference') }}</b> — {{ v.detail }}</p>
+      </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if report.performance %}
+  <section class="block">
+    <h2>Block A · performance <span class="dim">· per scenario; a cloud baseline has no row here</span></h2>
+    <div class="scroll-x"><table class="list compact">
+      <thead><tr><th>Prompt words</th><th>Concurrency</th><th>Run</th><th class="r">Output tok/s</th><th class="r">TTFT p50 s</th><th class="r">VRAM peak MB</th><th class="r">Wh / M tokens</th></tr></thead>
+      <tbody>{% for s in report.performance %}{% for r in s.runs %}
+        <tr><td>{{ s.promptWords if loop.first }}</td><td>{{ s.concurrency if loop.first }}</td><td>{{ r.label }}</td>
+        {% if r.measured %}<td class="r mono">{{ r.outputTokensPerS }}</td><td class="r mono">{{ r.ttftP50S }}</td><td class="r mono">{{ r.vramPeakMb if r.vramPeakMb is not none else 'not measured' }}</td><td class="r mono">{{ r.whPerMillionTokens if r.whPerMillionTokens is not none else 'not measured' }}</td>
+        {% else %}<td colspan="4" class="r dim">not measured</td>{% endif %}</tr>
+      {% endfor %}{% endfor %}</tbody>
+    </table></div>
+  </section>
+  {% endif %}
+
+  {% if report.consistency %}
+  <section class="block">
+    <h2>Block C · consistency</h2>
+    <table class="list compact">
+      <thead><tr><th>Run</th><th class="r">Identical rate</th><th class="r">Distinct outputs</th><th class="r">Verified context (words)</th><th>Silent context loss</th></tr></thead>
+      <tbody>{% for c in report.consistency %}
+        <tr><td>{{ c.label }}</td>{% if c.measured %}<td class="r mono">{{ c.identicalRate }}</td><td class="r mono">{{ c.distinctOutputs }}</td><td class="r mono">{{ c.largestVerifiedContextWords }}</td><td>{{ 'yes' if c.contextLossDetected else 'no' }}</td>{% else %}<td colspan="4" class="dim">not measured</td>{% endif %}</tr>
+      {% endfor %}</tbody>
+    </table>
+  </section>
+  {% endif %}
 {% elif report and report.kind == 'system' %}
   {% if report.purpose %}<p class="sub">Purpose: {{ report.purpose }}</p>{% endif %}
   {% if not report.certifiable %}
@@ -218,7 +271,12 @@
     {% endfor %}
   </section>
 
-  {% if report and report.kind == 'agent' %}
+  {% if report and report.kind == 'comparison' %}
+  <section class="card">
+    <h2>Certificate</h2>
+    <p class="dim">A comparison certifies nothing: each run it cites has its own report and its own draft.</p>
+  </section>
+  {% elif report and report.kind == 'agent' %}
   <section class="card">
     <h2>Certificate</h2>
     <p class="dim">An agent is certified within a system audit: run <code>opaas audit run</code> with this agent in the manifest, and cite this run with <code>--member</code>.</p>

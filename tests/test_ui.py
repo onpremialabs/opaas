@@ -380,3 +380,80 @@ def test_a_missing_sentinel_path_is_said_not_crashed_on(client, tmp_path):
     page = client.get("/sentinel", params={"log": str(tmp_path / "nope.jsonl")}).text
     assert "No log at" in page
     assert client.get("/sentinel/events", params={"log": str(tmp_path / "x")}).status_code == 404
+
+
+# --- History and comparison (phase 23) --------------------------------------
+
+def _bench_with(quantization):
+    register_backend(FakeBackend)
+    result = runner.invoke(cli, [
+        "run", "--model", "fake/model-1b", "--backend", "fake", "--suite", "capability",
+        "--dataset", "opaas-smoke", "--quantization", quantization])
+    assert result.exit_code == 0, result.output
+    return max(r["runId"] for r in list_runs() if r["kind"] == "bench")
+
+
+def test_the_history_filters_by_kind_model_status_and_date(client, bench_run, tmp_path):
+    from opaas.ui import views
+
+    runner.invoke(cli, ["discover", "scan", "--no-containers", "-o", str(tmp_path / "i.json")])
+    every = views.runs(runs_dir())
+    assert {r["kind"] for r in views.filter_runs(every, {"kind": "bench"})} == {"bench"}
+    assert [r["runId"] for r in views.filter_runs(every, {"model": "MODEL-1B"})] == [bench_run]
+    assert views.filter_runs(every, {"since": "2999-01-01"}) == []
+    assert len(views.filter_runs(every, {"status": "completed"})) == 2
+    bench = next(r for r in every if r["runId"] == bench_run)
+    # The engine as the report names it, version included; the filter matches a part of it.
+    assert bench["backend"] == "Fake Engine 0.0" and bench["fingerprint"].startswith("sha256:")
+    assert views.filter_runs(every, {"backend": "fake engine"}) == [bench]
+    assert views.filter_runs(every, {"fingerprint": bench["fingerprint"][7:15]}) == [bench]
+    page = client.get("/runs", params={"kind": "bench"}).text
+    assert "1 of 2 runs" in page and "data-compare-pick" in page
+
+
+def test_the_comparison_page_says_what_opaas_compare_says(client, tmp_path):
+    """Phase 23's done-when: the dashboard's comparison is `opaas compare`'s, word for word."""
+    from html import escape
+
+    first, second = _bench_with("Q8_0"), _bench_with("Q4_K_M")
+    reports = [str(runs_dir() / run / "report.json") for run in (first, second)]
+    out = tmp_path / "comparison.json"
+    result = runner.invoke(cli, ["compare", "--report", reports[0], "--report", reports[1],
+                                 "--out", str(out)])
+    assert result.exit_code == 0, result.output
+    comparison = json.loads(out.read_text(encoding="utf-8"))
+    (record,) = [r for r in list_runs() if r["kind"] == "compare"]
+    page = client.get(f"/runs/{record['runId']}").text
+    assert "Comparison · 2 runs" in page and "in the order given, not ranked" in page
+    assert comparison["capability"], "the fake runs measured block B"
+    for row in comparison["capability"]:
+        assert f"<h3>{escape(row['category'])}</h3>" in page
+        assert escape(row["verdict"]["detail"]) in page
+    for run in (first, second):
+        assert f'href="/runs/{run}"' in page
+    assert "Generate draft" not in page and "certifies nothing" in page
+
+
+def test_a_jobs_output_is_plain_lines_whatever_the_server_forces(client, launched, monkeypatch):
+    """A job writes to a file: no progress-bar redraws, even with FORCE_COLOR set."""
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    _post(client, "/api/jobs", {"args": ["discover", "scan"]})
+    _, env, _ = launched[-1]
+    assert env["TTY_COMPATIBLE"] == "0" and "FORCE_COLOR" not in env
+
+
+def test_two_runs_of_one_configuration_are_told_apart_by_their_run_id():
+    from opaas.ui import views
+
+    same = "m · Q4_K_M (abc)"
+    page = views._comparison({
+        "opaasBenchComparison": "1.0",
+        "runs": [{"label": same, "runId": "r1", "source": "/s/20261020-005/report.json"},
+                 {"label": same, "runId": "r2", "source": "/s/20261019-002/report.json"}],
+        "capability": [{"category": "reasoning", "verdict": {"comparable": True},
+                        "runs": [{"label": same, "accuracy": {"point": 1, "low": .6, "high": 1}},
+                                 {"label": same, "accuracy": None}]}],
+    })
+    labels = [bar["label"] for bar in page["capability"][0]["bars"]]
+    assert labels == [f"20261020-005 · {same}", f"20261019-002 · {same}"]
+    assert page["capability"][0]["bars"][1]["missing"] is True

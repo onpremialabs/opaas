@@ -291,7 +291,15 @@ if (jobBox) {
         const draft = files.find((f) => f.startsWith("certificate-v") && f.endsWith(".html"));
         const ready = jobBox.querySelector("[data-ready]");
         const link = `/runs/${job.run.runId}`;
-        if (draft && status === "completed") {
+        if (done.run && done.run.kind === "compare" && status === "completed") {
+          // A comparison measures nothing: a link to it, no mob.
+          ready.innerHTML = "";
+          const a = document.createElement("a");
+          a.href = link;
+          a.textContent = `Comparison ready · run ${job.run.runId}`;
+          ready.append(a);
+          ready.classList.remove("hidden");
+        } else if (draft && status === "completed") {
           // A draft is not a report: no mob, a link to the run it was drawn from.
           ready.innerHTML = "";
           const a = document.createElement("a");
@@ -450,4 +458,24 @@ if (queueBox) {
       .catch(() => null);
     if (pending && String(pending.length) !== count.textContent) location.reload();
   }, 3000);
+}
+
+// --- History: compare the ticked model runs with `opaas compare` -------------
+const compareBar = document.querySelector("[data-compare-bar]");
+if (compareBar) {
+  const button = compareBar.querySelector("[data-compare]");
+  const error = compareBar.querySelector("[data-compare-error]");
+  const picked = () => [...document.querySelectorAll("[data-compare-pick]:checked")].map((c) => c.value);
+  document.addEventListener("change", (event) => {
+    if (!event.target.matches("[data-compare-pick]")) return;
+    const count = picked().length;
+    button.classList.toggle("hidden", count < 2);
+    button.textContent = `Compare ${count} runs`;
+  });
+  button.addEventListener("click", async () => {
+    const args = ["compare"];
+    for (const path of picked()) args.push("--report", path);
+    try { await launch(args); }
+    catch (e) { error.textContent = e.message; error.classList.remove("hidden"); }
+  });
 }

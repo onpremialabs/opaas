@@ -402,7 +402,8 @@ before it runs, and jobs against one engine wait their turn. Models, agents and 
 launched from *New audit*. An agent run shows its behaviour, its task completion by category
 and the five auditability dimensions. A system shows its coverage matrix and Auditability Card.
 Each shows what was not measured and why. *Sentinel* follows a running proxy's log and its
-gate's queue live, with the command that approves each held action. Signing stays `opaas sign`, in a
+gate's queue live, with the command that approves each held action. *Runs* filters the history
+and compares model runs through `opaas compare`, per category, with no ranking. Signing stays `opaas sign`, in a
 terminal. From another machine, tunnel to it:
 
 ```bash
