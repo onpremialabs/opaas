@@ -12,7 +12,7 @@ from opaas.cli.common import (
     Force,
     _plain,
     console,
-    err_console,
+    error,
     read_json,
     recorded_run,
     refuse_overwrite,
@@ -50,7 +50,7 @@ def analyze_command(
         environment = ({"inventory": read_document(inventory, kind="inventory")["inventory"]}
                        if inventory else None)
     except (TopologyError, ImportError_, EvidenceError, OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     refuse_overwrite(out, force)
     with recorded_run(ctx, "swarm") as recorded:
@@ -88,6 +88,6 @@ def attribute_command(
         imported = import_records(source, fmt)
         result = attribute(imported.records, event)
     except (TopologyError, ImportError_, OSError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     console.print(json.dumps(result, indent=2, ensure_ascii=False))

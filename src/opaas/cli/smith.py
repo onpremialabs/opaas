@@ -14,7 +14,7 @@ from opaas.cli.common import (
     Force,
     _plain,
     console,
-    err_console,
+    error,
     recorded_run,
     refuse_overwrite,
 )
@@ -57,7 +57,7 @@ def scenarios_command(scenarios: Scenarios = "reference") -> None:
     try:
         loaded = load_scenarios(scenarios)
     except ScenarioError as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     table = Table("id", "category", "tools", "policies", "steps", "hash")
     for s in loaded:
@@ -69,14 +69,14 @@ def scenarios_command(scenarios: Scenarios = "reference") -> None:
 
 @app.command("packs")
 def packs_command() -> None:
-    """Lists the domain scenario packs, each checked against its pinned hash (D71)."""
+    """Lists the domain scenario packs, each checked against its pinned hash."""
     table = Table(Column("pack", no_wrap=True), "version", "language", "scenarios",
                   "categories", "hash", "title")
     for pack_id in available_packs():
         try:
             pack, loaded = load_pack(pack_id)
         except ScenarioError as exc:
-            err_console.print(f"[red]{_plain(exc)}[/red]")
+            error(f"[red]{_plain(exc)}[/red]")
             raise typer.Exit(code=1) from None
         table.add_row(f"pack:{pack.id}", str(pack.version), pack.language, str(len(loaded)),
                       ", ".join(sorted({s.category for s in loaded})), pack.hash[:23] + "…",
@@ -140,7 +140,7 @@ def run_command(
         inventory_doc = read_document(inventory, kind="inventory")["inventory"] \
             if inventory else None
     except (ScenarioError, EvidenceError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
     environment: dict[str, Any] = {}
@@ -149,29 +149,29 @@ def run_command(
     engine = None
     if agent in ("http", "mcp"):
         if not endpoint:
-            err_console.print(f"[red]--agent {agent} needs --endpoint.[/red]")
+            error(f"[red]--agent {agent} needs --endpoint.[/red]")
             raise typer.Exit(code=2)
         adapter: Any = HttpAgent(endpoint) if agent == "http" else McpAgent(endpoint)
     elif agent in REROUTED:
         if not endpoint:
-            err_console.print(f"[red]--agent {agent} needs --endpoint.[/red]")
+            error(f"[red]--agent {agent} needs --endpoint.[/red]")
             raise typer.Exit(code=2)
         if agent == "open-webui" and not model:
-            err_console.print("[red]--agent open-webui needs --model: the Open WebUI model or "
-                              "agent id whose tools are OPAAS's mock server.[/red]")
+            error("[red]--agent open-webui needs --model: the Open WebUI model or "
+                  "agent id whose tools are OPAAS's mock server.[/red]")
             raise typer.Exit(code=2)
         if agent == "flowise" and not assistant:
-            err_console.print("[red]--agent flowise needs --assistant: the Flowise chatflow id "
-                              "whose tools are OPAAS's mock server.[/red]")
+            error("[red]--agent flowise needs --assistant: the Flowise chatflow id "
+                  "whose tools are OPAAS's mock server.[/red]")
             raise typer.Exit(code=2)
         if agent == "dify" and not agent_token:
-            err_console.print(f"[red]--agent dify needs the app's API key, in {TOKEN_ENV} or "
-                              "--agent-token.[/red]")
+            error(f"[red]--agent dify needs the app's API key, in {TOKEN_ENV} or "
+                  "--agent-token.[/red]")
             raise typer.Exit(code=2)
         try:
             parse_listen(tools_listen)
         except ValueError as exc:
-            err_console.print(f"[red]--tools-listen: {_plain(exc)}[/red]")
+            error(f"[red]--tools-listen: {_plain(exc)}[/red]")
             raise typer.Exit(code=2) from None
         common: dict[str, Any] = {"tools_listen": tools_listen, "token": agent_token}
         if agent == "open-webui":
@@ -184,23 +184,23 @@ def run_command(
             adapter = {"a2a": A2aAgent, "dify": DifyAgent, "langserve": LangServeAgent,
                        "n8n": N8nAgent}[agent](endpoint, **common)
         console.print(f"[dim]Mock tools at {adapter.tools_url}: the agent must use them, and "
-                      "only them (D68).[/dim]")
+                      "only them.[/dim]")
     elif agent == "bare-model":
         if not backend or not model:
-            err_console.print("[red]--agent bare-model needs --backend and --model.[/red]")
+            error("[red]--agent bare-model needs --backend and --model.[/red]")
             raise typer.Exit(code=2)
         try:
             engine = get_backend(backend)
             engine.load(model, {"base_url": base_url, "api_key": api_key})
         except BackendError as exc:
-            err_console.print(f"[red]{_plain(exc)}[/red]")
+            error(f"[red]{_plain(exc)}[/red]")
             raise typer.Exit(code=1) from None
         environment["deployment"] = deployment_fingerprint(
             engine, engine.get_backend_metadata(), describe_environment())
         adapter = BareModelAgent(engine)
     else:
-        err_console.print(f"[red]Unknown agent adapter '{agent}'. "
-                          f"Known: {', '.join(available_agents())}.[/red]")
+        error(f"[red]Unknown agent adapter '{agent}'. "
+              f"Known: {', '.join(available_agents())}.[/red]")
         raise typer.Exit(code=2)
 
     with recorded_run(ctx, "smith", endpoint=endpoint or base_url) as recorded:
@@ -213,8 +213,8 @@ def run_command(
             outcomes = run_scenarios(loaded, adapter, repeats=repeats, keep_finals=keep_finals,
                                      progress=progress)
         except OSError as exc:  # the mock tools' address is taken or not ours
-            err_console.print(f"[red]Cannot serve the mock tools at {tools_listen}: "
-                              f"{_plain(exc)}[/red]")
+            error(f"[red]Cannot serve the mock tools at {tools_listen}: "
+                  f"{_plain(exc)}[/red]")
             raise typer.Exit(code=2) from None
         finally:
             adapter.close()

@@ -50,6 +50,31 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D82 — The CLI speaks one way: a full-screen menu, help by task, links instead of decision numbers
+
+**Status:** applied · **Revises:** the cover page and inline menu of `cli/banner.py` and `cli/menu.py`, which remain the fallback · **Affects:** [`cli/tui.py`](../src/opaas/cli/tui.py), [`cli/docs.py`](../src/opaas/cli/docs.py), [`cli/common.py`](../src/opaas/cli/common.py) (`error`, `warning`, `success`, `next_steps`), `opaas --help`, every command's error messages
+
+The CLI had grown to 33 top-level commands in one flat help list, where the audit flow sat between the ceremony's `delegate` and `root-document`. Its help cited decisions by number ("(D65)"), which tells a newcomer nothing and sends nobody anywhere. Each command printed errors its own way, and nothing said what to run after a run.
+
+**What it does now.**
+- **`opaas` in a terminal opens a full screen.** The meerkat stands on the left. When the screen opens it comes up out of its burrow, then keeps watch and blinks. On the right is the menu, grouped by task, and the selected entry's command and documentation link. Read-only entries run on the spot and the screen comes back after them. Entries that need arguments leave the screen and print the exact command in the scrollback. `o` opens the entry's documentation. `OPAAS_NO_ANIMATION=1` stills the meerkat. A terminal smaller than 60×24, the legacy Windows console, `TERM=dumb` and `OPAAS_NO_TUI=1` get the old cover page and inline menu. Piped output gets the help, as before.
+- **The help is grouped by task**, in Typer's panels: *Audit*, *Results*, *Data and setup*, and *Signed credentials (advanced)* last, because the audit flow does not need signing (D81). No command was renamed or moved, so every script still works.
+- **Help texts link, not cite.** Each command's help ends with `Docs:` and its page in the repository. Where a decision explains why the command works the way it does, it also ends with `Why it works this way:` and a link to that decision. A test checks every anchor against the headings of the documents.
+- **One look for status lines**: ✓ done, ! worth knowing, ✗ stopped. An error comes in two parts, *what happened* and then *→ what to do*.
+- **What to run next.** A command that records a run ends with the lines that usually follow it: `opaas certificate --run <id>` for a run with a report, then `opaas runs show <id>`, `compare` and `ui`.
+
+**Why no TUI library.** Rich already draws everything. The animation needs one thing Rich lacks, reading a key with a timeout, and that takes about twenty lines per operating system. A dependency for that would be a bad trade in a tool whose point is being small enough to audit (the same reasoning as `menu.py`).
+
+**Why the messages were not rewritten.** The hundred-odd error messages were already written as a red span saying what happened, followed by a sentence saying what to do. `error()` lays that structure out. A message that is all red is split at its first sentence, and a red span ending in a colon is kept with its detail. Their wording, which the tests and users already know, is unchanged.
+
+**What is lost.**
+- **The blink edits the drawing.** The sprite is the PNG as is, and a blink paints the eyelid over it for a frame. A test checks that a blink changes the eye and nothing else.
+- **Links point at `develop` on GitHub.** They are not useful offline, and they follow the branch rather than the installed version. The package ships no documentation to point at instead.
+- **The split is a heuristic.** A message whose second sentence explains rather than instructs is still shown after `→`.
+- **The full screen is tested with simulated keys and a recorded console.** The key reading on a real terminal (`msvcrt`, `termios` in cbreak mode) was checked by hand, on Windows only.
+
+---
+
 ## D81 — The certificate of a run is the final audit certificate, not a draft
 
 **Status:** applied · **Revises:** [D72](#d72--audit-run-shows-the-certificate-it-will-become-as-an-unsigned-draft) and [D77](#d77--an-unsigned-draft-of-any-stored-report-as-a-new-version-each-time) · **Affects:** [`web/certificate.py`](../src/opaas/web/certificate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), `opaas certificate --run`, the dashboard's run page, [`workplan.md`](workplan.md) phases 10 and 15

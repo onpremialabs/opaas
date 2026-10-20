@@ -15,7 +15,7 @@ from typing import Annotated
 
 import typer
 
-from opaas.cli.common import console, err_console
+from opaas.cli.common import console, error
 from opaas.core.store import runs_dir
 
 LOOPBACK = ("127.0.0.1", "localhost", "::1")
@@ -35,15 +35,15 @@ def ui(
 ) -> None:
     """Starts the local dashboard over your run store. It measures nothing itself."""
     if host not in LOOPBACK:
-        err_console.print(f"[red]{host} is not a loopback address.[/red] The dashboard serves "
-                          "only this machine. From another one, tunnel to it: "
-                          f"ssh -L {port}:127.0.0.1:{port} <this-host>.")
+        error(f"[red]{host} is not a loopback address.[/red] The dashboard serves "
+              "only this machine. From another one, tunnel to it: "
+              f"ssh -L {port}:127.0.0.1:{port} <this-host>.")
         raise typer.Exit(code=2)
     missing = [m for m in ("starlette", "uvicorn", "jinja2") if importlib.util.find_spec(m) is None]
     if missing:
-        err_console.print(f"[red]The dashboard needs the ui extra[/red] ({', '.join(missing)} "
-                          "missing). Install it with: uv sync --extra ui, or "
-                          "pip install \"opaas[ui]\".")
+        error(f"[red]The dashboard needs the ui extra[/red] ({', '.join(missing)} "
+              "missing). Install it with: uv sync --extra ui, or "
+              "pip install \"opaas\\[ui]\".")
         raise typer.Exit(code=1)
 
     import uvicorn

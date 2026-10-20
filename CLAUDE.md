@@ -165,7 +165,8 @@ src/opaas/
 │                       assets/verify.js (browser verify)
 └── cli/                main.py (bench commands + group registration), common.py (consoles,
                         signing key, recorded_run/refuse_overwrite), one file per module group,
-                        runs.py (`opaas runs`, read-only), menu.py, banner.py, sprite.py
+                        runs.py (`opaas runs`, read-only), tui.py (the full-screen `opaas`,
+                        D82), docs.py (help links and panels), menu.py, banner.py, sprite.py
 
 docs/     guide.md (every audit mode), reference.md (commands, options, what is not measured),
           design.md, methodology.md, decisions.md, workplan.md, datasets.md, key-custody.md,
@@ -173,7 +174,7 @@ docs/     guide.md (every audit mode), reference.md (commands, options, what is 
           is cut; releases are never replaced, D74), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60),
           dashboard.md (proposal: `opaas ui`, the local dashboard, and its file contract, D75)
-tests/    1234 tests, one file per module, plus conftest.py with the fake backends
+tests/    1315 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;
           rehearse_ceremony.py — runs every opaas step of the key ceremony (D67);
           smoke_ui_install.py — the dashboard's flow from an installed opaas[ui] (CI)
@@ -220,7 +221,7 @@ a round trip.
 
 ### Known test state
 
-`uv run pytest` reports **1233 passed, 1 skipped**. The suite is green: treat any failure as yours.
+`uv run pytest` reports **1314 passed, 1 skipped**. The suite is green: treat any failure as yours.
 Most of its wall time is `nvidia-smi` being called by the bench tests; on a machine without
 it the suite is much faster.
 
@@ -286,6 +287,16 @@ it the suite is much faster.
   `typer.Exit(code=2)` for user error, `1` for a failed run or backend error. The one
   exception is `watch`, which uses `3` for inconclusive so a scheduler can tell "the
   deployment changed" from "the check could not run" (D36).
+- **The CLI speaks one way** (D82). Report through `cli/common.py`: `error()` for what
+  stopped the command (written as `"[red]what happened.[/red] What to do."`, which it lays
+  out as ✗ and →), `warning()` for ! and `success()` for ✓. Never `err_console.print`
+  a red line by hand. A recorded run prints its next steps by itself.
+- **A new top-level command goes in a help panel and links its docs**:
+  `@app.command("x", rich_help_panel=PANEL_…, epilog=epilog("<topic>", <decision>…))`,
+  with topics and decisions from `cli/docs.py`. Help texts never cite `(D<n>)`: the
+  epilog links the decision, and `tests/test_cli_experience.py` checks both. A new
+  task worth a menu entry goes in `main._menu_items()`, with its section, a one-line
+  description and its docs link.
 
 ## Extension recipes
 
@@ -356,6 +367,8 @@ naming what is missing, rather than breaking mid-evaluation.
 | `OPAAS_TOKEN_PIN` | Non-interactive PIN of the root's hardware token for `delegate`/`revoke` |
 | `OPAAS_RUNS_DIR` | Overrides `~/.opaas/runs`, the run store every result is recorded in |
 | `OPAAS_JOB_ID` | Set by `opaas ui` on the commands it launches; recorded as `jobId` in `run.json` |
+| `OPAAS_NO_TUI` | `opaas` in a terminal shows the inline cover page and menu instead of the full screen |
+| `OPAAS_NO_ANIMATION` | The full screen's meerkat stands still |
 
 ## Documentation duties
 

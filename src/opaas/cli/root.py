@@ -23,7 +23,14 @@ from typing import Annotated, Any
 
 import typer
 
-from opaas.cli.common import _open_root_signer, _plain, console, err_console, read_json
+from opaas.cli.common import (
+    _open_root_signer,
+    _plain,
+    console,
+    error,
+    read_json,
+    success,
+)
 from opaas.core.credential import (
     DEFAULT_DELEGATION_DAYS,
     DEFAULT_VALIDITY_DAYS,
@@ -97,7 +104,7 @@ def _root(
         )
         method = root_method_id(document, signer.public_key())
     except (OSError, json.JSONDecodeError, TypeError, ValueError, SignerError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     return document, signer, method
 
@@ -133,7 +140,7 @@ def root_document(
     out: RootDocumentOut = Path("did.json"),
     overwrite: RootOverwrite = False,
 ) -> None:
-    """Assembles the root's DID document from the tokens' public keys (D65).
+    """Assembles the root's DID document from the tokens' public keys.
 
     Each root key was generated on its own token and never left it; only the
     public halves meet here, so this runs anywhere. What it prints is what the
@@ -147,7 +154,7 @@ def root_document(
             "each the other's backup; with one, losing it means a new root."
         )
     if out.exists() and not overwrite:
-        err_console.print(
+        error(
             f"[red]{out} already exists.[/red] A root document that is already published is "
             "what verifiers pinned; pass --overwrite only to replace a draft."
         )
@@ -156,11 +163,11 @@ def root_document(
         keys = [load_public_key(path) for path in public_keys]
         document = build_root_did_document(did, keys)
     except (OSError, TypeError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     _write(out, document)
 
-    console.print("[green]Root DID document written.[/green]")
+    success("[green]Root DID document written.[/green]")
     console.print(f"  issuer   : {_plain(did)}")
     for path, key, method in zip(public_keys, keys, document["verificationMethod"], strict=True):
         console.print(f"  {_plain(method['id'])}")
@@ -191,7 +198,7 @@ ValidDays = Annotated[
     typer.Option(
         "--valid-days",
         help=f"How long the delegation lasts. More than the {DEFAULT_VALIDITY_DAYS} days a "
-        "credential lives (D65).",
+        "credential lives.",
     ),
 ]
 ValidFrom = Annotated[
@@ -216,19 +223,19 @@ def delegate(
     valid_from: ValidFrom = None,
     out: DelegationOut = Path("delegation.json"),
 ) -> None:
-    """Has the root delegate credential signing to an issuing key (D65)."""
+    """Has the root delegate credential signing to an issuing key."""
     if valid_days <= DEFAULT_VALIDITY_DAYS:
-        err_console.print(
+        error(
             f"[red]A delegation of {valid_days} days is not longer than the "
-            f"{DEFAULT_VALIDITY_DAYS} days a credential lives.[/red] D65 sets it to months; "
-            "pass a longer --valid-days."
+            f"{DEFAULT_VALIDITY_DAYS} days a credential lives.[/red] A delegation is meant "
+            "to last months: pass a longer --valid-days."
         )
         raise typer.Exit(code=2)
     try:
         delegated = load_public_key(issuing_key)
         start = parse_time(valid_from) if valid_from else datetime.now(timezone.utc)
     except (OSError, TypeError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
     document, signer, method = _root(
@@ -243,18 +250,18 @@ def delegate(
         )
         signed = sign_delegation(unsigned, signer, key_id=method)
     except (DelegationError, SignerError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
     # A token that signed something else than it was asked would be found out
     # at the first verification; better now, while the ceremony is still on.
     ok, detail = check_proof(signed, signer.public_key(), proof_purpose=DELEGATION)
     if not ok:
-        err_console.print(f"[red]The root's signature does not verify: {_plain(detail)}[/red]")
+        error(f"[red]The root's signature does not verify: {_plain(detail)}[/red]")
         raise typer.Exit(code=1)
     _write(out, signed)
 
-    console.print("[green]Delegation signed.[/green]")
+    success("[green]Delegation signed.[/green]")
     console.print(f"  issuer      : {_plain(issuer)}")
     console.print(f"  root key    : {_plain(method)} ({fingerprint(signer.public_key())})")
     console.print(f"  issuing key : {_plain(signed['delegate']['id'])} ({fingerprint(delegated)})")
@@ -305,7 +312,7 @@ def revoke(
     token_label: TokenLabel = None,
     out: RevocationsOut = None,
 ) -> None:
-    """Adds a key to the root's signed revocation list (D65)."""
+    """Adds a key to the root's signed revocation list."""
     document, signer, method = _root(
         root_did_document, root_key=root_key, passphrase=passphrase,
         pkcs11_module=pkcs11_module, key_label=key_label, token_label=token_label,
@@ -314,7 +321,7 @@ def revoke(
     try:
         revoked_id, multibase = _key_to_revoke(document, delegation, public_key, key_id)
     except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
 
     entries: list[dict[str, Any]] = []
@@ -322,10 +329,10 @@ def revoke(
         try:
             current = read_json(existing)
         except (OSError, json.JSONDecodeError) as exc:
-            err_console.print(f"[red]{_plain(exc)}[/red]")
+            error(f"[red]{_plain(exc)}[/red]")
             raise typer.Exit(code=2) from None
         if not _verifies_under(current, document, issuer):
-            err_console.print(
+            error(
                 f"[red]{existing} is not a revocation list the root {_plain(issuer)} signed.[/red] "
                 "Extending it would launder whatever it says under the root's signature."
             )
@@ -341,11 +348,11 @@ def revoke(
             build_revocation_list(issuer, entries), signer, key_id=method
         )
     except (SignerError, ValueError) as exc:
-        err_console.print(f"[red]{_plain(exc)}[/red]")
+        error(f"[red]{_plain(exc)}[/red]")
         raise typer.Exit(code=2) from None
     target = out or existing or Path("revocations.json")
     _write(target, signed)
-    console.print(f"[green]Revoked[/green] {_plain(revoked_id)}")
+    success(f"[green]Revoked[/green] {_plain(revoked_id)}")
     console.print(f"  list : {target} ({len(entries)} key(s), signed by {_plain(method)})")
     console.print(
         "\n[dim]Publish it beside did.json, and have verifiers install it with "
