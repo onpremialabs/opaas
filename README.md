@@ -211,7 +211,7 @@ The full list, as plainly as the report states it: [what is not measured](docs/r
 
 ## Documentation
 
-| | |
+| Document | What it covers |
 |---|---|
 | **[Guide](docs/guide.md)** | Every audit mode: how to run it and what it writes |
 | **[Reference](docs/reference.md)** | Commands, `run` options, classifiers, what is not measured, architecture |
