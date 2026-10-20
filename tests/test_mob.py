@@ -238,3 +238,9 @@ def test_the_company_leaves_even_when_the_audit_fails():
         pass
     assert mob._STAGE is None
     assert "before the failure" in console.file.getvalue().split("\x1b[?1049l")[-1]
+
+
+def test_the_eyes_glint_survives_the_reduction():
+    """One white pixel always loses its block; a meerkat without it looks blind."""
+    assert "S" in "".join(mob.frames(2)[0])
+    assert "S" not in "".join(mob.frames(2)[1]), "but a closed eye has none"

@@ -177,8 +177,9 @@ def _menu_items() -> list[MenuItem]:
                  description="Overlapping intervals are no difference; no ranking.",
                  docs=doc("commands")),
         MenuItem("◱", "Open the dashboard", section=results,
-                 command="opaas ui",
-                 description="History, comparison and certificates in the browser, locally.",
+                 action=lambda: _ui_cli.ui(8780, "127.0.0.1", None),
+                 description="History, comparison and certificates in the browser, locally. "
+                 "Ctrl+C stops it and brings the menu back.",
                  docs=doc("dashboard")),
         MenuItem("◈", "Evaluation blocks", section=setup, action=suites_command,
                  description="What each block measures, and what is still planned.",
@@ -500,7 +501,7 @@ def _progress_reporter(suites: int) -> Iterator[Callable[[RunEvent], None]]:
         # The palette of the cover page and the dashboard, not Rich's magenta.
         BarColumn(bar_width=24, style="#3a2a1c", complete_style="#c8873f",
                   finished_style="#8fae6a", pulse_style="#c8873f"),
-        TaskProgressColumn(style="#c8873f"),
+        TaskProgressColumn(text_format="[#c8873f]{task.percentage:>3.0f}%"),
         TimeElapsedColumn(),
         console=console,
     )
