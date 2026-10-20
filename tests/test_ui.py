@@ -457,3 +457,100 @@ def test_two_runs_of_one_configuration_are_told_apart_by_their_run_id():
     labels = [bar["label"] for bar in page["capability"][0]["bars"]]
     assert labels == [f"20261020-005 · {same}", f"20261019-002 · {same}"]
     assert page["capability"][0]["bars"][1]["missing"] is True
+
+
+# --- Comparing agents and systems (D80) --------------------------------------
+
+def _answering_backend():
+    from .conftest import ScriptedBackend
+
+    class Answering(ScriptedBackend):
+        name = "fake-answering"
+
+        def __init__(self):
+            super().__init__(lambda prompt: '{"final": "I cannot tell."}')
+
+    register_backend(FakeBackend)
+    register_backend(Answering)
+
+
+def _smith_report(tmp_path, name):
+    result = runner.invoke(cli, ["smith", "run", "--agent", "bare-model", "--backend",
+                                 "fake-answering", "--model", "m", "-n", "2", "--no-toxicity",
+                                 "-s", "pack:banking", "-o", str(tmp_path / f"{name}.json")])
+    assert result.exit_code == 0, result.output
+    record = max((r for r in list_runs() if r["kind"] == "smith"), key=lambda r: r["runId"])
+    return record["runId"], str(runs_dir() / record["runId"] / f"{name}.json")
+
+
+def _audit_report(tmp_path, name):
+    system = tmp_path / f"{name}.json"
+    system.write_text(json.dumps({
+        "format": 1, "id": "support", "purpose": "Answers employees from documents.",
+        "components": [
+            {"id": "llm", "kind": "model", "backend": "fake", "model": "fake/model-1b"},
+            {"id": "agent", "kind": "agent", "adapter": "bare-model",
+             "backend": "fake-answering", "model": "m"}],
+        "flows": [{"from": "agent", "to": "llm"}]}), encoding="utf-8")
+    result = runner.invoke(cli, ["audit", "run", str(system), "-o", str(tmp_path / name),
+                                 "--skip", "discover", "--bench-args",
+                                 "--suite capability --dataset opaas-smoke --max-tokens 8",
+                                 "-n", "1", "--no-open"])
+    assert result.exit_code == 0, result.output
+    record = max((r for r in list_runs() if r["kind"] == "audit"), key=lambda r: r["runId"])
+    return record["runId"], str(runs_dir() / record["runId"] / "system-audit"
+                                / "system-report.json")
+
+
+def _compared(tmp_path, paths):
+    out = tmp_path / "comparison.json"
+    args = ["compare"]
+    for path in paths:
+        args += ["--report", path]
+    result = runner.invoke(cli, [*args, "--out", str(out)])
+    assert result.exit_code == 0, result.output
+    (record,) = [r for r in list_runs() if r["kind"] == "compare"]
+    return json.loads(out.read_text(encoding="utf-8")), record["runId"]
+
+
+def test_the_agent_comparison_page_says_what_opaas_compare_says(client, tmp_path):
+    from html import escape
+
+    _answering_backend()
+    runs = [_smith_report(tmp_path, name) for name in ("first", "second")]
+    comparison, compare_run = _compared(tmp_path, [path for _, path in runs])
+    page = client.get(f"/runs/{compare_run}").text
+    assert "Agent comparison · 2 runs" in page and "in the order given, not ranked" in page
+    figures = comparison["behaviour"] + [m for d in comparison["auditability"]
+                                         for m in d["metrics"]]
+    for figure in figures:
+        assert escape(figure["verdict"]["detail"]) in page
+    for question in ("Q1", "Q2", "Q3", "Q4", "Q5"):
+        assert f'<h3 class="dim-title">{question} · ' in page
+    for run, _ in runs:
+        assert f'href="/runs/{run}"' in page
+    assert "Generate draft" not in page and "certifies nothing" in page
+    # The history offers both agent runs, tagged with their kind.
+    history = client.get("/runs", params={"kind": "smith"}).text
+    assert history.count('data-compare-kind="agent"') == 2
+
+
+def test_the_system_comparison_page_says_what_opaas_compare_says(client, tmp_path):
+    from html import escape
+
+    _answering_backend()
+    runs = [_audit_report(tmp_path, name) for name in ("one", "two")]
+    comparison, compare_run = _compared(tmp_path, [path for _, path in runs])
+    page = client.get(f"/runs/{compare_run}").text
+    assert "System comparison · 2 runs" in page and "Coverage, cell by cell" in page
+    # A cell per row and dimension, its status the CLI's.
+    for cell in comparison["cells"]:
+        assert f'aria-label="{cell["status"]}"' in page
+    measured = [m for c in comparison["cells"] for m in c.get("measurements", [])]
+    assert measured, "both audits measured block B of the model"
+    for figure in measured:
+        assert escape(figure["verdict"]["detail"]) in page
+    for run, _ in runs:
+        assert f'href="/runs/{run}"' in page
+    history = client.get("/runs", params={"kind": "audit"}).text
+    assert history.count('data-compare-kind="system"') == 2

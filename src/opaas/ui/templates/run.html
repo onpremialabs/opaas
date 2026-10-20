@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import state, command, interval %}
+{% from "_macros.html" import state, command, interval, figure %}
 {% block title %}Run {{ record.runId }}{% endblock %}
 {% block content %}
 <div class="head">
@@ -183,6 +183,70 @@
     </table>
   </section>
   {% endif %}
+{% elif report and report.kind == 'agent-comparison' %}
+  <section class="block">
+    <h2>Agent runs compared <span class="dim">· in the order given, not ranked</span></h2>
+    <table class="list compact">
+      <thead><tr><th>Label</th><th>Run</th><th>Scenario set</th><th class="r">Repeats</th><th class="r">Agent errors</th><th>Report</th></tr></thead>
+      <tbody>{% for r in report.runs %}
+        <tr><td><b>{{ r.label }}</b></td><td>{% if r.storeRun %}<a href="/runs/{{ r.storeRun }}" class="mono">{{ r.storeRun }}</a>{% else %}<span class="dim">outside the store</span>{% endif %}</td>
+          <td class="mono dim">{{ (r.scenarioSource or []) | join(', ') }} · {{ (r.scenarioSetHash or '')[:19] }}…</td><td class="r">{{ r.repeats }}</td><td class="r">{{ r.agentErrors }}</td><td class="mono dim">{{ (r.reportHash or '')[:19] }}…</td></tr>
+      {% endfor %}</tbody>
+    </table>
+    {% for w in report.warnings %}<p class="notice">{{ w }}</p>{% endfor %}
+  </section>
+
+  <section class="block">
+    <h2>Behaviour <span class="dim">· per figure, against the mock tools' ground truth; overlapping intervals are no difference</span></h2>
+    {% for f in report.behaviour %}{{ figure(f) }}{% endfor %}
+  </section>
+
+  <section class="block">
+    <h2>Auditability <span class="dim">· the five dimensions, each on its own</span></h2>
+    {% for d in report.dimensions %}
+      <h3 class="dim-title">{{ d.question }} · {{ d.title }}</h3>
+      {% for f in d.metrics %}{{ figure(f) }}{% endfor %}
+    {% endfor %}
+  </section>
+{% elif report and report.kind == 'system-comparison' %}
+  <section class="block">
+    <h2>System audits compared <span class="dim">· in the order given, not ranked</span></h2>
+    <table class="list compact">
+      <thead><tr><th>Label</th><th>Run</th><th>System</th><th>Certifiable</th><th>Report</th></tr></thead>
+      <tbody>{% for r in report.runs %}
+        <tr><td><b>{{ r.label }}</b></td><td>{% if r.storeRun %}<a href="/runs/{{ r.storeRun }}" class="mono">{{ r.storeRun }}</a>{% else %}<span class="dim">outside the store</span>{% endif %}</td>
+          <td>{{ r.systemId }}</td><td>{{ 'yes' if r.certifiable else 'no' }}</td><td class="mono dim">{{ (r.reportHash or '')[:19] }}…</td></tr>
+      {% endfor %}</tbody>
+    </table>
+    {% for w in report.warnings %}<p class="notice">{{ w }}</p>{% endfor %}
+  </section>
+
+  <section class="block">
+    <h2>Coverage, cell by cell <span class="dim">· a cell measured in one run only is a change in what was audited, not in a figure</span></h2>
+    <div class="scroll-x">
+    <table class="matrix">
+      <thead><tr><th></th>{% for a in report.axis %}<th>{{ a }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for row in report.matrix %}
+        <tr><td class="comp">{{ row.component }}</td>
+        {% for c in row.cells %}<td title="{{ c.status }}: {{ c.states }}"><span class="cell cell-cmp-{{ c.status }}" aria-label="{{ c.status }}"></span></td>{% endfor %}</tr>
+      {% endfor %}</tbody>
+    </table>
+    </div>
+    <p class="matrix-legend"><span><span class="cell cell-cmp-measured"></span> measured in every run</span><span><span class="cell cell-cmp-coverage-changed"></span> measured in some runs only</span><span><span class="cell cell-cmp-component-absent"></span> component in some runs only</span><span><span class="cell cell-cmp-unchanged"></span> measured in none</span><span>Hover a cell for each run's state.</span></p>
+    {% if report.changed %}
+    <ul class="lims">{% for c in report.changed %}<li><b>{{ c.component }} · {{ c.dimension }}</b> — {{ c.detail }}</li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+
+  {% if report.measured %}
+  <section class="block">
+    <h2>Measured in every run <span class="dim">· each measurement on its own, with its interval</span></h2>
+    {% for c in report.measured %}
+      <h3 class="dim-title">{{ c.component }} · {{ c.dimension }}</h3>
+      {% for f in c.figures %}{{ figure(f) }}{% endfor %}
+    {% endfor %}
+  </section>
+  {% endif %}
 {% elif report and report.kind == 'system' %}
   {% if report.purpose %}<p class="sub">Purpose: {{ report.purpose }}</p>{% endif %}
   {% if not report.certifiable %}
@@ -271,7 +335,7 @@
     {% endfor %}
   </section>
 
-  {% if report and report.kind == 'comparison' %}
+  {% if report and report.kind in ('comparison', 'agent-comparison', 'system-comparison') %}
   <section class="card">
     <h2>Certificate</h2>
     <p class="dim">A comparison certifies nothing: each run it cites has its own report and its own draft.</p>

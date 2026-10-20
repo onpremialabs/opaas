@@ -460,17 +460,24 @@ if (queueBox) {
   }, 3000);
 }
 
-// --- History: compare the ticked model runs with `opaas compare` -------------
+// --- History: compare the ticked runs of one kind with `opaas compare` -------
 const compareBar = document.querySelector("[data-compare-bar]");
 if (compareBar) {
   const button = compareBar.querySelector("[data-compare]");
   const error = compareBar.querySelector("[data-compare-error]");
-  const picked = () => [...document.querySelectorAll("[data-compare-pick]:checked")].map((c) => c.value);
+  const ticked = () => [...document.querySelectorAll("[data-compare-pick]:checked")];
+  const picked = () => ticked().map((c) => c.value);
   document.addEventListener("change", (event) => {
     if (!event.target.matches("[data-compare-pick]")) return;
+    // One kind per comparison: `opaas compare` refuses a model against an agent,
+    // and the page says so before launching rather than after.
+    const kinds = new Set(ticked().map((c) => c.dataset.compareKind));
     const count = picked().length;
-    button.classList.toggle("hidden", count < 2);
+    button.classList.toggle("hidden", count < 2 || kinds.size > 1);
     button.textContent = `Compare ${count} runs`;
+    error.textContent = kinds.size > 1
+      ? "Tick runs of one kind: models, agents and systems are not measured on the same terms." : "";
+    error.classList.toggle("hidden", kinds.size <= 1);
   });
   button.addEventListener("click", async () => {
     const args = ["compare"];

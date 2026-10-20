@@ -6,6 +6,15 @@
 <div class="cmd"><code class="mono"><span class="prompt">$</span> {{ words | join(' ') }}</code><button type="button" class="copy" data-copy="{{ words | join(' ') }}" title="Copy command">Copy</button></div>
 {%- endmacro %}
 
+{% macro figure(f) -%}
+{# One compared figure: a bar per run with an interval, text without one, the CLI's verdict. #}
+<div class="cmp-category">
+  <h3>{{ f.label }}</h3>
+  {% for bar in f.bars %}{% if bar.missing %}<div class="unmeasured"><span class="dash">not measured</span> {{ bar.label }}{% if bar.why %} <span class="dim">— {{ bar.why }}</span>{% endif %}</div>{% elif bar.text is defined %}<div class="irow"><span class="ilabel">{{ bar.label }}</span><span class="ivalue mono">{{ bar.text }}</span></div>{% else %}{{ interval(bar) }}{% endif %}{% endfor %}
+  <p class="verdict-line {{ f.css }}"><b>{{ f.word }}</b> — {{ f.verdict.detail }}</p>
+</div>
+{%- endmacro %}
+
 {% macro interval(row) -%}
 {# The interval as SVG attributes only: the page's CSP allows no inline styles. #}
 <div class="irow">
