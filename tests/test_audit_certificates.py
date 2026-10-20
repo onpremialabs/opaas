@@ -51,6 +51,9 @@ def test_each_certificate_is_a_new_version_and_none_replaces_another():
     page = (runs_dir() / first["runId"] / "certificate-v1.html").read_text(encoding="utf-8")
     assert "Certificate of Evaluation" in page
     assert "Generated with OPAAS by onpremIA Labs" in page
+    # Its seal says who answers for it: whoever ran the audit (D81).
+    assert ">Self-attested audit certificate</p>" in page
+    assert "Attested by whoever ran the audit" in page
     # The final certificate: no draft mark anywhere, and checked by the report's hash.
     assert "Draft" not in page and "DRAFT" not in page and "not issued" not in page
     assert "sha256sum report.json" in page

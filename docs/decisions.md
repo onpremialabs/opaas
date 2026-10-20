@@ -58,10 +58,12 @@ D72 and D77 rendered the certificate of a run as a draft: a DRAFT watermark, a b
 
 **What it is now.**
 - `opaas certificate --run <id>` and the dashboard's *Generate certificate* render the **audit certificate** of a stored run, a new version each time, as D77 did. `opaas audit run` writes it as `certificate.html`, no longer `certificate-draft.html`.
-- No watermark, no band, no "once issued". The header says **Generated with OPAAS by onpremIA Labs**, and the page keeps what the signed certificate had: results per block or per cell, what was not measured, every limitation, the validity window.
+- No watermark, no band, no "once issued". The header says **Generated with OPAAS by onpremIA Labs**, under it a seal reads **Self-attested audit certificate**, *attested by whoever ran the audit, on the audited system*, and the page keeps what the signed certificate had: results per block or per cell, what was not measured, every limitation, the validity window.
 - **What ties the page to the audit is the report's SHA-256.** The footer prints it with `sha256sum report.json` (or `system-report.json`) as the check. The *Signature* line says none: it was generated on the audited system and is checked by the report hash.
 - **It names no signer, because none signed it.** The brand says who made the tool and the methodology, not that onpremIA Labs vouches for the run. The page says it was generated on the system that ran the audit.
 - No optional signing step appears in the user's flow: `audit run` no longer suggests `opaas evidence sign`, and the dashboard no longer points to `opaas sign`.
+
+**The seal is not a watermark to be removed later.** An HTML page can be edited, so if "no mark" meant "validated by onpremIA Labs", a forger would simply render one without it. The seal says who answers for this certificate. A certificate onpremIA Labs issues, once phase 10 is integrated, will carry a seal of its own and a signature that verifies against its key on onpremialabs.com. That verification is what makes it trustworthy, not how the paper looks. A test pins that a signed credential's certificate carries no self-attested seal.
 
 **What stays.** `keygen`, `sign`, `verify`, `delegate`, `revoke`, `publish` and the browser verifier are untouched (D65–D67). They are for the day onpremIA Labs issues, signs and validates its own certificates from the platform. Phase 10, which needs the production keys for that, and phase 15 are now *pending integration* in the work plan, until that is decided.
 
