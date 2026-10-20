@@ -15,6 +15,15 @@ from opaas.cli.main import app
 
 ROOT = Path(__file__).resolve().parent.parent
 runner = CliRunner()
+#: Typer forces colour on CI (GITHUB_ACTIONS, FORCE_COLOR): the help then comes
+#: with escape codes inside the very words a test looks for.
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+
+
+def _help(args: list[str], columns: int = 120) -> str:
+    result = runner.invoke(app, args, env={"COLUMNS": str(columns)})
+    assert result.exit_code == 0, result.output
+    return _ANSI.sub("", result.output)
 
 
 def _anchors(path: Path) -> set[str]:
@@ -60,12 +69,11 @@ def test_links_point_at_the_canonical_repository():
 
 
 def test_the_help_groups_commands_by_task_in_the_order_a_newcomer_needs_them():
-    result = runner.invoke(app, ["--help"], env={"COLUMNS": "120"})
-    assert result.exit_code == 0
+    output = _help(["--help"])
     panels = ["Audit", "Results", "Data and setup", "Signed credentials (advanced)"]
-    positions = [result.output.index(f"─ {panel} ") for panel in panels]
+    positions = [output.index(f"─ {panel} ") for panel in panels]
     assert positions == sorted(positions)
-    assert "─ Commands " not in result.output, "a command was left out of every panel"
+    assert "─ Commands " not in output, "a command was left out of every panel"
 
 
 def test_every_top_level_command_sits_in_a_panel():
@@ -98,10 +106,10 @@ def test_every_top_level_command_links_its_documentation():
 
 
 def test_a_commands_help_ends_with_its_documentation_and_the_decision_behind_it():
-    result = runner.invoke(app, ["sign", "--help"], env={"COLUMNS": "200"})
-    assert "Docs: https://github.com/onpremialabs/opaas/blob/develop/docs/guide.md" in result.output
-    assert "Why it works this way:" in result.output
-    assert "decisions.md#d65--" in result.output
+    output = _help(["sign", "--help"], columns=200)
+    assert "Docs: https://github.com/onpremialabs/opaas/blob/develop/docs/guide.md" in output
+    assert "Why it works this way:" in output
+    assert "decisions.md#d65--" in output
 
 
 # ------------------------------------------------------------ status lines
@@ -219,9 +227,7 @@ def test_opaas_alone_in_a_terminal_opens_the_screen(monkeypatch):
 
 def test_opaas_alone_without_a_terminal_prints_the_help():
     """Piped or in CI there is nothing to interact with: the help, for scripts."""
-    result = runner.invoke(app, [])
-    assert result.exit_code == 0
-    assert "─ Audit " in result.output
+    assert "─ Audit " in _help([])
 
 
 def test_a_console_that_cannot_draw_the_screen_says_where_to_open_it(monkeypatch):
