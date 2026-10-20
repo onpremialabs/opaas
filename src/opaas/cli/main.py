@@ -125,7 +125,8 @@ from opaas.web.certificate import render_audit_certificate, template_hash
 
 app = typer.Typer(
     name="opaas",
-    help="OPAAS — evaluation and digital credential for on-prem LLM models (onpremIA Labs).",
+    help="OPAAS — audit the models, agents and AI systems you run yourself, and certify what was "
+    "measured (onpremIA Labs).",
     add_completion=False,
 )
 
