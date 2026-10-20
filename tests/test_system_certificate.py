@@ -278,6 +278,7 @@ def test_the_audit_certificate_is_final_and_checked_by_its_report_hash(tmp_path)
     html = render_audit_certificate(path)
     assert "Certificate of System Audit" in html and "Valid from" in html
     assert "Generated with OPAAS by onpremIA Labs" in html
+    assert ">Self-attested audit certificate</p>" in html
     assert "Draft —" not in html and "DRAFT" not in html and "not issued" not in html
     assert "sha256sum system-report.json" in html and file_digest(path) in html
     # It names no signer, because none signed it.

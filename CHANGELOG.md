@@ -12,6 +12,11 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ### Changed — the audit certificate (D81)
 
+- **The audit certificate carries a seal: *Self-attested audit
+  certificate***, attested by whoever ran the audit, on the audited system.
+  A certificate onpremIA Labs issues later will carry its own seal and a
+  signature, not this one removed.
+
 - **The certificate of a run is the final certificate of the audit**, not a
   draft. `opaas certificate --run <id>`, the dashboard's *Generate
   certificate* and the end of `opaas audit run` render it.

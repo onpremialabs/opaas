@@ -80,6 +80,13 @@ _MAX_CATEGORIES = 4
 #: Who an audit certificate says produced it: the tool and its maker, never a signer.
 AUDIT_BRAND = "Generated with OPAAS by onpremIA Labs"
 
+#: The seal of an audit certificate: who answers for it (D81). A certificate onpremIA
+#: Labs issues will carry its own seal and a signature that verifies, not this one
+#: removed: a page without a seal must never read as more trusted than one with it.
+SELF_ATTESTED = "Self-attested audit certificate"
+_SEAL_HTML = (f'<p class="seal">{SELF_ATTESTED}</p>'
+              '<p class="seal-by">Attested by whoever ran the audit, on the audited system</p>')
+
 #: How a reader checks an audit certificate: it has no signature, only its report's hash.
 _AUDIT_SIGNATURE = "none: generated on the audited system, checked by the report hash"
 
@@ -183,6 +190,7 @@ def render_printable(
                 "anything here differs from it, the credential is right and this page is not.")
     brand = (f"{AUDIT_BRAND} · On-Prem AI Audit Suite" if audit
              else "onpremIALabs · OPAAS — On-Prem AI Audit Suite")
+    seal = _SEAL_HTML if audit else ""
     statement_by = " on the system where it is deployed" if audit else ""
 
     partial_html = ""
@@ -210,6 +218,7 @@ def render_printable(
 <main class="sheet">
   <header>
     <p class="issuer">{brand}</p>
+    {seal}
     <h1>Certificate of Evaluation</h1>
     <p class="identifier mono">{esc(public_identifier(credential))}</p>
   </header>
@@ -306,6 +315,7 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None,
             "here differs from it, the credential is right and this page is not.")
     brand = (f"{AUDIT_BRAND} · On-Prem AI Audit Suite" if audit
              else "onpremIALabs · OPAAS — On-Prem AI Audit Suite")
+    seal = _SEAL_HTML if audit else ""
 
     reasons = subject.get("notCertifiableBecause") or []
     status_html = (
@@ -362,6 +372,7 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None,
 <main class="sheet">
   <header>
     <p class="issuer">{brand}</p>
+    {seal}
     <h1>Certificate of System Audit</h1>
     <p class="identifier mono">{esc(public_identifier(credential))}</p>
   </header>
@@ -715,6 +726,10 @@ body { margin: 0; background: #e9e7e1; color: #1d1d1b;
 header { text-align: center; border-bottom: 1px solid #c9c4b6; padding-bottom: 6mm; }
 .issuer { margin: 0; letter-spacing: .08em; text-transform: uppercase; font-size: 8.5pt;
   color: #1f4e3d; }
+.seal { display: inline-block; margin: 3mm 0 0; padding: 1mm 4mm; border: 1.5px solid #1f4e3d;
+  border-radius: 2mm; letter-spacing: .06em; text-transform: uppercase; font-size: 9pt;
+  font-weight: bold; color: #1f4e3d; }
+.seal-by { margin: 1mm 0 0; font-size: 8pt; color: #5c5a53; }
 h1 { margin: 3mm 0 2mm; font-size: 26pt; font-weight: normal; letter-spacing: .02em; }
 .identifier { margin: 0; color: #5c5a53; }
 .statement { text-align: center; margin: 5mm auto; max-width: 200mm; }

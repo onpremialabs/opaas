@@ -33,6 +33,9 @@ def _render(tmp_path, report=None, **kwargs):
 def test_the_certificate_names_the_deployment_and_its_validity(tmp_path):
     page = _render(tmp_path)
     assert "Certificate of Evaluation" in page
+    # A signed credential's certificate is not self-attested: the seal is the audit
+    # certificate's own, never a mark a signed page lacks by having it removed (D81).
+    assert "Self-attested" not in page
     assert "Vega-7B" in page
     assert "GGUF Q4_K_M" in page
     assert "vLLM 0.9.1" in page
