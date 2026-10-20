@@ -9,7 +9,7 @@
 **Audit the AI systems you run yourself — models, agents and the infrastructure under them —<br>
 and prove it with a certificate anyone can verify offline.**
 
-[![Version 0.3.1](https://img.shields.io/badge/version-0.3.1-1f4e3d)](https://github.com/onpremialabs/opaas/releases/tag/v0.3.1)
+[![Version 0.4.0](https://img.shields.io/badge/version-0.4.0-1f4e3d)](https://github.com/onpremialabs/opaas/releases/tag/v0.4.0)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Methodology 1.0-draft](https://img.shields.io/badge/methodology-1.0--draft-8fae6a)](docs/methodology.md)
@@ -89,7 +89,7 @@ it identifies on the host. It never deploys or downloads the model under evaluat
 **Install** (Python 3.10+, not on PyPI yet):
 
 ```bash
-uv tool install git+https://github.com/luxinopanyvino/opaas-bench.git
+uv tool install git+https://github.com/onpremialabs/opaas.git
 ```
 
 **Audit a model you already serve** — the five blocks, then the summary:
@@ -173,7 +173,7 @@ about 800 MB of classifiers and, for torch, several hundred MB to a few GB.
 With pip, in a virtual environment of your own:
 
 ```bash
-git clone https://github.com/luxinopanyvino/opaas-bench.git && cd opaas-bench && python -m venv .venv
+git clone https://github.com/onpremialabs/opaas.git && cd opaas && python -m venv .venv
 ```
 
 Activate it (`.venv\Scripts\Activate.ps1` on Windows, `source .venv/bin/activate` elsewhere), then:
@@ -186,7 +186,7 @@ The block D classifiers (toxicity, faithfulness) are an optional extra because t
 more than everything else combined:
 
 ```bash
-pip install "opaas[classifiers] @ git+https://github.com/luxinopanyvino/opaas-bench.git"
+pip install "opaas[classifiers] @ git+https://github.com/onpremialabs/opaas.git"
 ```
 
 `opaas` with no arguments shows the cover page and a menu that reports what you have and

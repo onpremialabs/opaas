@@ -5,7 +5,7 @@ type: software
 authors:
   - name: "onpremIALabs"
     website: "https://onpremialabs.com"
-repository-code: "https://github.com/luxinopanyvino/opaas-bench"
+repository-code: "https://github.com/onpremialabs/opaas"
 url: "https://onpremialabs.com"
 abstract: >-
   OPAAS audits an LLM or SLM deployment rather than a model: the composite of
