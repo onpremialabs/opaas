@@ -39,6 +39,7 @@ ALLOWED: frozenset[tuple[str, str | None]] = frozenset({
     ("smith", "run"),
     ("audit", "run"),
     ("audit", "draft"),
+    ("audit", "validate"),
     ("inquest", "audit"),
     ("swarm", "analyze"),
     ("card", "build"),

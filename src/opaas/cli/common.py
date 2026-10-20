@@ -327,9 +327,10 @@ def recorded_run(ctx: typer.Context, kind: str, *,
         err_console.print(f"[red]Cannot record the run:[/red] {exc}")
         raise typer.Exit(code=1) from None
     recorded = RecordedRun(run=run)
+    # The command's name only (`opaas audit run`), never its arguments: a path, a URL.
     words = []
-    for word in run.record.get("command", []):
-        if word.startswith("-"):
+    for word in run.record.get("command", [])[:3]:
+        if word.startswith("-") or "/" in word or "\\" in word or "." in word:
             break
         words.append(word)
     recorded.progress(" ".join(words) + " started", kind="start")

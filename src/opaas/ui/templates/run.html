@@ -131,16 +131,79 @@
   </details>
   {% endif %}
 {% elif report and report.kind == 'system' %}
+  {% if report.purpose %}<p class="sub">Purpose: {{ report.purpose }}</p>{% endif %}
+  {% if not report.certifiable %}
+  <div class="notice"><b>Not certifiable as it stands.</b>
+    <ul class="lims">{% for r in report.reasons %}<li>{{ r }}</li>{% endfor %}</ul></div>
+  {% endif %}
+
   <section class="block">
-    <h2>System coverage</h2>
-    <table class="list">
+    <h2>Coverage <span class="dim">· every component, every dimension; a cell is a state, not a grade</span></h2>
+    <div class="scroll-x">
+    <table class="matrix">
+      <thead>
+        <tr><th></th><th class="group" colspan="{{ report.behaviourAxis | length }}">Behaviour</th><th class="group" colspan="{{ report.auditabilityAxis | length }}">Auditability</th></tr>
+        <tr><th></th>{% for a in report.behaviourAxis + report.auditabilityAxis %}<th>{{ a }}</th>{% endfor %}</tr>
+      </thead>
       <tbody>
-      {% for component, cells in report.coverage.items() %}
-        <tr><td><b>{{ component }}</b></td><td>{% for name, cell in cells.items() %}<span class="tag c-{{ cell }}">{{ name }}: {{ cell }}</span> {% endfor %}</td></tr>
+      {% for row in report.rows %}
+        <tr><td class="comp">{{ row.component }}</td>
+        {% for c in row.cells %}<td title="{{ c.state }}{% if c.why %}: {{ c.why }}{% endif %}"><span class="cell cell-{{ c.state }}" aria-label="{{ c.dimension }}: {{ c.state }}"></span></td>{% endfor %}</tr>
       {% endfor %}
       </tbody>
     </table>
+    </div>
+    <p class="matrix-legend"><span><span class="cell cell-measured"></span> measured</span><span><span class="cell cell-not-measured"></span> not measured</span><span><span class="cell cell-not-applicable"></span> not applicable</span><span>Hover a cell for its reason.</span></p>
   </section>
+
+  <section class="block">
+    <h2>Auditability Card <span class="dim">· Q1–Q6, answered from the evidence</span></h2>
+    <div class="qcards">
+    {% for q in report.card %}
+      <div class="dim-card">
+        <h3>{{ q.question }} · {{ q.dimension }}</h3>
+        <p>{{ q.answers }} answer{{ 's' if q.answers != 1 }}{% if q.gaps %} · <span class="error">{{ q.gaps | length }} gap{{ 's' if q.gaps | length != 1 }}</span>{% endif %}</p>
+        {% for g in q.gaps[:4] %}<p class="counts"><b>{{ g.component }}</b> {{ g.aspect }}: {{ g.reason }}</p>{% endfor %}
+        {% if q.notApplicable %}<p class="counts">not applicable to {{ q.notApplicable | join(', ') }}</p>{% endif %}
+      </div>
+    {% endfor %}
+    </div>
+  </section>
+
+  <section class="block">
+    <h2>Composition <span class="dim">· declared and observed, compared, never added</span></h2>
+    <table class="list compact">
+      <thead><tr><th>Component</th><th>Kind</th><th>Declared</th><th>Observed</th><th>Basis</th></tr></thead>
+      <tbody>
+      {% for c in report.composition.components %}
+        <tr><td><b>{{ c.id }}</b>{% if c.model %} <span class="dim mono">{{ c.model }}</span>{% endif %}</td><td>{{ c.kind }}</td>
+          <td>{{ '✓' if c.declared else '—' }}</td><td>{{ '✓' if c.observed else ('—' if c.observed is not none else 'unknown') }}</td><td class="dim">{{ c.basis }}</td></tr>
+      {% endfor %}
+      {% for f in report.composition.flows %}
+        <tr><td colspan="2" class="mono">{{ f['from'] }} → {{ f['to'] }}</td><td>{{ '✓' if f.declared else '—' }}</td><td>{{ '✓' if f.observed else ('—' if f.observed is not none else 'unknown') }}</td><td class="dim">{{ f.basis }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% for finding in report.composition.findings %}<p class="warn">{{ finding }}</p>{% endfor %}
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <h2>Steps</h2>
+      {% for s in report.steps %}<div class="file"><span><b>{{ s.step }}</b> {{ s.component }}</span><span><span class="state s-{{ s.status }}">{{ s.status }}</span>{% if s.reason %} <span class="dim">{{ s.reason }}</span>{% endif %}</span></div>{% endfor %}
+    </section>
+    <section class="card">
+      <h2>Members <span class="dim">· each certified by its own hash</span></h2>
+      {% for m in report.members %}<div class="file"><span><b>{{ m.component }}</b>
+        {% if ('system-audit/' ~ m.file) in record.files %}<a href="/runs/{{ record.runId }}/files/system-audit/{{ m.file }}">{{ m.file }}</a>
+        {% else %}{{ m.file }} <span class="dim">· cited, not measured again</span>{% endif %}</span><span class="mono dim">{{ (m.hash or '')[:19] }}…</span></div>{% endfor %}
+    </section>
+  </div>
+  {% if report.limitations %}
+  <details><summary>{{ report.limitations | length }} limitation{{ 's' if report.limitations | length > 1 }}</summary>
+    <ul class="lims">{% for l in report.limitations %}<li>{% if l.component is defined %}<b>{{ l.component }}</b> {{ l.text }}{% else %}{{ l }}{% endif %}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
 {% endif %}
 
 <div class="grid2">

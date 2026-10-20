@@ -85,8 +85,7 @@ def _report(path: Path) -> dict[str, Any] | None:
     if payload.get("kind") == "smith-report":
         return _agent(payload)
     if payload.get("kind") == "system-report":
-        return {"kind": "system", "coverage": payload.get("coverage", {}),
-                "limitations": payload.get("limitations", [])}
+        return _system(payload)
     blocks = []
     for suite in payload.get("suites", []):
         metrics = suite.get("metrics", {})
@@ -274,6 +273,144 @@ def agent_adapters() -> list[str]:
     from opaas.smith import available_agents
 
     return list(available_agents())
+
+
+# --- Systems (system reports, D60) ------------------------------------------
+
+#: The two axes of a system report, fixed for every system (system-audit.md §3).
+BEHAVIOUR_AXIS = ("performance", "capability", "consistency", "safety", "compliance")
+AUDITABILITY_AXIS = ("actionRecoverability", "lifecycleCoverage", "policyCheckability",
+                     "responsibilityAttribution", "evidenceIntegrity", "degradation")
+AXIS_LABELS = {
+    "performance": "A perf.", "capability": "B capab.", "consistency": "C consist.",
+    "safety": "D safety", "compliance": "E compl.", "actionRecoverability": "Q1 actions",
+    "lifecycleCoverage": "Q2 lifecycle", "policyCheckability": "Q3 policies",
+    "responsibilityAttribution": "Q4 attribution", "evidenceIntegrity": "Q5 integrity",
+    "degradation": "Q6 degradation",
+}
+
+
+def _system(payload: dict[str, Any]) -> dict[str, Any]:
+    coverage = payload.get("coverage", {})
+    reasons: dict[tuple[str, str], list[str]] = {}
+    for m in payload.get("measurements", []):
+        if m.get("status") != "measured" and m.get("reason"):
+            key = (str(m.get("component")), str(m.get("dimension")))
+            if m["reason"] not in reasons.setdefault(key, []):
+                reasons[key].append(m["reason"])
+    declared = [c.get("id") for c in payload.get("composition", {}).get("components", [])]
+    order = [c for c in declared if c in coverage] + [c for c in coverage if c not in declared]
+    rows = [{"component": component,
+             "cells": [{"dimension": d, "state": coverage[component].get(d, "not-applicable"),
+                        "why": " · ".join(reasons.get((component, d), []))}
+                       for d in (*BEHAVIOUR_AXIS, *AUDITABILITY_AXIS)]}
+            for component in order]
+    names = {"actionRecoverability": "Action recoverability",
+             "lifecycleCoverage": "Lifecycle coverage", "policyCheckability": "Policy checkability",
+             "responsibilityAttribution": "Responsibility attribution",
+             "evidenceIntegrity": "Evidence integrity", "degradation": "Degradation"}
+    card = [{"question": q, "dimension": names.get(entry.get("dimension"), entry.get("dimension")),
+             "answers": len(entry.get("answers", [])), "gaps": entry.get("gaps", []),
+             "notApplicable": entry.get("notApplicable", [])}
+            for q, entry in payload.get("card", {}).items()]
+    system = payload.get("system", {})
+    certifiability = payload.get("certifiability", {})
+    return {
+        "kind": "system",
+        "model": f"System · {system.get('id', 'unnamed')}",
+        "purpose": system.get("purpose"),
+        "certifiable": certifiability.get("certifiable"),
+        "reasons": certifiability.get("reasons", []),
+        "behaviourAxis": [AXIS_LABELS[d] for d in BEHAVIOUR_AXIS],
+        "auditabilityAxis": [AXIS_LABELS[d] for d in AUDITABILITY_AXIS],
+        "rows": rows,
+        "card": card,
+        "composition": payload.get("composition", {}),
+        "steps": payload.get("steps", []),
+        "members": payload.get("members", []),
+        "thresholds": payload.get("thresholds"),
+        "limitations": payload.get("limitations", []),
+        "environment": payload.get("environmentFingerprint", {}),
+    }
+
+
+def stored_reports(store: Path) -> list[dict[str, Any]]:
+    """Runs whose report a system audit can cite with --member, newest first."""
+    found = []
+    for record in runs(store):
+        if record.get("kind") not in ("bench", "smith") or record.get("status") not in (
+                "completed", "partial"):
+            continue
+        name = report_name(store / record["runId"], record)
+        if name:
+            found.append({"runId": record["runId"], "kind": record["kind"],
+                          "path": str(store / record["runId"] / name),
+                          "command": " ".join(record.get("command", [])[1:])[:70]})
+    return found
+
+
+# --- Sentinel (read where the operator says, D46/D50) -----------------------
+
+def read_jsonl(path: Path, *, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
+    """Complete JSON lines of a growing file from `offset`, and where to read next."""
+    if not path.is_file():
+        return [], offset
+    with path.open("rb") as handle:
+        handle.seek(offset)
+        data = handle.read()
+    complete = data[: data.rfind(b"\n") + 1]
+    lines = []
+    for raw in complete.splitlines():
+        try:
+            lines.append(json.loads(raw.decode("utf-8")))
+        except ValueError:
+            continue
+    return lines, offset + len(complete)
+
+
+def sentinel_event(line: dict[str, Any]) -> dict[str, Any]:
+    """An AuditEvent as the page shows it: what, who, decided how. Digests stay digests (N4).
+
+    A log line wraps the event in its chain link (`seq`, `previousHash`, `event`);
+    a bare event, as other importers write them, is read as it is.
+    """
+    record = line.get("event") if isinstance(line.get("event"), dict) else line
+    chain = record.get("actorChain") or []
+    return {
+        "seq": line.get("seq"),
+        "ts": record.get("ts"), "action": record.get("action"), "target": record.get("target"),
+        "phase": record.get("phase"),
+        "actors": " > ".join(f"{a.get('role')}:{a.get('id')}" for a in chain
+                             if isinstance(a, dict)),
+        "verdicts": [{"policy": d.get("policy"), "verdict": d.get("verdict")}
+                     for d in record.get("policyDecisions", []) if isinstance(d, dict)],
+        "pending": (record.get("extra") or {}).get("pendingId"),
+        "durationMs": record.get("durationMs"), "error": record.get("error"),
+        "digest": (record.get("args") or {}).get("digest") if isinstance(record.get("args"),
+                                                                           dict) else None,
+    }
+
+
+def pending_actions(queue: Path) -> list[dict[str, Any]]:
+    """Actions the gate holds for a human, as the queue keeps them."""
+    if not queue.is_dir():
+        return []
+    from opaas.sentinel.gate import ApprovalQueue
+
+    entries = []
+    for entry in ApprovalQueue(queue).pending():
+        chain = entry.get("actorChain") or []
+        entries.append({
+            "id": entry.get("id"), "submittedAt": entry.get("submittedAt"),
+            "target": entry.get("target"),
+            "actors": " > ".join(f"{a.get('role')}:{a.get('id')}" for a in chain
+                                 if isinstance(a, dict)),
+            "policies": [p.get("policy") for p in entry.get("policies", [])
+                         if isinstance(p, dict)],
+            "digest": (entry.get("args") or {}).get("digest")
+            if isinstance(entry.get("args"), dict) else None,
+        })
+    return entries
 
 
 def run_for_job(store: Path, job_id: str) -> dict[str, Any] | None:

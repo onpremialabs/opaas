@@ -169,10 +169,57 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         return StreamingResponse(stream(), media_type="text/event-stream")
 
     async def new_job(request: Request) -> Response:
+        from opaas.system.orchestrate import STEPS
         from opaas.ui.jobs import REROUTED_AGENTS
 
         return page(request, "new.html", sources=views.scenario_sources(),
-                    adapters=views.agent_adapters(), rerouted=sorted(REROUTED_AGENTS))
+                    adapters=views.agent_adapters(), rerouted=sorted(REROUTED_AGENTS),
+                    reports=views.stored_reports(store), steps=list(STEPS))
+
+    def _path(request: Request, name: str) -> Path | None:
+        value = (request.query_params.get(name) or "").strip()
+        return Path(value).expanduser() if value else None
+
+    async def sentinel(request: Request) -> Response:
+        """Sentinel's traffic and the gate's queue, read where the operator keeps them.
+
+        The proxy is started from a terminal (D46); this page only reads its
+        log and the approval queue. Approving stays with the named approver (D50).
+        """
+        log, queue = _path(request, "log"), _path(request, "queue")
+        events = []
+        if log is not None and log.is_file():
+            lines, _ = views.read_jsonl(log)
+            events = [views.sentinel_event(r) for r in lines[-200:]]
+        return page(request, "sentinel.html", log=log, queue=queue, events=list(reversed(events)),
+                    log_missing=log is not None and not log.is_file(),
+                    queue_missing=queue is not None and not queue.is_dir(),
+                    pending=views.pending_actions(queue) if queue else [])
+
+    async def sentinel_events(request: Request) -> Response:
+        """New events in the proxy's log as they are appended, by server-sent events."""
+        log = _path(request, "log")
+        if log is None or not log.is_file():
+            return PlainTextResponse("No such log.", status_code=404)
+        once = request.query_params.get("once") == "1"
+
+        async def stream() -> AsyncIterator[str]:
+            _, offset = views.read_jsonl(log)  # the page already shows what is there
+            if once:
+                offset = 0
+            while True:
+                lines, offset = views.read_jsonl(log, offset=offset)
+                for line in lines:
+                    yield f"data: {json.dumps(views.sentinel_event(line))}\n\n"
+                if once or await request.is_disconnected():
+                    return
+                await asyncio.sleep(1.0)
+
+        return StreamingResponse(stream(), media_type="text/event-stream")
+
+    async def sentinel_pending(request: Request) -> Response:
+        queue = _path(request, "queue")
+        return JSONResponse(views.pending_actions(queue) if queue else [])
 
     async def job_page(request: Request) -> Response:
         job = jobs.jobs.get(request.path_params["job_id"])
@@ -223,6 +270,9 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         Route("/api/jobs", api_jobs, methods=["GET", "POST"]),
         Route("/api/jobs/{job_id}", api_job, methods=["GET"]),
         Route("/api/jobs/{job_id}/cancel", api_job, methods=["POST"]),
+        Route("/sentinel", sentinel),
+        Route("/sentinel/events", sentinel_events),
+        Route("/api/sentinel/pending", sentinel_pending),
         Route("/favicon.svg", favicon),
         Route("/mascot.json", mascot),
         Mount("/static", StaticFiles(directory=str(HERE / "static")), name="static"),

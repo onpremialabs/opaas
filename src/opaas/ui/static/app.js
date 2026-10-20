@@ -90,15 +90,31 @@ function agentProblem(form) {
     return "Confirm that the agent's only tools are OPAAS's mock server.";
   return null;
 }
+function systemArgs(form) {
+  const f = new FormData(form);
+  const value = (name) => (f.get(name) || "").trim();
+  const args = ["audit", "run", value("manifest")];
+  for (const step of f.getAll("skip")) args.push("--skip", step);
+  if (value("bench_args")) args.push("--bench-args", value("bench_args"));
+  if (value("repeats")) args.push("-n", value("repeats"));
+  const components = f.getAll("member_component");
+  const paths = f.getAll("member_run");
+  components.forEach((component, i) => {
+    if (component.trim() && paths[i]) args.push("--member", `${component.trim()}=${paths[i]}`);
+  });
+  return args;
+}
 function discoverArgs(form) {
   const args = ["discover", "scan"];
   if (new FormData(form).get("well_known")) args.push("--well-known");
   return args;
 }
-for (const form of document.querySelectorAll("form.launch")) {
+// Only forms that launch something: the sentinel page's path form is a plain GET form.
+for (const form of document.querySelectorAll("form.launch[data-kind]")) {
   // getAttribute, not form.dataset: a control named "dataset" shadows it on a form.
   const kind = form.getAttribute("data-kind");
-  const build = {bench: benchArgs, agent: agentArgs, discover: discoverArgs}[kind];
+  const build = {bench: benchArgs, agent: agentArgs, system: systemArgs,
+                 discover: discoverArgs}[kind];
   const preview = form.querySelector("[data-preview]");
   const error = form.querySelector("[data-error]");
   const refresh = () => {
@@ -124,6 +140,39 @@ for (const form of document.querySelectorAll("form.launch")) {
     }
   };
   form.addEventListener("input", refresh);
+  if (kind === "system") {
+    const rows = form.querySelector("[data-members]");
+    const template = form.querySelector("[data-member-row]");
+    form.querySelector("[data-add-member]").addEventListener("click", () => {
+      rows.insertBefore(template.content.cloneNode(true), template);
+      refresh();
+    });
+    rows.addEventListener("click", (event) => {
+      if (event.target.closest("[data-remove-member]")) {
+        event.target.closest(".member").remove();
+        refresh();
+      }
+    });
+    // Draft and validate are their own commands, on the same manifest path.
+    for (const button of form.querySelectorAll("[data-system]")) {
+      button.addEventListener("click", async () => {
+        const f = new FormData(form);
+        const manifest = f.get("manifest").trim();
+        if (!manifest) {
+          error.textContent = "Enter the path of the system manifest.";
+          error.classList.remove("hidden");
+          return;
+        }
+        const args = button.getAttribute("data-system") === "draft"
+          ? ["audit", "draft", "-o", manifest]
+          : ["audit", "validate", manifest];
+        const records = (f.get("records") || "").trim();
+        if (args[1] === "draft" && records) args.push("--records", records);
+        try { await launch(args); }
+        catch (e) { error.textContent = e.message; error.classList.remove("hidden"); }
+      });
+    }
+  }
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     error.classList.add("hidden");
@@ -133,7 +182,9 @@ for (const form of document.querySelectorAll("form.launch")) {
       error.classList.remove("hidden");
       return;
     }
-    const problem = kind === "agent" ? agentProblem(form) : null;
+    const problem = kind === "agent" ? agentProblem(form)
+      : kind === "system" && !new FormData(form).get("manifest").trim()
+        ? "Enter the path of the system manifest." : null;
     if (problem) {
       error.textContent = problem;
       error.classList.remove("hidden");
@@ -303,7 +354,9 @@ async function mob(canvas, mode) {
     {x: 515, s: 1.9, flip: false, d: 380},
   ];
   const meerkats = mode === "sentinel" ? [{...all[2], d: 0}] : all;
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Reduced motion, or a tab in the background (where the browser throttles
+  // frames and the mob would freeze half out): shown standing, at once.
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.hidden;
   const ease = (t) => { t = Math.min(Math.max(t, 0), 1); const c = 1.4; return 1 + (c + 1) * (t - 1) ** 3 + c * (t - 1) ** 2; };
   let start = 0;
   const frame = (now) => {
@@ -330,4 +383,71 @@ async function mob(canvas, mode) {
     if (t < 4400) requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+}
+
+// --- Sentinel: follow the proxy's log and the gate's queue ------------------
+// The paths are the operator's; the browser remembers them for next time.
+const SENTINEL_KEY = "opaas.sentinel";
+const sentinelForm = document.getElementById("sentinel-paths");
+if (sentinelForm) {
+  const params = new URLSearchParams(location.search);
+  if (!params.get("log") && !params.get("queue")) {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(SENTINEL_KEY) || "null"); } catch (e) { saved = null; }
+    if (saved && (saved.log || saved.queue)) {
+      location.replace(`/sentinel?${new URLSearchParams(saved)}`);
+    }
+  } else {
+    try {
+      localStorage.setItem(SENTINEL_KEY, JSON.stringify(
+        {log: params.get("log") || "", queue: params.get("queue") || ""}));
+    } catch (e) { /* private window: nothing is remembered */ }
+  }
+}
+
+const logBox = document.querySelector("[data-sentinel-log]");
+if (logBox) {
+  const body = logBox.querySelector("[data-events]");
+  const log = logBox.getAttribute("data-sentinel-log");
+  const source = new EventSource(`/sentinel/events?${new URLSearchParams({log})}`);
+  source.onmessage = (message) => {
+    const e = JSON.parse(message.data);
+    const row = document.createElement("tr");
+    const cell = (text, cls) => {
+      const td = document.createElement("td");
+      if (cls) td.className = cls;
+      td.textContent = text;
+      row.append(td);
+      return td;
+    };
+    cell((e.ts || "").slice(11, 19), "mono dim");
+    cell(e.actors || "—");
+    const action = cell("");
+    const b = document.createElement("b");
+    b.textContent = e.action + " ";
+    action.append(b, document.createTextNode(e.target || ""));
+    const verdicts = cell("");
+    for (const v of e.verdicts) {
+      const span = document.createElement("span");
+      span.className = `verdict v-${v.verdict}`;
+      span.textContent = `${v.policy}: ${v.verdict}`;
+      verdicts.append(span, document.createTextNode(" "));
+    }
+    if (!e.verdicts.length) verdicts.innerHTML = '<span class="dim">no policy</span>';
+    cell(e.durationMs ?? "", "r mono");
+    const empty = body.querySelector("td[colspan]");
+    if (empty) empty.parentElement.remove();
+    body.prepend(row);
+  };
+}
+
+const queueBox = document.querySelector("[data-sentinel-queue]");
+if (queueBox) {
+  const count = queueBox.querySelector("[data-pending-count]");
+  const queue = queueBox.getAttribute("data-sentinel-queue");
+  setInterval(async () => {
+    const pending = await api(`/api/sentinel/pending?${new URLSearchParams({queue})}`)
+      .catch(() => null);
+    if (pending && String(pending.length) !== count.textContent) location.reload();
+  }, 3000);
 }

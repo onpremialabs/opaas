@@ -398,9 +398,11 @@ Open the address it prints: the token in it is the session's key. The dashboard 
 run store on `127.0.0.1` only. It shows every run with its command and its files checked
 against their hashes, per-category intervals, what was not measured, live progress, and
 versioned unsigned drafts of the certificate. It launches measuring commands only, each shown
-before it runs, and jobs against one engine wait their turn. Models and agents are launched
-from *New audit*: an agent run shows its behaviour, its task completion by category and the five
-auditability dimensions, each with what was not measured and why. Signing stays `opaas sign`, in a
+before it runs, and jobs against one engine wait their turn. Models, agents and whole systems are
+launched from *New audit*. An agent run shows its behaviour, its task completion by category
+and the five auditability dimensions. A system shows its coverage matrix and Auditability Card.
+Each shows what was not measured and why. *Sentinel* follows a running proxy's log and its
+gate's queue live, with the command that approves each held action. Signing stays `opaas sign`, in a
 terminal. From another machine, tunnel to it:
 
 ```bash
