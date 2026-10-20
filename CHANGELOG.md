@@ -17,7 +17,8 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
   stands still, and blinks, looks around and hops when the mouse passes over it
   or a command is chosen. Beside it is the menu, grouped by task,
   with the selected entry's command and documentation link. Read-only entries
-  run in place; the others print the exact command to copy. `o` opens the
+  run in place, and *Open the dashboard* starts `opaas ui` until Ctrl+C
+  brings the menu back; the others print the exact command to copy. `o` opens the
   entry's documentation. `OPAAS_NO_ANIMATION=1` stills the meerkats.
 - **One interactive mode.** `opaas` alone opens that screen in any terminal,
   laid out for its size; in a short one the menu scrolls. The inline cover

@@ -285,3 +285,32 @@ def test_every_menu_entry_says_what_it_does_and_where_it_is_documented():
         assert item.description, item.label
         assert item.docs.startswith("https://github.com/onpremialabs/opaas/"), item.label
         assert bool(item.command) != bool(item.action), item.label
+
+
+def test_the_dashboard_entry_starts_the_dashboard(monkeypatch):
+    started = []
+    monkeypatch.setattr("opaas.cli.ui.ui", lambda port, host, open_browser:
+                        started.append((port, host, open_browser)))
+    entry = next(item for item in _menu_items() if item.label == "Open the dashboard")
+    assert entry.action is not None and not entry.command
+    entry.action()
+    assert started == [(8780, "127.0.0.1", None)]
+
+
+def test_an_entry_that_exits_brings_the_menu_back():
+    """A port already taken or a missing extra says why; the menu stays."""
+    import typer
+
+    runs = []
+
+    def failing():
+        runs.append(1)
+        raise typer.Exit(code=1)
+
+    def exiting():
+        runs.append(2)
+        raise SystemExit(1)
+
+    items = [MenuItem("a", "Fails", action=failing), MenuItem("b", "Exits", action=exiting)]
+    _run(items, ENTER, OTHER, DOWN, ENTER, OTHER, QUIT)
+    assert runs == [1, 2]

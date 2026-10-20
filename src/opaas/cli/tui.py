@@ -41,6 +41,7 @@ import webbrowser
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
+import typer
 from rich.box import SQUARE
 from rich.console import Console, Group, RenderableType
 from rich.live import Live
@@ -133,21 +134,23 @@ class KeyReader:
             self._fd = sys.stdin.fileno()
             self._saved = termios.tcgetattr(self._fd)
             tty.setcbreak(self._fd)
-        if self._mouse:
-            sys.stdout.write(_MOUSE_ON)
-            sys.stdout.flush()
+        self.mouse(True)
         return self
 
     def __exit__(self, *_: object) -> None:
-        if self._mouse:
-            sys.stdout.write(_MOUSE_OFF)
-            sys.stdout.flush()
+        self.mouse(False)
         if os.name == "nt":
             _windows_vt_input(False, self._saved)
         else:
             import termios
 
             termios.tcsetattr(self._fd, termios.TCSADRAIN, self._saved)
+
+    def mouse(self, on: bool) -> None:
+        """Asks the terminal to report the mouse, or to stop."""
+        if self._mouse:
+            sys.stdout.write(_MOUSE_ON if on else _MOUSE_OFF)
+            sys.stdout.flush()
 
     def read(self, timeout: float | None) -> str | Mouse | None:
         """A normalized key, a `Mouse`, or None when the timeout passed with none."""
@@ -535,7 +538,17 @@ def _loop(console: Console, screen: Screen, meerkat: Sentinel, reader: KeyReader
             _print_command(console, item)
             return
         console.print()
-        item.action()
+        # The terminal stops reporting the mouse while the entry runs: the
+        # dashboard runs until Ctrl+C, and nothing reads the reports meanwhile.
+        getattr(reader, "mouse", lambda on: None)(False)
+        try:
+            item.action()
+        except (SystemExit, typer.Exit):
+            # An entry that exits (a port already taken, a missing extra) has
+            # said why; the menu comes back rather than closing with it.
+            pass
+        finally:
+            getattr(reader, "mouse", lambda on: None)(True)
         console.print()
         console.print(Text("Any key returns to the menu · q leaves",
                            Style(color=PALETTE.muted, italic=True)))

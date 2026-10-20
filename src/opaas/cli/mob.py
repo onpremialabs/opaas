@@ -80,6 +80,8 @@ _EYE_ROWS, _EYE_COLUMNS = range(5, 8), range(8, 12)
 _LID = "M"
 #: A block with less ink than this is left transparent when the grid is reduced.
 _INK = 0.34
+#: The eye's highlight in the grid, the one pixel a reduction must not lose.
+_GLINT = "S"
 #: Pixel rows above the drawing, so a hop or an overshoot has room.
 _HEADROOM = 2
 
@@ -117,6 +119,9 @@ def shrink(rows: tuple[str, ...], factor: int) -> tuple[str, ...]:
     """The grid reduced by `factor`: each block becomes its most common colour.
 
     Ties go to the colour met first, so the result is the same on every run.
+    The eye's highlight is the exception: one pixel, it would always lose its
+    block, and a meerkat without that glint looks blind. A block that holds
+    it keeps it.
     """
     if factor == 1:
         return rows
@@ -128,6 +133,9 @@ def shrink(rows: tuple[str, ...], factor: int) -> tuple[str, ...]:
             block = [rows[y][x] for y in range(top, min(top + factor, height))
                      for x in range(left, min(left + factor, width))]
             ink = [pixel for pixel in block if pixel != "."]
+            if _GLINT in ink:
+                line.append(_GLINT)
+                continue
             line.append(Counter(ink).most_common(1)[0][0]
                         if len(ink) >= _INK * len(block) else ".")
         reduced.append("".join(line))

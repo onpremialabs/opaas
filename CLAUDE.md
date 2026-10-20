@@ -174,7 +174,7 @@ docs/     guide.md (every audit mode), reference.md (commands, options, what is 
           is cut; releases are never replaced, D74), self-evaluation.md, implementation-plan.md, mitigation-plan.md,
           system-audit.md (proposal: the system as the audited subject, D60),
           dashboard.md (proposal: `opaas ui`, the local dashboard, and its file contract, D75)
-tests/    1355 tests, one file per module, plus conftest.py with the fake backends
+tests/    1358 tests, one file per module, plus conftest.py with the fake backends
 scripts/  sprite_from_png.py — regenerates cli/_sprite_data.py from docs/img/mascot.png;
           rehearse_ceremony.py — runs every opaas step of the key ceremony (D67);
           smoke_ui_install.py — the dashboard's flow from an installed opaas[ui] (CI)
@@ -221,7 +221,7 @@ a round trip.
 
 ### Known test state
 
-`uv run pytest` reports **1354 passed, 1 skipped**. The suite is green: treat any failure as yours.
+`uv run pytest` reports **1357 passed, 1 skipped**. The suite is green: treat any failure as yours.
 Most of its wall time is `nvidia-smi` being called by the bench tests; on a machine without
 it the suite is much faster.
 
