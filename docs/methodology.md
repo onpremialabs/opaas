@@ -1,6 +1,6 @@
 # OPAAS methodology
 
-This document exists so that someone who does not trust onpremIALabs can decide whether a certificate means anything. It describes what is measured, how, and — above all — **what cannot be claimed** from each figure.
+This document exists so that someone who does not trust onpremIA Labs can decide whether a certificate means anything. It describes what is measured, how, and — above all — **what cannot be claimed** from each figure.
 
 If you find an error here, it is a product error. The concrete decisions and their rationale are in [decisions.md](decisions.md).
 

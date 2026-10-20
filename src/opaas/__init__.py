@@ -1,4 +1,4 @@
-"""OPAAS — On-Prem AI Audit Suite (onpremIALabs)."""
+"""OPAAS — On-Prem AI Audit Suite (onpremIA Labs)."""
 
 __version__ = "0.4.0"
 

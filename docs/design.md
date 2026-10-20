@@ -1,11 +1,11 @@
 # OPAAS — On-Prem AI Audit Suite
-### Evaluation and digital credential system for on-prem LLM models — onpremIALabs
+### Evaluation and digital credential system for on-prem LLM models — onpremIA Labs
 
 ---
 
 ## 1. Digital credential schema (Verifiable Credential)
 
-A format based on W3C Verifiable Credentials, designed to be verifiable without depending on a central server — anyone can validate the signature with onpremIALabs' public key.
+A format based on W3C Verifiable Credentials, designed to be verifiable without depending on a central server — anyone can validate the signature with onpremIA Labs' public key.
 
 ```json
 {
@@ -138,7 +138,7 @@ The backend used is recorded in `configuration.backend` inside the credential (s
 1. Model + config selection → hash of both
 2. OPAAS execution (harness over lm-evaluation-harness / Inspect AI + our own A-E modules)
 3. Aggregation of results into a per-category structured report (no aggregate score, for now)
-4. Generation of a signed VC credential (onpremIALabs Ed25519 key)
+4. Generation of a signed VC credential (onpremIA Labs Ed25519 key)
 5. Publication: certificate page + badge + entry in a public registry (Certificate Transparency-style log)
 6. Consumption: third parties verify the signature + consult the re-certification history
 ```

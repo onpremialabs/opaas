@@ -3,7 +3,7 @@ title: "OPAAS — On-Prem AI Audit Suite"
 message: "If you use OPAAS in your research, please cite it as below."
 type: software
 authors:
-  - name: "onpremIALabs"
+  - name: "onpremIA Labs"
     website: "https://onpremialabs.com"
 repository-code: "https://github.com/onpremialabs/opaas"
 url: "https://onpremialabs.com"

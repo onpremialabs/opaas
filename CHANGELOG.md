@@ -10,6 +10,14 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Changed — the holder's name
+
+- **onpremIA Labs is written one way everywhere**: the copyright line in
+  `LICENSE`, the package authors, `CITATION.cff`, the CLI's help, the
+  certificates and the browser verifier, which said `onpremIALabs`. The
+  license text itself is the standard MIT one, unchanged. The `opaas-smoke`
+  dataset keeps its `source` field as it was: its bytes are pinned by hash.
+
 ### Documentation
 
 - **A new README**: what OPAAS audits, how it works, its principles, a quick start that

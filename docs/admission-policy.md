@@ -1,7 +1,7 @@
 # Admission policy
 
 This document exists for the same reason as the [methodology](methodology.md):
-so that someone who does not trust onpremIALabs can decide whether a public
+so that someone who does not trust onpremIA Labs can decide whether a public
 comparison means anything. It states what a registry of reports accepts, what
 it accepts with a caveat, and what it refuses.
 

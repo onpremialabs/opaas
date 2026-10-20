@@ -1,6 +1,6 @@
-# Root key custody — onpremIALabs
+# Root key custody — onpremIA Labs
 
-The root Ed25519 private key is the system's only secret. Every credential is signed with it; with the public one, published in the DID document, anyone verifies a credential **without depending on onpremIALabs infrastructure**. If the key is lost, no new credentials can be issued and nothing can be re-certified; if it leaks, anyone can issue certificates that look legitimate.
+The root Ed25519 private key is the system's only secret. Every credential is signed with it; with the public one, published in the DID document, anyone verifies a credential **without depending on onpremIA Labs infrastructure**. If the key is lost, no new credentials can be issued and nothing can be re-certified; if it leaks, anyone can issue certificates that look legitimate.
 
 > **What applies today, and what is decided.** The sections from *Generation* to *Rotation and revocation* describe how the tool works now: one key, in an encrypted file, signing every credential. [D65](decisions.md#d65--an-offline-root-on-two-tokens-delegates-to-an-issuing-key-issuances-stay-on-the-published-hash-chain) settles how the production root will be held, and that is different. The root stays offline on two hardware tokens and signs only delegations to an issuing key; the issuing key is the one that signs credentials. The decision is under [*Decided custody*](#decided-custody-d65) below. The tooling it needs exists ([D66](decisions.md#d66--the-delegation-walk-and-the-revocation-list-as-built)): `opaas delegate`, `sign --delegation`, `opaas revoke` and the walk in `verify`. What remains is the ceremony itself (phase 10, step 3 of the [work plan](workplan.md#phase-10-production-root-of-trust)), written out step by step in [the ceremony runbook](ceremony.md). Until it is run, no production key exists.
 
@@ -10,7 +10,7 @@ The root Ed25519 private key is the system's only secret. Every credential is si
 opaas keygen --out keys --did did:web:onpremialabs.com
 ```
 
-**`--did did:web:onpremialabs.com` is required for the production key, and it is not a default.** Without it, `keygen` names the key by itself (`did:key:z6Mk…`) and claims no organisation. Until D39 the onpremIALabs DID was the default, so every key anyone generated — test keys included — signed credentials claiming to come from onpremIALabs. The passphrase is typed at the prompt, not passed as an argument, so it stays out of the shell history.
+**`--did did:web:onpremialabs.com` is required for the production key, and it is not a default.** Without it, `keygen` names the key by itself (`did:key:z6Mk…`) and claims no organisation. Until D39 the onpremIA Labs DID was the default, so every key anyone generated — test keys included — signed credentials claiming to come from onpremIA Labs. The passphrase is typed at the prompt, not passed as an argument, so it stays out of the shell history.
 
 It produces three files:
 

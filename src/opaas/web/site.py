@@ -7,7 +7,7 @@ registry auditable with a `git diff`.
 
 The certificate page verifies the signature **in the browser**, with the data
 embedded in the HTML itself: it works without a network and without querying
-onpremIALabs.
+onpremIA Labs.
 """
 
 from __future__ import annotations

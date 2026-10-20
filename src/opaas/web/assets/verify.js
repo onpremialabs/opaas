@@ -414,7 +414,7 @@ async function run() {
         .join("") +
       "</ul>" +
       warnings.map((warning) => `<p class="note">${escape(warning)}</p>`).join("") +
-      '<p class="note">Verified entirely in your browser, without querying onpremIALabs.</p>';
+      '<p class="note">Verified entirely in your browser, without querying onpremIA Labs.</p>';
   } catch (error) {
     panel.innerHTML = `<p class="fail">Error while verifying: ${error.message}</p>`;
   }

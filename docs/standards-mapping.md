@@ -2,7 +2,7 @@
 
 This document is for an operator, an auditor or a compliance officer who wants to know what an OPAAS certificate can be used as evidence **for**, and, more importantly, what it cannot.
 
-**OPAAS is not a standard and does not certify compliance with any of these frameworks.** It is a methodology published by onpremIALabs ([methodology.md](methodology.md)), and no standards body or notified body has endorsed it. All four frameworks require things OPAAS does not touch: an organisation's policies, roles, risk management and human oversight. What OPAAS supplies is **technical evidence**: reproducible measurements of a specific deployment, signed and verifiable by a third party. A management system, a conformity assessment or an ENS audit can cite that evidence. It cannot replace any of them.
+**OPAAS is not a standard and does not certify compliance with any of these frameworks.** It is a methodology published by onpremIA Labs ([methodology.md](methodology.md)), and no standards body or notified body has endorsed it. All four frameworks require things OPAAS does not touch: an organisation's policies, roles, risk management and human oversight. What OPAAS supplies is **technical evidence**: reproducible measurements of a specific deployment, signed and verifiable by a third party. A management system, a conformity assessment or an ENS audit can cite that evidence. It cannot replace any of them.
 
 How strongly OPAAS fits each clause:
 

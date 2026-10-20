@@ -2,7 +2,7 @@
 
 If your weights cannot leave your network — the norm in regulated on-prem settings — they do not have to. You run the evaluation and send us the report.
 
-This document says how to do it and, more importantly, **what onpremIALabs can and cannot verify about a report it did not produce**. That distinction is what makes the certificate honest.
+This document says how to do it and, more importantly, **what onpremIA Labs can and cannot verify about a report it did not produce**. That distinction is what makes the certificate honest.
 
 ---
 
@@ -39,13 +39,13 @@ This is the part a buyer of yours has a right to understand.
 **What the signature does guarantee:**
 
 - That **that specific report** has not been altered since it was signed. One byte different and verification fails.
-- That it was issued by onpremIALabs and not by a third party.
+- That it was issued by onpremIA Labs and not by a third party.
 - That it was issued within the process, if it appears in the transparency log.
 - That the certificate expires, and when.
 
 **What the signature does NOT guarantee:**
 
-- **That the measurements are true.** onpremIALabs was not standing in front of your GPU. A self-run report is signed as *"this is what the operator declares having measured"*, not as *"we have checked this"*.
+- **That the measurements are true.** onpremIA Labs was not standing in front of your GPU. A self-run report is signed as *"this is what the operator declares having measured"*, not as *"we have checked this"*.
 - **That the evaluated model is the deployed one.** Only if you supplied `--weights-path` does the certificate anchor a weights hash; then anyone can recompute it over the model in production and check that it matches. Without that, the link is the name, which is not a link.
 - **That the measured configuration is the production one.** It is trivial to evaluate at a concurrency you do not use.
 

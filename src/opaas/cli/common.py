@@ -62,7 +62,7 @@ def _signing_identity(key: Path, private_key: Any, issuer: str | None) -> tuple[
     `--issuer` says otherwise, and then the two must agree. Signing under a
     name whose document does not list this key produces a credential nobody
     can verify against that name; signing under someone else's name by
-    default is how every test key used to claim to be onpremIALabs.
+    default is how every test key used to claim to be onpremIA Labs.
     """
     document_path = key.parent / DID_DOCUMENT_FILENAME
     document = None

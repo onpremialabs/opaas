@@ -8,9 +8,9 @@ infrastructure.
 `did`, a new pair is named by itself: `did:key:z6Mk…`, derived from the public
 key, which claims nothing about any organisation. A `did:web` name is only
 used when asked for, by whoever controls that domain and will publish the
-document there. onpremIALabs' production key is generated with
+document there. onpremIA Labs' production key is generated with
 `did="did:web:onpremialabs.com"` (see `docs/key-custody.md`); before D39 that
-was the default, and every key anyone generated claimed to be onpremIALabs.
+was the default, and every key anyone generated claimed to be onpremIA Labs.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ PRIVATE_KEY_FILENAME = "opaas-root-ed25519.pem"
 PUBLIC_KEY_FILENAME = "opaas-root-ed25519.pub.pem"
 DID_DOCUMENT_FILENAME = "did.json"
 
-#: onpremIALabs' own issuer DID. Named, not defaulted: see the module docstring.
+#: onpremIA Labs' own issuer DID. Named, not defaulted: see the module docstring.
 ONPREMIALABS_DID = "did:web:onpremialabs.com"
 
 

@@ -1,5 +1,5 @@
 # Implementation plan — OPAAS
-### onpremIALabs
+### onpremIA Labs
 
 This plan assumes solo development (or a small team) alongside a full-time job, so it is phased to deliver usable value as early as possible instead of building the whole system before shipping anything.
 
@@ -8,7 +8,7 @@ This plan assumes solo development (or a small team) alongside a full-time job, 
 ## Phase 0 — Foundations (before writing product code)
 - Define the repo structure (monorepo: `cli/`, `adapters/`, `suites/`, `credential/`, `web/`)
 - Choose the stack: Python for the CLI and the harness (the evals ecosystem is already there), language for the publication website to be decided
-- Generate the onpremIALabs root Ed25519 key pair (root of trust) and document how it is kept
+- Generate the onpremIA Labs root Ed25519 key pair (root of trust) and document how it is kept
 - Private repo until the minimum flow is proven; public once the methodology is ready for scrutiny
 
 ---

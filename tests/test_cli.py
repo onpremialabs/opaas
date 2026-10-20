@@ -304,7 +304,7 @@ def _sign(tmp_path, keys, *extra):
 
 
 def test_sign_refuses_to_sign_under_a_name_the_key_does_not_carry(tmp_path):
-    """Defaulting to someone else's name is how test keys claimed to be onpremIALabs."""
+    """Defaulting to someone else's name is how test keys claimed to be onpremIA Labs."""
     _, _, keys = _sign_flow(tmp_path)
     result = _sign(tmp_path, keys, "--issuer", "did:web:onpremialabs.com")
     assert result.exit_code == 2

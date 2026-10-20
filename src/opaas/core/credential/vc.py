@@ -274,7 +274,7 @@ def public_identifier(credential: dict[str, Any]) -> str:
     It is prefixed with the issuer's domain when the issuer is a `did:web`,
     and with the neutral `opaas:` otherwise. It used to read
     `onpremialabs:cert:` for every credential, so a certificate self-issued
-    under a `did:key` said onpremIALabs had issued it: the name D39 removed
+    under a `did:key` said onpremIA Labs had issued it: the name D39 removed
     from the issuer field had survived in the identifier.
     """
     identifier = str(credential.get("id", ""))

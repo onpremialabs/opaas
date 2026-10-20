@@ -24,7 +24,7 @@ site/
 
 Verification cannot depend on the infrastructure of whoever issues the certificate. A static site can be copied to any hosting, audited with a `git diff`, and has no backend that could lie.
 
-The page verifies the signature **in the browser**, with the credential and the DID document embedded in the HTML itself: it works without calling onpremIALabs and without a connection to the issuer. It needs a secure context (HTTPS or localhost) because it uses WebCrypto.
+The page verifies the signature **in the browser**, with the credential and the DID document embedded in the HTML itself: it works without calling onpremIA Labs and without a connection to the issuer. It needs a secure context (HTTPS or localhost) because it uses WebCrypto.
 
 ## What is missing
 
