@@ -16,7 +16,7 @@ from typing import Any
 from opaas.core.store import RUN_FILE, list_runs, load_run, read_progress, verify_files
 
 #: Where a run keeps the report the pages summarise, in order of preference.
-REPORTS = ("report.json", "system-audit/system-report.json")
+REPORTS = ("report.json", "system-audit/system-report.json", "comparison.json")
 
 #: The meerkat's head: the top rows and left columns of the CLI's grid.
 HEAD_ROWS, HEAD_COLS = 14, 22
@@ -31,7 +31,73 @@ def runs(store: Path) -> list[dict[str, Any]]:
             drafts[record["sourceRun"]] = drafts.get(record["sourceRun"], 0) + 1
     for record in records:
         record["draftCount"] = drafts.get(record["runId"], 0)
+        record.update(_describe(store / record["runId"], record))
     return list(reversed(records))
+
+
+def _option(words: list[str], *names: str) -> str | None:
+    for index, word in enumerate(words):
+        if word in names and index + 1 < len(words):
+            return words[index + 1]
+    return None
+
+
+def _describe(directory: Path, record: dict[str, Any]) -> dict[str, Any]:
+    """What the history filters on: model, backend, quantization, deployment fingerprint.
+
+    Taken from the command and, for a model run, from its report; a run that
+    does not say is left without, never guessed.
+    """
+    command = record.get("command", [])
+    found: dict[str, Any] = {"model": _option(command, "--model", "-m"),
+                             "backend": _option(command, "--backend", "-b")}
+    if record.get("kind") == "bench" and "report.json" in record.get("files", {}):
+        found["reportPath"] = str(directory / "report.json")
+        try:
+            report = json.loads((directory / "report.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            report = {}
+        model = report.get("model") if isinstance(report.get("model"), dict) else {}
+        configuration = report.get("configuration", {})
+        found.update({
+            "model": model.get("name") or found["model"],
+            "quantization": model.get("quantization"),
+            "backend": configuration.get("backend") or found["backend"],
+            "fingerprint": (report.get("deploymentFingerprint") or {}).get("hash"),
+            "referenceType": report.get("referenceType"),
+        })
+    return {k: v for k, v in found.items() if v is not None}
+
+
+#: The history's filters, and how each one matches a run.
+FILTERS = ("kind", "status", "model", "backend", "version", "fingerprint", "since", "until")
+
+
+def filter_runs(records: list[dict[str, Any]], query: dict[str, str]) -> list[dict[str, Any]]:
+    """Runs matching every filter given. Text filters match a part, case aside."""
+    def keep(record: dict[str, Any]) -> bool:
+        for name in FILTERS:
+            wanted = (query.get(name) or "").strip()
+            if not wanted:
+                continue
+            if name in ("kind", "status") and record.get(name) != wanted:
+                return False
+            if name in ("model", "backend") and wanted.lower() not in str(
+                    record.get(name, "")).lower():
+                return False
+            if name == "version" and record.get("opaasVersion") != wanted:
+                return False
+            if name == "fingerprint" and not str(record.get("fingerprint", "")).startswith(
+                    wanted if wanted.startswith("sha256:") else f"sha256:{wanted}"):
+                return False
+            started = str(record.get("startedAt", ""))[:10]
+            if name == "since" and started < wanted:
+                return False
+            if name == "until" and started > wanted:
+                return False
+        return True
+
+    return [r for r in records if keep(r)]
 
 
 def run_page(store: Path, run_id: str) -> dict[str, Any]:
@@ -84,6 +150,8 @@ def _report(path: Path) -> dict[str, Any] | None:
         return None
     if payload.get("kind") == "smith-report":
         return _agent(payload)
+    if "opaasBenchComparison" in payload:
+        return _comparison(payload)
     if payload.get("kind") == "system-report":
         return _system(payload)
     blocks = []
@@ -273,6 +341,52 @@ def agent_adapters() -> list[str]:
     from opaas.smith import available_agents
 
     return list(available_agents())
+
+
+# --- Comparisons (opaas compare, bench/compare.py) --------------------------
+
+def _comparison(payload: dict[str, Any]) -> dict[str, Any]:
+    """`opaas compare`'s own result, laid out: nothing is recomputed or re-judged here.
+
+    Each category keeps the CLI's verdict, word for word; the intervals are the
+    reports'. The order of runs is the order they were given, never a ranking.
+    """
+    runs = []
+    for run in payload.get("runs", []):
+        source = Path(str(run.get("source", "")))
+        runs.append({**run, "storeRun": source.parent.name if source.name == "report.json"
+                     else None})
+    # Two runs of one configuration get the same label from the CLI; on screen
+    # each bar must still say which run it is, so the run id leads it then.
+    labels = [r.get("label") for r in runs]
+    shown = {r.get("label"): r.get("label") for r in runs}
+    if len(set(labels)) < len(labels):
+        shown = {}
+    def display(label: str, index: int) -> str:
+        if label in shown:
+            return label
+        run = runs[index] if index < len(runs) else {}
+        return f"{run.get('storeRun') or run.get('runId')} · {label}"
+    capability = []
+    for row in payload.get("capability", []):
+        bars = []
+        for index, m in enumerate(row.get("runs", [])):
+            label = display(m["label"], index)
+            if m.get("accuracy") and m["accuracy"].get("point") is not None:
+                bars.append(_interval(label, {**m["accuracy"], "n": m.get("items")}))
+            else:
+                bars.append({"label": label, "missing": True})
+        capability.append({"category": row.get("category"), "bars": bars,
+                           "verdict": row.get("verdict", {})})
+    return {
+        "kind": "comparison",
+        "model": f"Comparison · {len(runs)} runs",
+        "runs": runs,
+        "warnings": payload.get("warnings", []),
+        "capability": capability,
+        "performance": payload.get("performance", []),
+        "consistency": payload.get("consistency", []),
+    }
 
 
 # --- Systems (system reports, D60) ------------------------------------------

@@ -197,8 +197,11 @@ class JobManager:
         workdir = self.store / JOBS_DIR / job.id
         workdir.mkdir(parents=True, exist_ok=True)
         job.log = workdir / "job.log"
-        env = {**os.environ, "OPAAS_RUNS_DIR": str(self.store), JOB_ENV: job.id,
-               "PYTHONIOENCODING": "utf-8", "NO_COLOR": "1"}
+        # The job writes to a file, never a terminal: TTY_COMPATIBLE=0 makes Rich print
+        # plain lines, even when the server's own environment forces colour.
+        env = {k: v for k, v in os.environ.items() if k != "FORCE_COLOR"}
+        env.update({"OPAAS_RUNS_DIR": str(self.store), JOB_ENV: job.id,
+                    "PYTHONIOENCODING": "utf-8", "NO_COLOR": "1", "TTY_COMPATIBLE": "0"})
         try:
             job.process = self.launcher([sys.executable, "-m", "opaas", *job.args],
                                         workdir, env, job.log)

@@ -95,6 +95,13 @@ For 0.4.0: the run store, first of the pieces behind the local dashboard
   gate's approval queue. Events arrive live, digests only. Each held action
   shows the command its approver runs. The dashboard never starts the
   proxy and never approves.
+- **History and comparison.** The run list shows each run's model,
+  quantization, backend and deployment fingerprint. It filters by kind,
+  status, model, backend, OPAAS version, fingerprint and date. Tick two or
+  more model runs to compare them: the dashboard runs `opaas compare` and
+  shows its result per category, with every run's interval and the CLI's
+  verdict. Overlapping intervals read as no difference, and there is no
+  ranking. Agents and systems are not compared yet.
 
 ## [0.3.1] — 2026-10-19
 

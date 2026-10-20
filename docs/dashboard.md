@@ -161,7 +161,7 @@ A server on `127.0.0.1` is still reachable by every local user and by any web pa
 | Live | `/runs/{id}/live` | Progress per phase, the event lines, the command, elapsed time; cancel |
 | Run | `/runs/{id}` | Results per block and category with intervals; *not measured* with reasons; deployment fingerprint; files with hashes; certificate versions to download. For an agent: behaviour with what each line counts, instability, task completion by category, the five auditability dimensions each on its own, bias, toxicity and every run; no draft of its own, since an agent is certified within a system audit |
 | History | `/runs` | Every run, filtered by kind, model, backend, fingerprint, OPAAS version, date and status |
-| Compare | `/compare?runs=a,b,…` | Per category, side by side; overlapping intervals marked as no difference; figures that cannot be compared said so, with why |
+| Compare | from `/runs`, as a `compare` run | Tick model runs in the history: the dashboard launches `opaas compare`, and the comparison run's page shows its result per category, side by side, overlapping intervals marked as no difference, its comparability warnings first. Agents and systems wait for the CLI to compare them |
 | Sentinel | `/sentinel?log=…&queue=…` | Events as they arrive (digests, actor chains, verdicts), held actions with the command their approver runs; the paths are the operator's, remembered in the browser |
 
 `/api/…` serves the same data as JSON, for scripts. It is read-only, apart from launching and cancelling jobs.

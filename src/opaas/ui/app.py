@@ -117,9 +117,12 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
                     jobs=[j.as_dict() for j in jobs.queue()][-8:])
 
     async def runs_page(request: Request) -> Response:
-        kind = request.query_params.get("kind")
-        listed = [r for r in views.runs(store) if not kind or r.get("kind") == kind]
-        return page(request, "runs.html", runs=listed, kind=kind)
+        every = views.runs(store)
+        query = {name: request.query_params.get(name, "") for name in views.FILTERS}
+        return page(request, "runs.html", runs=views.filter_runs(every, query), query=query,
+                    total=len(every),
+                    statuses=sorted({str(r.get("status")) for r in every}),
+                    versions=sorted({str(r.get("opaasVersion")) for r in every}))
 
     async def run_detail(request: Request) -> Response:
         run_id = request.path_params["run_id"]
