@@ -27,14 +27,14 @@ refuses the `Z` suffix that every date we emit ends in. CI now pins both.
 ## Phase 2 — The seal layer (does not exist yet)
 
 **This is the largest gap in the project.** `credential/anchors/` contains only
-a README, so onpremIALabs cannot today issue a credential that a third party
+a README, so onpremIA Labs cannot today issue a credential that a third party
 verifies without being handed a key. The tool produces self-verifiable evidence;
 the seal that means something to a stranger is not operational.
 
 | # | Task | Owner | Depends on |
 |---|---|---|---|
-| 2.1 | Generate the production root key under real custody | onpremIALabs | — |
-| 2.2 | Publish the DID at `onpremialabs.com/.well-known/did.json` | onpremIALabs | 2.1 |
+| 2.1 | Generate the production root key under real custody | onpremIA Labs | — |
+| 2.2 | Publish the DID at `onpremialabs.com/.well-known/did.json` | onpremIA Labs | 2.1 |
 | 2.3 | Bundle the anchor in `credential/anchors/` | — | 2.1 |
 
 **Acceptance:** on a clean machine, `opaas verify --credential cert.json

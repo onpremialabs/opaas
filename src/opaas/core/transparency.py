@@ -8,7 +8,7 @@ not appear in the log is suspicious in itself.
 trees, compact inclusion and consistency proofs, and — the essential part —
 *independent monitors* that watch the issuer and gossip with each other. Here
 the log is published by the issuer itself: a hash chain only proves that the
-**published** log is internally consistent. If onpremIALabs rewrote the entire
+**published** log is internally consistent. If onpremIA Labs rewrote the entire
 log and republished it, the chain would still add up.
 
 What it does provide, and it is not nothing:

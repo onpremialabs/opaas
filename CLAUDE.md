@@ -4,7 +4,7 @@ Guidance for AI assistants working in this repository.
 
 ## What this project is
 
-**OPAAS** (On-Prem AI Audit Suite, by onpremIALabs) evaluates an LLM **deployment**
+**OPAAS** (On-Prem AI Audit Suite, by onpremIA Labs) evaluates an LLM **deployment**
 that is already running — it never deploys or downloads the model under evaluation — and
 turns the result into a signed, third-party-verifiable digital certificate.
 

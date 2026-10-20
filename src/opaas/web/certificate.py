@@ -102,7 +102,7 @@ def check_verify_url(url: str) -> str:
     return url
 
 
-#: Where onpremIALabs publishes issued certificates: the root of the site
+#: Where onpremIA Labs publishes issued certificates: the root of the site
 #: `opaas publish` builds. An audit certificate's QR code points under it.
 PUBLISH_BASE_URL = "https://onpremialabs.com"
 
@@ -189,7 +189,7 @@ def render_printable(
         note = ("This page is a rendering. The certificate is the signed credential: if "
                 "anything here differs from it, the credential is right and this page is not.")
     brand = (f"{AUDIT_BRAND} · On-Prem AI Audit Suite" if audit
-             else "onpremIALabs · OPAAS — On-Prem AI Audit Suite")
+             else "onpremIA Labs · OPAAS — On-Prem AI Audit Suite")
     seal = _SEAL_HTML if audit else ""
     statement_by = " on the system where it is deployed" if audit else ""
 
@@ -314,7 +314,7 @@ def _render_system_printable(entry: Entry, *, verify_url: str | None,
             "This page is a rendering. The certificate is the signed credential: if anything "
             "here differs from it, the credential is right and this page is not.")
     brand = (f"{AUDIT_BRAND} · On-Prem AI Audit Suite" if audit
-             else "onpremIALabs · OPAAS — On-Prem AI Audit Suite")
+             else "onpremIA Labs · OPAAS — On-Prem AI Audit Suite")
     seal = _SEAL_HTML if audit else ""
 
     reasons = subject.get("notCertifiableBecause") or []

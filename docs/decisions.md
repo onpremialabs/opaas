@@ -54,7 +54,7 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 **Status:** applied · **Revises:** [D72](#d72--audit-run-shows-the-certificate-it-will-become-as-an-unsigned-draft) and [D77](#d77--an-unsigned-draft-of-any-stored-report-as-a-new-version-each-time) · **Affects:** [`web/certificate.py`](../src/opaas/web/certificate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), `opaas certificate --run`, the dashboard's run page, [`workplan.md`](workplan.md) phases 10 and 15
 
-D72 and D77 rendered the certificate of a run as a draft: a DRAFT watermark, a band on every sheet saying *not issued, pending signature by onpremIALabs*, and "once issued, verify with…". That assumed onpremIALabs would sign every certificate after the audit. It will not, for now. Whoever installs OPAAS audits their own system, and the certificate they generate, from the CLI or the dashboard, is the certificate of that audit.
+D72 and D77 rendered the certificate of a run as a draft: a DRAFT watermark, a band on every sheet saying *not issued, pending signature by onpremIA Labs*, and "once issued, verify with…". That assumed onpremIA Labs would sign every certificate after the audit. It will not, for now. Whoever installs OPAAS audits their own system, and the certificate they generate, from the CLI or the dashboard, is the certificate of that audit.
 
 **What it is now.**
 - `opaas certificate --run <id>` and the dashboard's *Generate certificate* render the **audit certificate** of a stored run, a new version each time, as D77 did. `opaas audit run` writes it as `certificate.html`, no longer `certificate-draft.html`.
@@ -326,15 +326,15 @@ D71's packs were in English. Block D measures Spanish since D70, but smith had n
 
 **Status:** applied, revised before release: no QR code unless a site is named; revised by [D81](#d81--the-certificate-of-a-run-is-the-final-audit-certificate-not-a-draft): the page is the final audit certificate, `certificate.html`, no longer a draft · **Affects:** [`web/certificate.py`](../src/opaas/web/certificate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), `audit run --certificate-base-url`, `--open/--no-open`
 
-Whoever runs an audit wants to see the certificate at the end of it, and the production root that would let onpremIALabs issue one on the spot does not exist yet (phase 10). Certificates will be issued by onpremIALabs after the audit and published on its site. Until then, a person who ran `audit run` got a JSON report and a hint to sign it.
+Whoever runs an audit wants to see the certificate at the end of it, and the production root that would let onpremIA Labs issue one on the spot does not exist yet (phase 10). Certificates will be issued by onpremIA Labs after the audit and published on its site. Until then, a person who ran `audit run` got a JSON report and a hint to sign it.
 
 **A draft at the end of every audit.** `audit run` writes `certificate-draft.html` next to the system report and opens it in the browser when run from a terminal (`--open/--no-open` overrides that). It is the system certificate page, rendered over the same unsigned credential `opaas sign` would build over that report with `did:web:onpremialabs.com` as issuer. Its identifier is therefore the one the issued certificate will carry, because the credential id comes from the system id and the report's hash, not from the signature.
 
-**A QR code only once there is a page to reach.** With `--certificate-base-url` (for example `https://onpremialabs.com`), the draft carries a QR code to `<base>/cert/<id>/index.html`, which is where `opaas publish` puts that certificate's page. A base that is not a web address is refused before the audit runs. Without it there is no QR code, and that is the default. The first version defaulted to onpremIALabs's site, but onpremIALabs publishes nothing until it has its own hardware for the benchmarks behind its certificates, and a code that leads to a missing page for months only misleads whoever scans it. A QR cannot carry the HTML itself: a code holds 2–3 KB, and phones do not reliably open embedded pages. A local address works only on the same network while a command is running.
+**A QR code only once there is a page to reach.** With `--certificate-base-url` (for example `https://onpremialabs.com`), the draft carries a QR code to `<base>/cert/<id>/index.html`, which is where `opaas publish` puts that certificate's page. A base that is not a web address is refused before the audit runs. Without it there is no QR code, and that is the default. The first version defaulted to onpremIA Labs's site, but onpremIA Labs publishes nothing until it has its own hardware for the benchmarks behind its certificates, and a code that leads to a missing page for months only misleads whoever scans it. A QR cannot carry the HTML itself: a code holds 2–3 KB, and phones do not reliably open embedded pages. A local address works only on the same network while a command is running.
 
-**Unmistakably a draft.** Both sheets carry a band saying it is not issued and pending onpremIALabs's signature. They also carry a *DRAFT* watermark. The title reads *Draft Certificate*, the issuer key reads *none: this draft is not signed*, and no validity dates are printed, because validity starts at issuance. The footer says the certificate is the signed credential, not this page. `opaas certificate` still renders the final page only for a credential that verifies (D29).
+**Unmistakably a draft.** Both sheets carry a band saying it is not issued and pending onpremIA Labs's signature. They also carry a *DRAFT* watermark. The title reads *Draft Certificate*, the issuer key reads *none: this draft is not signed*, and no validity dates are printed, because validity starts at issuance. The footer says the certificate is the signed credential, not this page. `opaas certificate` still renders the final page only for a credential that verifies (D29).
 
-**What is lost:** a draft printed without a QR code has no route from paper to the issued certificate. Its identifier and the report's hash are the only link, and `opaas verify` needs the credential itself. A draft printed with one leads to a missing page until onpremIALabs publishes there, and that site must follow `opaas publish`'s layout (`cert/<id>/index.html` at the root). The draft can be edited like any HTML page: it is evidence of nothing, and says so. A report the issuer would reject has no draft, with a note saying why, rather than a draft that could never be issued: for example, one with a cloud baseline among its members (D22).
+**What is lost:** a draft printed without a QR code has no route from paper to the issued certificate. Its identifier and the report's hash are the only link, and `opaas verify` needs the credential itself. A draft printed with one leads to a missing page until onpremIA Labs publishes there, and that site must follow `opaas publish`'s layout (`cert/<id>/index.html` at the root). The draft can be edited like any HTML page: it is evidence of nothing, and says so. A report the issuer would reject has no draft, with a note saying why, rather than a draft that could never be issued: for example, one with a cloud baseline among its members (D22).
 
 ---
 
@@ -664,7 +664,7 @@ D39 stopped every key from signing as `did:web:onpremialabs.com`. The short iden
 
 The same review found the certificate's block B line naming the whole composed dataset (*Accuracy on bbq+ifeval+squad2+xstest*); it now uses the scored-task label the CLI and the site already use.
 
-**What is lost:** onpremIALabs' own identifiers become `onpremialabs.com:cert:…` rather than the shorter `onpremialabs:cert:…` the design sketched. No production credential had been issued under the old form.
+**What is lost:** onpremIA Labs' own identifiers become `onpremialabs.com:cert:…` rather than the shorter `onpremialabs:cert:…` the design sketched. No production credential had been issued under the old form.
 
 ---
 
@@ -1013,13 +1013,13 @@ A certificate for one model said nothing about the four others served next to it
 
 **Status:** applied · **Fixes:** a default found in the first signed run · **Affects:** [`credential/keys.py`](../src/opaas/core/credential/keys.py), `cli/main.py` (`keygen`, `sign`), [`key-custody.md`](key-custody.md)
 
-The first full run on a real deployment produced a certificate signed with a throwaway test key that read, on paper, *Issuer key did:web:onpremialabs.com#key-1*. Two defaults were behind it. `keygen` wrote a DID document named `did:web:onpremialabs.com` for every key it generated, and `sign` used the same name as the issuer whenever `--issuer` was left out. Anyone who ran the tool got certificates that *said* onpremIALabs issued them.
+The first full run on a real deployment produced a certificate signed with a throwaway test key that read, on paper, *Issuer key did:web:onpremialabs.com#key-1*. Two defaults were behind it. `keygen` wrote a DID document named `did:web:onpremialabs.com` for every key it generated, and `sign` used the same name as the issuer whenever `--issuer` was left out. Anyone who ran the tool got certificates that *said* onpremIA Labs issued them.
 
-The cryptography never believed it: `verify` takes the key from a trust anchor, never from the credential (D4), so such a credential fails against the real onpremIALabs anchor. But the printed certificate and the site page show the issuer name, and a name that looks right is exactly what a reader checks.
+The cryptography never believed it: `verify` takes the key from a trust anchor, never from the credential (D4), so such a credential fails against the real onpremIA Labs anchor. But the printed certificate and the site page show the issuer name, and a name that looks right is exactly what a reader checks.
 
 **Now:**
 
-- **`keygen` names a key by itself.** The DID is `did:key:z6Mk…`, derived from the public key, with the verification method `did:key:…#z6Mk…` as that method specifies. It claims no domain. `--did did:web:<domain>` is for whoever controls the domain and will publish the document there. onpremIALabs' production key is generated with `--did did:web:onpremialabs.com`, spelled out in key custody, and nothing defaults to it.
+- **`keygen` names a key by itself.** The DID is `did:key:z6Mk…`, derived from the public key, with the verification method `did:key:…#z6Mk…` as that method specifies. It claims no domain. `--did did:web:<domain>` is for whoever controls the domain and will publish the document there. onpremIA Labs' production key is generated with `--did did:web:onpremialabs.com`, spelled out in key custody, and nothing defaults to it.
 - **`sign` takes the issuer from the key's own `did.json`**, the one `keygen` wrote beside it, along with the verification method whose public key matches the private key.
   - An explicit `--issuer` that differs from that document is refused, because the credential could not be verified against the issuer's document.
   - A `did.json` listing a different key is refused too.
@@ -1029,7 +1029,7 @@ A `did:key` name is not a trusted name. The public key is visible in the identif
 
 **Found on the way:** Rich renders `:key:` as an emoji, so the first real `keygen` printed `did🔑z6Mk…`. The files were right and the screen was not. The CLI's consoles now run with `emoji=False`, so identifiers print verbatim.
 
-**What it costs:** `DEFAULT_DID` and `DEFAULT_KEY_ID` are gone from the public API, replaced by `ONPREMIALABS_DID` and `did_key()`. Scripts that relied on the old default now get a `did:key` issuer, or a refusal if they passed `--issuer did:web:onpremialabs.com` with a key that is not onpremIALabs'. That refusal is the point of the change.
+**What it costs:** `DEFAULT_DID` and `DEFAULT_KEY_ID` are gone from the public API, replaced by `ONPREMIALABS_DID` and `did_key()`. Scripts that relied on the old default now get a `did:key` issuer, or a refusal if they passed `--issuer did:web:onpremialabs.com` with a key that is not onpremIA Labs'. That refusal is the point of the change.
 
 ## D38 — Block E's probes no longer report what they did not observe
 
@@ -1274,7 +1274,7 @@ Two safeguards that came out of testing it:
 
 Every issuance chains to the previous one. Altering, deleting or reordering an entry breaks the chain detectably, and a certificate missing from the log gives away an out-of-process issuance. `verify --log` adds the inclusion check.
 
-**What it is not.** CT uses Merkle trees, compact inclusion and consistency proofs, and — the essential part — independent monitors that watch the issuer. Here the log is published by the issuer itself: the chain only proves that the *published* log is internally consistent. If onpremIALabs rewrote the entire log and republished it, it would still add up.
+**What it is not.** CT uses Merkle trees, compact inclusion and consistency proofs, and — the essential part — independent monitors that watch the issuer. Here the log is published by the issuer itself: the chain only proves that the *published* log is internally consistent. If onpremIA Labs rewrote the entire log and republished it, it would still add up.
 
 What it does provide: anyone keeping an earlier copy detects the rewrite, and publishing the log in a repository with history puts those date-stamped copies in third-party hands. Calling it CT would be selling a guarantee it does not give; moving to real CT requires external monitors, and that is a product decision — who operates them and why you would trust them — before it is a code one.
 

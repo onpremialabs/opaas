@@ -1,6 +1,6 @@
 # The production key ceremony — runbook
 
-Phase 10, step 3 of the [work plan](workplan.md#phase-10-production-root-of-trust): create the onpremIALabs root on two hardware tokens, delegate to the first issuing key, publish the root's DID document, and prepare the pull request that ships it as the bundled anchor. What is decided, and why, is in [D65](decisions.md#d65--an-offline-root-on-two-tokens-delegates-to-an-issuing-key-issuances-stay-on-the-published-hash-chain), [D66](decisions.md#d66--the-delegation-walk-and-the-revocation-list-as-built) and [D67](decisions.md#d67--the-ceremonys-token-profile-and-how-the-signer-finds-the-tokens-key); the custody rules are in [key custody](key-custody.md). This page is only the order of operations.
+Phase 10, step 3 of the [work plan](workplan.md#phase-10-production-root-of-trust): create the onpremIA Labs root on two hardware tokens, delegate to the first issuing key, publish the root's DID document, and prepare the pull request that ships it as the bundled anchor. What is decided, and why, is in [D65](decisions.md#d65--an-offline-root-on-two-tokens-delegates-to-an-issuing-key-issuances-stay-on-the-published-hash-chain), [D66](decisions.md#d66--the-delegation-walk-and-the-revocation-list-as-built) and [D67](decisions.md#d67--the-ceremonys-token-profile-and-how-the-signer-finds-the-tokens-key); the custody rules are in [key custody](key-custody.md). This page is only the order of operations.
 
 The ceremony is run once, by the maintainer, by hand. Every `opaas` command in it has already been run in the same order by [`scripts/rehearse_ceremony.py`](../scripts/rehearse_ceremony.py) (see [*The ceremony, rehearsed*](key-custody.md#the-ceremony-rehearsed)). The token's own tooling could not be run here, because it needs a YubiKey. Each command carries one of these marks:
 
@@ -118,7 +118,7 @@ openssl verify -CAfile yubico-piv-ca-1.pem -untrusted A.intermediate.pem A.attes
 **Give `ykcs11` a certificate to show the key by.** `ykcs11` lists a slot's key objects from the certificate in it [unverified: newer versions may read the slot's metadata instead]:
 
 ```bash
-ykman piv certificates generate --subject "CN=onpremIALabs OPAAS root key-1" \
+ykman piv certificates generate --subject "CN=onpremIA Labs OPAAS root key-1" \
   --valid-days 3650 9a A.pub.pem                            # key-2 for token B; touch the token
 ```
 
@@ -292,7 +292,7 @@ A mismatch anywhere stops the ceremony. Nothing has been published yet at that p
 
 ## 10. The follow-up pull request
 
-One pull request, after the DID document is live, titled like *Ship the onpremIALabs root as the bundled anchor*. It contains:
+One pull request, after the DID document is live, titled like *Ship the onpremIA Labs root as the bundled anchor*. It contains:
 
 1. **`src/opaas/core/credential/anchors/did-web-onpremialabs.com.json`**: byte for byte the published `did.json`. `verify` reads every `*.json` in that directory (`trust.BUNDLED_ANCHORS`). The anchors `README.md` is updated to say what it now holds.
 2. **No bundled revocation list** unless one is decided. `anchors/revocations/` would freeze a list into a release, while verifiers already install the current one with `trust --add`. If one is shipped, it must be the published one and the decision goes in a D-entry.
@@ -301,7 +301,7 @@ One pull request, after the DID document is live, titled like *Ship the onpremIA
    - `resolve_trust("did:web:onpremialabs.com")` returns a root whose origin is the bundled directory, and whose two keys are **the two multibase values written on the sheet**, hard-coded in the test. Replacing the anchor then fails a test, as bumping a pinned dataset hash does (invariant 7);
    - `verify_credential(fixture, resolve_trust(issuer), now=<the credential's proof.created>)` is valid and walks `anchor` → `delegation` → … → `signature`. The time is fixed so that the test does not expire with the credential's 90 days or the delegation's 180;
    - `opaas verify --credential <fixture>` through the CLI with the same empty anchor directory reaches the bundled anchor (its output names it). The validity check fails once the credential expires, so this test asserts the origin and the delegation checks, not the exit code.
-5. **Documentation:** the workplan's phase 10 row (step 3 done, *Done when* met); D65's status (all steps implemented); `key-custody.md` (*What applies today* says the production root exists, with its fingerprints); the anchors README; CHANGELOG (*Upgrading*: `verify` now trusts onpremIALabs' root out of the box); this page, with whatever the dress rehearsal corrected.
+5. **Documentation:** the workplan's phase 10 row (step 3 done, *Done when* met); D65's status (all steps implemented); `key-custody.md` (*What applies today* says the production root exists, with its fingerprints); the anchors README; CHANGELOG (*Upgrading*: `verify` now trusts onpremIA Labs' root out of the box); this page, with whatever the dress rehearsal corrected.
 6. **The fingerprints in the pull request description**, for the reviewer to compare against the published `did.json` and the public log repository: the third channel.
 
 Release it as a version bump (`pyproject.toml`, `opaas.__version__`, `CITATION.cff` together). From that release on, the anchor is very hard to take back (D65): a lost token is handled as in [key custody](key-custody.md#rotation-and-revocation-under-d65-step-by-step), and a new root means a new anchor in a new release.
