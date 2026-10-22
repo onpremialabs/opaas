@@ -5,7 +5,12 @@
 <h1>Runs</h1>
 <p class="sub">Every result in your store, newest first. Nothing here is ever replaced or deleted.</p>
 
-<form class="filters-form" method="get" action="/runs">
+<nav class="tabs" aria-label="Run kinds">
+  <a href="/runs" class="{{ 'on' if not query.kind }}"{% if not query.kind %} aria-current="page"{% endif %}>All <span class="count">{{ total }}</span></a>
+  {% for kind, label in tabs %}<a href="/runs?kind={{ kind }}" class="{{ 'on' if query.kind == kind }}"{% if query.kind == kind %} aria-current="page"{% endif %}>{{ label }} <span class="count">{{ kinds[kind] }}</span></a>{% endfor %}
+</nav>
+
+<form class="card filters-form" method="get" action="/runs">
   <label>Kind
     <select name="kind"><option value="">any</option>
     {% for k in ['bench', 'smith', 'audit', 'discover', 'inquest', 'swarm', 'card', 'compare', 'certificate', 'sentinel'] %}<option{{ ' selected' if query.kind == k }}>{{ k }}</option>{% endfor %}</select>
@@ -32,6 +37,7 @@
 
 <p class="dim">{{ runs | length }} of {{ total }} run{{ 's' if total != 1 }}</p>
 {% if runs %}
+<div class="card table-card">
 <table class="list">
   <thead><tr><th></th><th>Run</th><th>Kind</th><th>Model · quantization · backend</th><th>Started</th><th class="r">Status</th></tr></thead>
   <tbody>
@@ -39,7 +45,7 @@
     <tr>
       <td>{% if run.reportPath %}<input type="checkbox" data-compare-pick data-compare-kind="{{ run.compareKind }}" value="{{ run.reportPath }}" aria-label="Compare {{ run.runId }}">{% endif %}</td>
       <td><a href="/runs/{{ run.runId }}" class="mono">{{ run.runId }}</a>{% if run.draftCount %} <span class="tag">{{ run.draftCount }} certificate{{ 's' if run.draftCount > 1 }}</span>{% endif %}</td>
-      <td>{{ run.kind }}</td>
+      <td><span class="kind">{{ run.kind }}</span></td>
       <td>{% if run.model %}<b>{{ run.model }}</b>{% endif %}{% if run.quantization %} · {{ run.quantization }}{% endif %}{% if run.backend %} · {{ run.backend }}{% endif %}{% if run.referenceType == 'cloud-baseline' %} <span class="tag">cloud baseline</span>{% endif %}
         {% if not run.model %}<span class="dim mono">{% if run.command %}{{ run.command[1:] | join(' ') | truncate(60) }}{% elif run.importedFrom %}imported{% endif %}</span>{% endif %}
         {% if run.fingerprint %}<br><span class="dim mono" title="deployment fingerprint">{{ run.fingerprint[:19] }}…</span>{% endif %}</td>
@@ -49,6 +55,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
 <div class="empty"><p>No run matches these filters.</p></div>
 {% endif %}

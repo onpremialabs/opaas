@@ -270,7 +270,8 @@ opaas ui
 ```
 
 Open the address it prints: the token in it is the session's key. The dashboard serves your
-run store on `127.0.0.1` only. It shows every run with its command and its files checked
+run store on `127.0.0.1` only, in a light or a dark theme you pick in its header. Its *Overview*
+is a landing page with the audit pipeline and links into these docs. It shows every run with its command and its files checked
 against their hashes, per-category intervals, what was not measured, live progress, and
 versioned audit certificates. It launches measuring commands only, each shown
 before it runs, and jobs against one engine wait their turn. The *Overview* says what OPAAS

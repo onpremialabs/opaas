@@ -49,6 +49,7 @@ DOCS: dict[str, tuple[str, str]] = {
     "classifiers": ("docs/reference.md", "classifiers-faithfulness-and-toxicity"),
     "not-measured": ("docs/reference.md", "what-is-not-measured"),
     "methodology": ("docs/methodology.md", ""),
+    "decisions": ("docs/decisions.md", ""),
     "ceremony": ("docs/ceremony.md", ""),
     "key-custody": ("docs/key-custody.md", ""),
 }

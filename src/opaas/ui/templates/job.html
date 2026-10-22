@@ -1,27 +1,34 @@
 {% extends "base.html" %}
-{% from "_macros.html" import state, command %}
+{% from "_macros.html" import state, command, stepper %}
 {% block title %}Job {{ job.id }}{% endblock %}
+{% block page_class %} flush{% endblock %}
 {% block content %}
 <div class="job" data-job="{{ job.id }}">
-  <div class="head">
-    <div>
-      <p class="crumb"><a href="/">Overview</a> / job <span class="mono">{{ job.id }}</span></p>
-      <h1>Job</h1>
-      <p class="sub" data-where>{% if job.endpoint %}Queue: <span class="mono">{{ job.endpoint }}</span>{% else %}Runs alongside other jobs{% endif %}</p>
+  {{ stepper('audit') }}
+  <section class="job-hero">
+    <div class="in">
+      <div class="copy">
+        <p class="where-line"><a href="/">Overview</a> / job <span class="mono">{{ job.id }}</span> · <span data-where>{% if job.endpoint %}queue <span class="mono">{{ job.endpoint }}</span>{% else %}runs alongside other jobs{% endif %}</span></p>
+        <h1>{{ 'Audit' if job.args[:1] == ['audit'] else 'Job' }} <span data-status>{{ state(job.status) }}</span></h1>
+        {{ command(job.command) }}
+        <p class="ready hidden" data-ready></p>
+        <div class="actions"><button type="button" class="btn ghost" data-cancel>Cancel</button></div>
+      </div>
+      <canvas class="mob hidden" width="660" height="210" data-mob aria-label="The meerkat mob comes out: a report was generated"></canvas>
     </div>
-    <div class="head-right"><span data-status>{{ state(job.status) }}</span>
-      <button type="button" class="btn" data-cancel>Cancel</button></div>
-  </div>
-  {{ command(job.command) }}
-
-  <canvas class="mob hidden" width="660" height="210" data-mob aria-label="The meerkat mob comes out: a report was generated"></canvas>
-  <p class="ready hidden" data-ready></p>
-
-  <section>
-    <h2>Progress</h2>
-    <div class="phases" data-phases></div>
-    <ol class="events" data-events><li class="dim">Waiting for the command to start…</li></ol>
   </section>
-  <details class="card"><summary>Command output</summary><pre class="log mono" data-log></pre></details>
+  <div class="page-in two">
+    <section class="main card">
+      <h2>Progress <span class="fine">a step shows a percent only when its command measures one</span></h2>
+      <div class="phases" data-phases></div>
+    </section>
+    <aside class="side">
+      <section class="card">
+        <h2>Live log</h2>
+        <ol class="events" data-events><li class="dim">Waiting for the command to start…</li></ol>
+      </section>
+      <details class="card"><summary>Command output</summary><pre class="log mono" data-log></pre></details>
+    </aside>
+  </div>
 </div>
 {% endblock %}

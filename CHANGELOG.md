@@ -10,6 +10,17 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Changed — the dashboard follows the audit pipeline, light or dark (D88)
+
+- **Overview, Audit, Runs, Docs ↗.** The overview is a landing page with a
+  hero, the six-stage pipeline, the jobs now running, the latest runs, what
+  OPAAS measures, and links into the documentation.
+- **A pipeline stepper** heads the audit: scope, scan, choose, audit,
+  report, certificate.
+- **Runs** has a tab per kind, with its count.
+- **A light and a dark theme**, chosen in the header and remembered in the
+  browser. Until then the system's preference holds.
+
 ### Changed — a project scan finds what the project declares, and you choose what to audit (D87)
 
 - **`discover scan --project` reads the whole folder for declarations.**
