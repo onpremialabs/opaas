@@ -66,7 +66,8 @@ function systemCommands(form) {
   const manifest = value("manifest");
   const commands = [];
   if (f.get("draft")) {
-    const draft = ["audit", "draft", "-o", manifest];
+    // Created the first time, then kept up to date: an update only adds (D86).
+    const draft = ["audit", "draft", "-o", manifest, "--update"];
     if (inventoryPath) draft.push("--inventory", inventoryPath);
     if (value("purpose")) draft.push("--purpose", value("purpose"));
     commands.push(draft);
@@ -213,11 +214,34 @@ if (discoverBox) {
     if (!listing.folders.length) browserList.innerHTML = '<li class="dim">No folders here.</li>';
   };
   // Opens beside the folder already named, with it picked, so a sibling is one click away.
-  discoverBox.querySelector("[data-browse]").addEventListener("click", async () => {
-    const current = folderInput.value.trim();
+  const listBeside = async (current) => {
     const listing = await api(`/api/folders?${new URLSearchParams({path: current})}`).catch(() => null);
     if (listing && listing.parent) browse(listing.parent, listing.path);
     else browse(current);
+  };
+  // The system's own folder dialog first (Explorer, Finder, the Linux desktop's),
+  // opened by the local server; the page's own list only where there is none.
+  const browseBtn = discoverBox.querySelector("[data-browse]");
+  const browseNote = discoverBox.querySelector("[data-browse-note]");
+  browseBtn.addEventListener("click", async () => {
+    const current = folderInput.value.trim();
+    browseBtn.disabled = true;
+    browseNote.textContent = "Choose the folder in the window that opened…";
+    browseNote.classList.remove("hidden");
+    try {
+      const answer = await api("/api/folders/pick", {path: current});
+      browseNote.classList.add("hidden");
+      if (answer.path) {
+        folderInput.value = answer.path;
+        browser.classList.add("hidden");
+        refreshScope();
+      }
+    } catch (e) {
+      browseNote.textContent = `${e.message} Pick the folder here instead.`;
+      await listBeside(current);
+    } finally {
+      browseBtn.disabled = false;
+    }
   });
   browser.querySelector("[data-up]").addEventListener("click", () => here && here.parent && browse(here.parent, here.path));
   browser.querySelector("[data-choose]").addEventListener("click", () => {

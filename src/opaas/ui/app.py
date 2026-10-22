@@ -174,6 +174,21 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         return page(request, "new.html", manifest=str(Path.cwd() / "system.json"),
                     cwd=str(Path.cwd()))
 
+    async def folder_pick(request: Request) -> Response:
+        """The system's own folder dialog, on this desktop; the page falls back to its list."""
+        from opaas.ui import dialog
+
+        try:
+            body = await request.json()
+        except ValueError:
+            body = {}
+        initial = str((body or {}).get("path") or Path.cwd())
+        try:
+            chosen = await asyncio.to_thread(dialog.pick_folder, initial)
+        except dialog.DialogError as exc:
+            return JSONResponse({"error": f"No folder dialog here: {exc}"}, status_code=501)
+        return JSONResponse({"path": chosen} if chosen else {"cancelled": True})
+
     async def folder_list(request: Request) -> Response:
         """One level of the folder picker; the environment is where `opaas ui` started."""
         listing = views.folders(Path(request.query_params.get("path") or Path.cwd()))
@@ -244,6 +259,7 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         Route("/api/discover/latest", discover_latest),
         Route("/api/discover/{run_id}", discover_run),
         Route("/api/folders", folder_list),
+        Route("/api/folders/pick", folder_pick, methods=["POST"]),
         Route("/batch", batch_page),
         Route("/jobs/{job_id}", job_page),
         Route("/api/jobs", api_jobs, methods=["GET", "POST"]),

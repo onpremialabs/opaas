@@ -16,6 +16,7 @@
       <button type="button" class="btn" data-browse>Browse…</button>
     </div>
     <p class="fine folder-note" data-folder-note>Detected: OPAAS was started in <span class="mono">{{ cwd }}</span>. Browse to choose another folder.</p>
+    <p class="fine folder-note hidden" data-browse-note></p>
     <div class="browser hidden" data-browser>
       <div class="browser-head"><button type="button" class="btn" data-up>Up</button> <span class="mono dim" data-browser-path></span> <button type="button" class="btn primary" data-choose>Done</button></div>
       <ul class="browser-list" data-browser-list></ul>
@@ -29,12 +30,12 @@
 
 <form class="launch hidden" id="launch-system" data-kind="system">
   <h2>Audit the whole system <span class="dim">· every model and agent found above, as one subject</span></h2>
-  <p class="dim">OPAAS drafts the system's manifest from this scan, then runs what it calls for: blocks A–E for every model, the scenarios for every agent, and the system report with its audit certificate.</p>
+  <p class="dim">OPAAS writes the system's manifest, <span class="mono">system.json</span>, in the environment's folder from this scan (or updates it), then runs what it calls for: blocks A–E for every model, the scenarios for every agent, and the system report with its audit certificate.</p>
   <div class="fields">
     <label class="wide">Manifest file <input name="manifest" value="{{ manifest }}"></label>
     <label class="wide">Intended use <input name="purpose" placeholder="Answers employees' questions from internal documents"></label>
   </div>
-  <label class="inline"><input type="checkbox" name="draft" checked> Draft the manifest from this scan first (untick to audit a manifest you already have)</label>
+  <label class="inline"><input type="checkbox" name="draft" checked> Write the manifest from this scan, or add to it what is new (nothing in it is removed or changed)</label>
   <p class="fine">Without an intended use the system is audited but not certifiable: its AI Act risk classification follows from it, and only a person can state it.</p>
   <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono multi" data-preview></code></div></div>
   <p class="error hidden" data-error></p>

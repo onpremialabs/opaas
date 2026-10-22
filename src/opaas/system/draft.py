@@ -199,6 +199,56 @@ def draft_manifest(
     return manifest, notes
 
 
+def update_manifest(existing: dict[str, Any],
+                    drafted: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """(manifest, notes): `existing`, with what a new draft observed and it lacked added.
+
+    **An update only adds** (D86). Everything a person wrote stays as written:
+    the purpose (unless it is still the marker and the new draft has one), the
+    flows, records, thresholds, declaration and scenarios, and every component,
+    including the ones the host no longer shows; `audit run` reports those as
+    declared and not observed, which is what they are. A component is new when
+    no existing one has its kind and what identifies it (model, endpoint or
+    name).
+    """
+    manifest = dict(existing)
+    components = [dict(c) for c in existing.get("components") or [] if isinstance(c, dict)]
+    known = {_identity(c) for c in components}
+    taken = {str(c.get("id")) for c in components}
+    notes: list[str] = []
+    for component in drafted.get("components") or []:
+        if _identity(component) in known:
+            continue
+        component = dict(component)
+        stem, number = str(component["id"]), 2
+        while component["id"] in taken:
+            component["id"], number = f"{stem}-{number}", number + 1
+        taken.add(component["id"])
+        components.append(component)
+        notes.append(f"Added {component['kind']} {component['id']}: newly observed.")
+    observed = {_identity(c) for c in drafted.get("components") or []}
+    for component in components:
+        if _identity(component) not in observed:
+            notes.append(f"Kept {component.get('kind')} {component.get('id')}: declared and not "
+                         "observed now; the audit will say so.")
+    unwritten = (None, "", PURPOSE_PLACEHOLDER)
+    if manifest.get("purpose") in unwritten and drafted.get("purpose") not in unwritten:
+        manifest["purpose"] = drafted["purpose"]
+    manifest["components"] = components
+    if not any(n.startswith("Added ") for n in notes):
+        notes.insert(0, "Nothing new observed: the manifest's components are unchanged.")
+    return manifest, notes
+
+
+def _identity(component: dict[str, Any]) -> tuple[str, str]:
+    """What makes two components the same one, whatever their ids."""
+    kind = str(component.get("kind"))
+    for field in ("model", "endpoint", "name"):
+        if component.get(field):
+            return kind, f"{field}:{component[field]}"
+    return kind, f"id:{component.get('id')}"
+
+
 def _scope_notes(scoped: dict[str, Any], outside: int) -> list[str]:
     """What a folder-scoped draft left out, and why (D85)."""
     notes = []
@@ -245,4 +295,4 @@ def _usage(records: list[dict[str, Any]]) -> dict[str, Any]:
     return {"agents": agents, "models": models, "tools": tools, "edges": edges}
 
 
-__all__ = ["PURPOSE_PLACEHOLDER", "draft_manifest"]
+__all__ = ["PURPOSE_PLACEHOLDER", "draft_manifest", "update_manifest"]
