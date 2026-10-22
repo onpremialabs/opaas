@@ -5,6 +5,43 @@
 <h1>Overview</h1>
 <p class="sub">What this machine has, and the runs in your store. Nothing here measures: every result comes from an <code>opaas</code> command.</p>
 
+<section class="about">
+  <h2>What OPAAS does</h2>
+  <p>OPAAS audits AI that is already running on your premises: the models an engine serves, the agents built on them, and the system they form together. It measures how each model performs and behaves, and how auditable each agent is, and turns the result into a signed certificate a third party can verify offline. Every figure is given per category, with its interval; nothing is folded into one score.</p>
+</section>
+
+<section>
+  <h2>What it measures</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Models · blocks A–E</h3>
+      <ul class="measures">
+      {% for b in about.blocks %}
+        <li><span class="tag">{{ b.block }}</span> <b>{{ b.name }}</b> <span class="dim">· {{ b.description }}</span></li>
+      {% endfor %}
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Agents · auditability</h3>
+      <ul class="measures">
+      {% for d in about.dimensions %}
+        <li><span class="tag">{{ d.question }}</span> <b>{{ d.name }}</b> <span class="dim">· {% for m in d.metrics %}<span class="mono">{{ m.short }}</span> {{ m.name }}{{ ', ' if not loop.last }}{% endfor %}</span></li>
+      {% endfor %}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What an audit runs</h2>
+  <ol class="steps">
+  {% for s in about.steps %}
+    <li><b>{{ s.name }}</b> <span class="dim">· {{ s.text }}</span></li>
+  {% endfor %}
+  </ol>
+  <a class="btn primary" href="/new">New audit</a>
+</section>
+
 <section>
   <h2>This machine</h2>
   <ul class="checks">

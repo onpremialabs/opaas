@@ -47,7 +47,7 @@ It never imports a suite, an adapter or a scenario runner to measure something i
 browser ──HTTP + server-sent events──► opaas ui   (127.0.0.1 only, session token)
                                         ├─ store      reads ~/.opaas/runs, never writes a run
                                         ├─ jobs       launches `opaas …` as a child process, one queue per endpoint
-                                        ├─ watcher    follows progress.jsonl, sentinel logs, the gate queue
+                                        ├─ watcher    follows progress.jsonl
                                         └─ views      server-rendered HTML; the same data as JSON under /api
 CLI: opaas run | smith run | audit run | discover | inquest | swarm | compare | certificate --run
         └──writes once──► ~/.opaas/runs/<run-id>/
@@ -119,7 +119,7 @@ These files are the interface between the CLI and the dashboard. Each carries a 
   - the generation time.
 - Every version is the audit certificate of the run, checked by its report's hash and carrying no signature (D81; earlier versions were marked as drafts, D72).
 
-**Sentinel and the gate** keep their own files: the hash-chained event log, and the approval queue directory (D50). The dashboard reads both where the operator says they are. It does not move them into the store.
+**Sentinel and the gate** keep their own files: the hash-chained event log, and the approval queue directory (D50). The dashboard does not read them: they are followed from the terminal that runs the proxy (D84).
 
 ---
 
@@ -129,14 +129,14 @@ These files are the interface between the CLI and the dashboard. Each carries a 
 
 **One queue per endpoint.** Two measurements against the same engine at the same time contaminate each other: block A's latency and throughput, and the concurrency OPAAS believes it is sending. So jobs that name the same endpoint run one after another, in the order they were queued. Jobs on different endpoints, and jobs that touch no endpoint (`discover`, `inquest`, `compare`, `certificate`), run alongside. The queue is shown, and a queued job can be removed before it starts.
 
-**A batch is several independent jobs, not one.** Ticking several models or agents in `/new` queues one job per selection, the same as queuing them one at a time would; the per-endpoint queue above still serialises whichever of them share an engine. `/batch` only tracks the set together — nothing in the store knows they were launched as a batch (D83).
+**A batch is several independent jobs, not one.** `/batch?ids=…` tracks several jobs side by side; nothing in the store knows they were launched together (D83). `/new` no longer queues one (D84).
 
 **Cancelling.** A running job can be cancelled. The process receives an interrupt, and its run ends `interrupted`, keeping whatever it wrote. Nothing is deleted.
 
 **What the dashboard does not launch:**
 
-- **The sentinel proxy.** It sits on the data path of a live system (D46). Starting it, stopping it or changing its policies stays a deliberate act in a terminal. The dashboard shows its traffic.
-- **Approvals.** An approval is an attributable event made by a named approver (D50). The dashboard shows the held actions and who must approve them, and prints the command that does it.
+- **The sentinel proxy.** It sits on the data path of a live system (D46). Starting it, stopping it, changing its policies and following its traffic stay in a terminal (D84).
+- **Approvals.** An approval is an attributable event made by a named approver (D50). It is made with `opaas sentinel approve`, in a terminal.
 - **Anything with a key:** `sign`, `keygen`, `delegate`, `revoke`.
 - **Rerouted agents, without a blocking warning.** Before any rerouted-agent run, the user must confirm that the agent's tools point at OPAAS's mock MCP server. Otherwise its scenarios would act on real tools (D68).
 
@@ -158,14 +158,13 @@ A server on `127.0.0.1` is still reachable by every local user and by any web pa
 
 | Screen | Route | Shows |
 |---|---|---|
-| Overview | `/` | Prerequisites (Python, `nvidia-smi`, cached datasets and classifiers, offline mode), the latest runs, the queue |
-| New audit | `/new` | **Scans first.** Launches `opaas discover scan` (a real, recorded job; one from the last 5 minutes is reused) and offers what it found — engines with their models, and agents that identify themselves — as checkboxes: one or many models, one or many agents, or the whole-system manifest form (D83). A manual, free-text form stays available, collapsed, for what the scan cannot reach. Every path shows its command before it runs |
-| Batch | `/batch?ids=…` | Ticking several models or agents from `/new` queues one job per selection and lands here: every job in the batch, tracked side by side (D83) |
+| Overview | `/` | What OPAAS does; what it measures, read from the registries that measure it (blocks A–E from the suites, the auditability dimensions and their metrics from `core.metrics`) and the steps an audit runs (`system.orchestrate.STEPS`) (D84); prerequisites (cached datasets and classifiers, versions), the latest runs, the queue |
+| New audit | `/new` | **Scan, then audit the whole system** (D84). *Scan* launches `opaas discover scan --well-known` (a real, recorded job); the sentinel meerkat keeps watch until it ends, and a scan from the last 5 minutes is shown without rescanning (D83). What it found — engines with their models, agents that identify themselves — is listed. The one action is *Audit the whole system*: `opaas audit draft --inventory <that scan>` writes the manifest (with the intended use, if given), then `opaas audit run` audits it; unticking the draft audits a manifest you already have. Both commands are shown before they run |
+| Batch | `/batch?ids=…` | Several jobs, tracked side by side (D83) |
 | Job | `/jobs/{id}` | The job's command, its progress — one block (or one of an audit's six steps) at a time, filling to 100% before the next starts (D83) — its output log, cancel, and, once it ends, the link to the run it produced |
 | Run | `/runs/{id}` | Results per block and category with intervals; *not measured* with reasons; deployment fingerprint; files with hashes; certificate versions to generate and download. For an agent: behaviour with what each line counts, instability, task completion by category, the five auditability dimensions each on its own, bias, toxicity and every run; no draft of its own, since an agent is certified within a system audit |
 | History | `/runs` | Every run, filtered by kind, model, backend, fingerprint, OPAAS version, date and status |
 | Compare | from `/runs`, as a `compare` run | Tick runs of one kind (models, agents or systems) in the history: the dashboard launches `opaas compare`, and the comparison run's page shows its result per figure, or per cell for systems, side by side, overlapping intervals marked as no difference, figures on different terms marked not comparable, its comparability warnings first (D80) |
-| Sentinel | `/sentinel?log=…&queue=…` | Events as they arrive (digests, actor chains, verdicts), held actions with the command their approver runs; the paths are the operator's, remembered in the browser |
 
 `/api/…` serves the same data as JSON, for scripts. It is read-only, apart from launching and cancelling jobs.
 
@@ -198,11 +197,12 @@ Pixel art stays legible at 16 px, so no simplified version is drawn.
 
 The rules:
 
-- **It plays once, for about four seconds, with no sound.** It never loops, and it never covers the results: it sits above them and leaves them readable.
+- **It plays once, for about four seconds, with no sound.** The mob never loops, and it never covers the results: it sits above them and leaves them readable.
 - **Reduced motion is respected.** With the system's *reduce motion* setting, the mob is shown already standing, without moving.
 - **A failed run gets no celebration.** When a run ends `failed`, only the sentinel comes out and looks around, beside the error. When a run is `interrupted`, nothing comes out.
 - **The animation is the only decoration in the dashboard.** It runs on a `<canvas>` with a few lines of vendored script, and it needs no image file, font or network.
 - **The terminal has its meerkats too** (D82): the sentinel beside `opaas`'s menu, which moves when the mouse passes over it, and, while an audit runs, a company that comes and goes until the audit ends.
+- **The sentinel keeps watch while the machine is scanned.** On `/new`, while `discover scan` runs, the sentinel rises out of its burrow and looks one way and the other until the scan ends, then goes back down. It is the one meerkat that loops, because it stands for work still going on, and it stops with that work (D84). With *reduce motion* it stands still.
 - **It is a reaction to a file, not a verdict.** It celebrates that a report exists, never what the report says. The mob is the same for a model whose figures are low as for one whose figures are high (invariant 1).
 
 ---
@@ -225,7 +225,7 @@ The rules:
 4. History lives in `~/.opaas/runs`. Comparison is OPAAS's own, and MLflow is not used.
 5. No signing in the dashboard. Each generated unsigned certificate is a version, kept.
 6. The server is the optional `ui` extra. The interface is in English.
-7. Sentinel's live traffic is shown.
+7. Sentinel's live traffic was shown; since D84 it is followed from the terminal that runs the proxy.
 8. The meerkat stays: its head is the icon, and its mob comes out when a report is generated (§7, *The meerkat*).
 
 ## 10. Open questions

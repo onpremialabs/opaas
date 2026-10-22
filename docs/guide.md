@@ -226,14 +226,17 @@ Open the address it prints: the token in it is the session's key. The dashboard 
 run store on `127.0.0.1` only. It shows every run with its command and its files checked
 against their hashes, per-category intervals, what was not measured, live progress, and
 versioned audit certificates. It launches measuring commands only, each shown
-before it runs, and jobs against one engine wait their turn. Models, agents and whole systems are
-launched from *New audit*. An agent run shows its behaviour, its task completion by category
-and the five auditability dimensions. A system shows its coverage matrix and Auditability Card.
-Each shows what was not measured and why. *Sentinel* follows a running proxy's log and its
-gate's queue live, with the command that approves each held action. *Runs* filters the history
-and compares model, agent or system runs through `opaas compare`, per figure, with no ranking.
+before it runs, and jobs against one engine wait their turn. The *Overview* says what OPAAS
+measures and what an audit runs. *New audit* scans this machine (the sentinel meerkat keeps watch
+until the scan ends), lists the engines, models and agents it found, and audits them as one
+system: it drafts the manifest from that scan, with the intended use if you give it, then runs
+`opaas audit run`. A single model or agent is audited from the terminal (`opaas run`, `opaas smith
+run`). An agent run shows its behaviour, its task completion by category and the five
+auditability dimensions. A system shows its coverage matrix and Auditability Card. Each shows
+what was not measured and why. *Runs* filters the history and compares model, agent or system
+runs through `opaas compare`, per figure, with no ranking.
 
-What it never does: sign, generate or read a key, delegate or revoke, start the sentinel proxy
+What it never does: sign, generate or read a key, delegate or revoke, start or follow the sentinel proxy
 or approve a held action, or delete a run. Those stay in a terminal (`opaas sign`, `opaas
 sentinel approve`). It computes no figure of its own, and it does not listen beyond
 `127.0.0.1`: from another machine, tunnel to it:

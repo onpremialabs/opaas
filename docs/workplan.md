@@ -208,7 +208,7 @@ This is the paper's missing end-to-end audit. The ground truth comes from instru
 | **19. Versioned unsigned certificates** (0.4.0) | Each generation of a run's draft certificate is a new version, kept. [Detail](#phase-19-versioned-unsigned-certificates) | 18 | S |
 | **20. Progress written to the run** (0.4.0) | Every long command writes its progress to the run directory, so a reader of the files sees it live. [Detail](#phase-20-progress-written-to-the-run) | 18 | M |
 | **21. `opaas ui` server** (0.4.0) | Local dashboard server in an optional `ui` extra, loopback only, reading the run store, one job queue per endpoint (D75, [design](dashboard.md)). [Detail](#phase-21-opaas-ui-server) | 18, 20 | M |
-| **22. Guided flow** (0.4.0) | discover → models → agents → system → draft certificate, launched from the dashboard, each step showing its CLI command; sentinel live. [Detail](#phase-22-guided-flow) | 19, 21 | L |
+| **22. Guided flow** (0.4.0) | discover → models → agents → system → draft certificate, launched from the dashboard, each step showing its CLI command; sentinel live. Revised by D84: scan, then audit the whole system; no sentinel page. [Detail](#phase-22-guided-flow) | 19, 21 | L |
 | **23. History and comparison** (0.4.0) | Runs listed, filtered and compared per category with the CI-overlap rule, never ranked. [Detail](#phase-23-history-and-comparison) | 21 | M |
 | **24. Release 0.4.0** | Documentation, upgrade notes, release through phase 16's pipeline. [Detail](#phase-24-release-040) | 18–23 | S |
 

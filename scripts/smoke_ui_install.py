@@ -15,14 +15,13 @@ The flow is phase 22's, end to end:
 1. two model runs, an agent run (`smith`, bare model, a domain pack) and a
    system audit, each recorded in a fresh run store by the CLI in process,
    against fake backends defined below (no network, no GPU, no weights);
-2. a sentinel event log and an approval queue;
-3. the dashboard over that store, through Starlette's in-process client: the
-   overview, the history, *New audit*, each run page, the sentinel page, the
-   static files and the meerkat;
-4. two jobs launched as the dashboard launches them, as real child processes
+2. the dashboard over that store, through Starlette's in-process client: the
+   overview, the history, *New audit*, each run page, the static files and
+   the meerkat;
+3. two jobs launched as the dashboard launches them, as real child processes
    of `python -m opaas`: an audit certificate of a model run, and a
    comparison of the two model runs; then their run pages;
-5. a signing command refused by the dashboard.
+4. a signing command refused by the dashboard.
 
 `--installed` refuses to run against the source tree, so CI cannot pass by
 importing the checkout. Without it the script runs anywhere, which is how
@@ -112,10 +111,8 @@ def _latest(kind: str) -> str:
 
 
 def _record(work: Path) -> dict[str, Any]:
-    """Step 1 and 2: the runs and the sentinel files the dashboard will read."""
+    """Step 1: the runs the dashboard will read."""
     from opaas.adapters import register_backend
-    from opaas.core.events import AuditEvent, EventLog, evidence, parse_actor_chain
-    from opaas.sentinel.gate import ApprovalQueue
 
     smoke, declining = _backends()
     register_backend(smoke)
@@ -143,28 +140,21 @@ def _record(work: Path) -> dict[str, Any]:
     audit = _latest("audit")
     _check(True, f"model runs {models[0]} and {models[1]}, agent {agent}, system {audit}")
 
-    log = EventLog(work / "events.jsonl")
-    chain = parse_actor_chain("user:alice>agent:planner")
-    log.append(AuditEvent(action="tool_call", target="delete_file", actor_chain=chain,
-                          args=evidence({"path": "/etc"}), output=evidence("")).to_record())
-    queue = work / "approvals"
-    ApprovalQueue(queue).submit({"event": "e1", "target": "delete_file", "actorChain": chain,
-                                 "args": evidence({"path": "/etc"}),
-                                 "policies": [{"policy": "confirm-delete", "verdict": "violate"}]})
-    return {"models": models, "agent": agent, "audit": audit, "log": log.path, "queue": queue}
+    return {"models": models, "agent": agent, "audit": audit}
 
 
 def _pages(client: Any, runs: dict[str, Any]) -> None:
-    """Step 3: every screen, built from the store by the installed templates."""
+    """Step 2: every screen, built from the store by the installed templates."""
     print("Reading the dashboard")
-    _check(runs["models"][0] in client.get("/").text, "the overview lists the runs")
+    overview = client.get("/").text
+    _check(runs["models"][0] in overview and "Performance" in overview and "ACR" in overview,
+           "the overview lists the runs and what OPAAS measures")
     history = client.get("/runs").text
     _check(all(r in history for r in (*runs["models"], runs["agent"], runs["audit"]))
            and "data-compare-pick" in history, "the history lists every run, to tick")
     new = client.get("/new").text
-    _check('value="pack:banking"' in new and 'id="launch-system"' in new
-           and f"{runs['models'][0]} · bench" in new,
-           "New audit offers the packs, the system form and stored runs to cite")
+    _check("data-scan" in new and 'id="launch-system"' in new and "data-pick" not in new,
+           "New audit offers the scan and the whole-system audit, nothing else")
     model = client.get(f"/runs/{runs['models'][0]}").text
     _check("<h1>smoke/model-1b</h1>" in model and 'class="ibar"' in model
            and "matches run.json" in model and "Generate certificate v1" in model,
@@ -177,11 +167,6 @@ def _pages(client: Any, runs: dict[str, Any]) -> None:
     _check("<h1>System · support</h1>" in system and "cell-measured" in system
            and "<h3>Q1 · " in system and "agent → llm" in system,
            "a system run shows its coverage matrix, its card and its composition")
-    sentinel = client.get("/sentinel", params={"log": str(runs["log"]),
-                                               "queue": str(runs["queue"])}).text
-    _check("held by confirm-delete" in sentinel and "opaas sentinel approve" in sentinel
-           and "/etc" not in sentinel,
-           "the sentinel page reads the log and the queue, digests only")
     for path, kind in (("/static/opaas.css", "text/css"), ("/static/app.js", "javascript"),
                        ("/favicon.svg", "image/svg+xml"), ("/mascot.json", "json")):
         response = client.get(path)
@@ -209,7 +194,7 @@ def _job(client: Any, args: list[str], timeout: float = 120.0) -> dict[str, Any]
 
 
 def _jobs(client: Any, store: Path, runs: dict[str, Any]) -> None:
-    """Step 4 and 5: what the dashboard launches, and what it will not."""
+    """Steps 3 and 4: what the dashboard launches, and what it will not."""
     print("Launching jobs as child processes, as the dashboard does")
     first, second = runs["models"]
     certificate = _job(client, ["certificate", "--run", first])
@@ -231,7 +216,7 @@ def _jobs(client: Any, store: Path, runs: dict[str, Any]) -> None:
 
 
 def smoke(store: Path, work: Path) -> None:
-    """Steps 1 to 5 against `store`, which must be empty; raises `SmokeFailure`."""
+    """Steps 1 to 4 against `store`, which must be empty; raises `SmokeFailure`."""
     from starlette.testclient import TestClient
 
     from opaas.ui.app import COOKIE, create_app

@@ -183,3 +183,17 @@ input, select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px
 .cmp-category h3 { font-size: 14px; margin: 0 0 6px; }
 .verdict-line { font-size: 13px; margin: 6px 0 0; }
 .v-real { color: var(--ink); } .v-none { color: var(--ink-2); } .v-cannot { color: var(--ink-3); border-left: 2px dashed var(--ink-3); padding-left: 8px; }
+
+.about p { margin: 0; color: var(--ink-2); max-width: 760px; }
+.grid2 .card h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+.measures { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.measures li { padding: 5px 0; border-bottom: 1px solid var(--line); }
+.measures li:last-child { border-bottom: 0; }
+.steps { margin: 0 0 14px; padding-left: 22px; font-size: 13px; }
+.steps li { padding: 3px 0; }
+.lookout { width: 100%; max-width: 660px; display: block; margin: 4px 0 10px; image-rendering: pixelated; }
+.discover .card { margin-bottom: 10px; }
+.discover .card h3 { font-size: 14px; margin: 0 0 6px; }
+.found { list-style: none; margin: 0; padding: 0; font-size: 13px; columns: 2 240px; }
+.found li { padding: 2px 0; }
+.cmd code.multi { white-space: pre; }
