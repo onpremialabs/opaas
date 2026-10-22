@@ -160,7 +160,8 @@ src/opaas/
 ├── adapters/           InferenceBackend ABC + vllm, ollama, openai_compatible
 ├── telemetry/          gpu (nvidia-smi), system (psutil), network, sampler
 ├── ui/                 `opaas ui` (D79): app.py (Starlette server, token/Host/CSP guard, SSE),
-│                       jobs.py (allowlisted CLI jobs, one queue per endpoint), views.py (pages
+│                       jobs.py (allowlisted CLI jobs, one queue per endpoint), dialog.py (the
+│                       system's folder dialog, D86), views.py (pages
 │                       from the store, the meerkat), templates/, static/ (opaas.css, app.js)
 ├── web/                Static site + badge generation, printable certificate (certificate.py),
 │                       assets/verify.js (browser verify)

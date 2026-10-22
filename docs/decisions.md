@@ -50,6 +50,34 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D86 — The manifest lives in the environment's folder and is updated, never replaced; Browse opens the system's own folder dialog
+
+**Status:** applied · **Revises:** D84's "a draft never overwrites a manifest, so a second audit with the draft ticked fails", and D85's in-page folder list as the only picker · **Affects:** [`system/draft.py`](../src/opaas/system/draft.py), [`cli/audit.py`](../src/opaas/cli/audit.py), [`ui/dialog.py`](../src/opaas/ui/dialog.py), [`ui/app.py`](../src/opaas/ui/app.py), [`ui/static/app.js`](../src/opaas/ui/static/app.js)
+
+Auditing the same environment twice from the dashboard failed on the second run. `audit draft` refuses an existing manifest, and the only alternative was `--force`, which would have erased what a person had written into the manifest. The operator expects `system.json` to sit in the environment's folder and to follow the environment as it changes. And *Browse…* listed folders inside the page, which is not how anyone chooses a folder on Windows, macOS or Linux.
+
+**What changed.**
+- **`audit draft --update`.** If the manifest exists, OPAAS adds what the new scan observed and the manifest lacks, and keeps everything else as written:
+  - the purpose (unless it is still the marker and the new draft brings one), the id, flows, records, thresholds, declaration and scenarios;
+  - every component, including the ones the host no longer shows. `audit run` reports those as declared and not observed, which is what they are.
+
+  A component is new when no existing component has its kind and what identifies it (its model, endpoint or name). The command says what it added and what it kept. Without `--update` or `--force`, the refusal now names both.
+- **The dashboard always drafts with `--update`.** The manifest goes into the environment's folder (`<folder>/system.json`). The first audit writes it; each later audit adds what is new and changes nothing a person wrote.
+- **Browse opens the system's own folder dialog** (`POST /api/folders/pick`, `ui/dialog.py`). The server is local, so it opens the dialog on the same desktop and returns the chosen path:
+  - macOS: `osascript`'s *choose folder* (Finder's panel);
+  - Linux: `zenity`, else `kdialog`, else Tk;
+  - Windows: Tk, whose folder dialog there is Explorer's.
+
+  The dialog runs in a child process, because macOS opens windows only from a process's main thread and a dialog left open must not hold the server. It is a POST, behind the session header. Where no dialog can open (a server reached through an SSH tunnel, a Linux without a display or Tk), the page says so and falls back to its own folder list.
+
+**What is lost.**
+- **An update never removes.** A component that is gone for good stays in the manifest until a person deletes it. Until then the audit reports it as not observed.
+- **Flows are not updated.** Flows drawn from records are kept as they were; a fresh draft (`--force`) or a hand edit changes them.
+- **Identity by model, endpoint or name.** A component whose model was renamed on the engine is a new component, and the old one is kept beside it.
+- **A dialog on the server's desktop.** Through a tunnel it opens nowhere useful, so the page falls back to its folder list. On Linux, Tk's dialog is Tk's own, not the desktop's.
+
+---
+
 ## D85 — An audit can be scoped to one environment's folder instead of the whole host
 
 **Status:** applied · **Extends:** [D45](#d45--discover-reads-the-agent-stack-the-operator-names-and-the-gap-scan-finds-preconditions-not-violations) (only what the operator names) and [D63](#d63--opaas-identifies-a-systems-agents-and-the-models-they-use) · **Affects:** [`discover/project.py`](../src/opaas/discover/project.py), [`discover/__init__.py`](../src/opaas/discover/__init__.py), [`system/draft.py`](../src/opaas/system/draft.py), [`cli/discover.py`](../src/opaas/cli/discover.py), [`cli/audit.py`](../src/opaas/cli/audit.py), [`ui/`](../src/opaas/ui)
@@ -91,7 +119,7 @@ A host scan finds every engine and every model it serves. It finds an agent only
 
 ## D84 — The dashboard scans, then audits the whole system: one path, and no sentinel page
 
-**Status:** applied · **Revises:** the per-model and per-agent pickers of [D83](#d83--new-scans-before-it-asks-and-opaas-audit-runs-six-steps-show-their-own-progress), and the sentinel screen of `docs/dashboard.md` §7 · **Affects:** [`ui/app.py`](../src/opaas/ui/app.py), [`ui/views.py`](../src/opaas/ui/views.py), [`ui/static/app.js`](../src/opaas/ui/static/app.js), [`ui/templates/new.html`](../src/opaas/ui/templates/new.html), [`ui/templates/overview.html`](../src/opaas/ui/templates/overview.html)
+**Status:** applied · its refusal to redraft an existing manifest revised by [D86](#d86--the-manifest-lives-in-the-environments-folder-and-is-updated-never-replaced-browse-opens-the-systems-own-folder-dialog) · **Revises:** the per-model and per-agent pickers of [D83](#d83--new-scans-before-it-asks-and-opaas-audit-runs-six-steps-show-their-own-progress), and the sentinel screen of `docs/dashboard.md` §7 · **Affects:** [`ui/app.py`](../src/opaas/ui/app.py), [`ui/views.py`](../src/opaas/ui/views.py), [`ui/static/app.js`](../src/opaas/ui/static/app.js), [`ui/templates/new.html`](../src/opaas/ui/templates/new.html), [`ui/templates/overview.html`](../src/opaas/ui/templates/overview.html)
 
 `/new` offered five ways in: models ticked from the scan, agents ticked from it, a system manifest form with steps to skip, cited runs and extra bench options, and three free-text forms for what the scan missed. A newcomer had to understand OPAAS's modules to choose among them, when what they came for is one thing: audit what this machine runs. The sentinel page asked for the paths of a proxy log and an approval queue that only an operator who had already started the proxy in a terminal could have, and the overview said what the machine had but not what OPAAS is for.
 

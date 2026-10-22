@@ -262,6 +262,9 @@ def draft_command(
     project: Annotated[Path | None, typer.Option(
         "--project", help="Draft one environment, from its folder, instead of everything the "
         "host serves (ignored with --inventory: the scan already carries its scope).")] = None,
+    update: Annotated[bool, typer.Option(
+        "--update", help="If the manifest exists, add what is newly observed to it and keep "
+        "everything already in it.")] = False,
     force: Annotated[bool, typer.Option("--force", help="Overwrite an existing file.")] = False,
 ) -> None:
     """Drafts a system manifest: the models, agents, tools and flows the host and records show."""
@@ -270,12 +273,23 @@ def draft_command(
     from opaas.core.credential import load_public_key
     from opaas.discover import discover
     from opaas.inquest import import_records
-    from opaas.system.draft import draft_manifest
+    from opaas.system.draft import PURPOSE_PLACEHOLDER, draft_manifest, update_manifest
 
-    if out.exists() and not force:
+    if out.exists() and not (force or update):
         error(f"[red]{out} exists: a draft never overwrites a manifest someone "
-              "completed. Pass --force, or choose another --out.[/red]")
+              "completed.[/red] Pass --update to add what is newly observed, --force to "
+              "replace it, or choose another --out.")
         raise typer.Exit(code=2)
+    existing = None
+    if update and out.exists() and not force:
+        try:
+            existing = read_json(out)
+            if not isinstance(existing, dict):
+                raise ValueError("it is not a JSON object")
+        except (OSError, ValueError) as exc:
+            error(f"[red]{out} cannot be updated: {_plain(exc)}.[/red] Fix it, or pass "
+                  "--force to replace it.")
+            raise typer.Exit(code=2) from None
     try:
         observed = (read_json(inventory)["inventory"] if inventory
                     else discover(endpoints=endpoint or [], configs=config or [],
@@ -298,6 +312,11 @@ def draft_command(
     document, notes = draft_manifest(observed, system_id=system_id, purpose=purpose,
                                      records=imported.records if imported else None,
                                      records_source=source)
+    if existing is not None:
+        document, merged = update_manifest(existing, document)
+        # The draft's own notes still hold, but for the purpose: the manifest may have one.
+        notes = [*merged, *[n for n in notes if "purpose is a marker" not in n
+                            or document["purpose"] == PURPOSE_PLACEHOLDER]]
     for note in notes:
         console.print(f"  [yellow]note:[/yellow] {_plain(note)}")
     try:

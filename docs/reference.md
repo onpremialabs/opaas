@@ -73,7 +73,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas swarm analyze` / `attribute` | Flow topology, per-edge figures, faults; attribution subgraph |
 | `opaas card build` / `manifest` | Auditability Card; deployment manifest |
 | `opaas evidence sign` / `verify` | Sign and verify any evidence document |
-| `opaas audit draft` | Draft a system manifest: models, agents, tools and flows the host and records show (`--project DIR`: only one environment's) |
+| `opaas audit draft` | Draft a system manifest: models, agents, tools and flows the host and records show (`--project DIR`: only one environment's; `--update`: add to an existing manifest, keep what is in it) |
 | `opaas audit template` | Scenario templates for the manifest's tools; you write the answers |
 | `opaas audit run` | Audit a system from its manifest; write the system report and open its audit certificate |
 | `opaas audit validate` / `extract` | Check a system manifest; read any document into measurements |

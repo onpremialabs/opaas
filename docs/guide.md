@@ -205,6 +205,10 @@ opaas audit draft --project . -o system.json      # one environment, not the who
 ```
 
 ```bash
+opaas audit draft --project . -o system.json --update   # add what is new, keep what is there
+```
+
+```bash
 opaas audit template system.json -o scenarios/
 ```
 
@@ -225,7 +229,8 @@ your thresholds judged **comply, violate or undecidable**. An agent OPAAS cannot
 kept with a pending adapter — listed, never dropped. With `--project` (or an inventory scanned
 with it) the draft takes only that environment's models and running agents; everything else
 the host serves, a declared agent that is not running, and a named model no engine here serves
-are left out with a note each.
+are left out with a note each. `--update` adds what a new scan observed to an existing
+manifest and keeps everything already in it, components no longer observed included.
 
 ### 6 · Continuous monitoring
 
@@ -255,7 +260,7 @@ against their hashes, per-category intervals, what was not measured, live progre
 versioned audit certificates. It launches measuring commands only, each shown
 before it runs, and jobs against one engine wait their turn. The *Overview* says what OPAAS
 measures and what an audit runs. *New audit* scans one environment, the folder `opaas ui` was started from
-or one chosen with *Browse…*, or the whole machine (the sentinel meerkat keeps watch until the
+or one chosen with *Browse…* (the system's own folder dialog), or the whole machine (the sentinel meerkat keeps watch until the
 scan ends), lists the models and agents it found, and audits them as one system: it drafts the manifest from that scan, with the intended use if you give it, then runs
 `opaas audit run`. A single model or agent is audited from the terminal (`opaas run`, `opaas smith
 run`). An agent run shows its behaviour, its task completion by category and the five

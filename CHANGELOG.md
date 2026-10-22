@@ -10,6 +10,18 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Changed — the manifest is updated, and Browse opens the system's dialog (D86)
+
+- **`opaas audit draft --update`** adds what a new scan observed to an
+  existing manifest. It keeps everything already in it: the purpose,
+  flows, thresholds, and every component, including the ones no longer
+  observed. The dashboard always drafts with it, into
+  `<environment folder>/system.json`, so a second audit no longer fails on
+  the existing file.
+- **Browse… opens the system's own folder dialog**: Explorer on Windows,
+  Finder on macOS, zenity or kdialog on Linux. Without a desktop it falls
+  back to the page's folder list.
+
 ### Added — audit one environment, not the whole host (D85)
 
 - **`opaas discover scan --project DIR`** and **`opaas audit draft

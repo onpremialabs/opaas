@@ -691,3 +691,22 @@ def test_a_recent_scan_says_its_scope_so_new_audit_shows_it_only_for_that_folder
     result = runner.invoke(cli, ["discover", "scan", "-o", str(tmp_path / "host.json")])
     assert result.exit_code == 0, result.output
     assert client.get("/api/discover/latest").json()["project"] is None
+
+
+def test_browse_opens_the_systems_dialog_and_says_when_there_is_none(client, monkeypatch):
+    from opaas.ui import dialog
+
+    monkeypatch.setattr(dialog, "pick_folder", lambda initial: "C:\work\bot")
+    assert _post(client, "/api/folders/pick", {"path": "C:\work"}).json() == {
+        "path": "C:\work\bot"}
+    monkeypatch.setattr(dialog, "pick_folder", lambda initial: None)
+    assert _post(client, "/api/folders/pick", {}).json() == {"cancelled": True}
+
+    def none(initial):
+        raise dialog.DialogError("no display")
+
+    monkeypatch.setattr(dialog, "pick_folder", none)
+    response = _post(client, "/api/folders/pick", {})
+    assert response.status_code == 501 and "no display" in response.json()["error"]
+    # Opening a window on the desktop is a POST, behind the session header.
+    assert client.post("/api/folders/pick", json={}).status_code == 403
