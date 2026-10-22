@@ -10,6 +10,27 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Changed — the dashboard scans, then audits the whole system (D84)
+
+- **`/new` has one path.** *Scan* runs `opaas discover scan` while the
+  sentinel meerkat keeps watch, and lists what it found. **Audit the whole
+  system** drafts the manifest from that scan (`opaas audit draft
+  --inventory`, with the intended use if you give it) and audits it
+  (`opaas audit run`). The per-model and per-agent pickers, the batch launch
+  and the free-text forms are gone from the page.
+- **The Sentinel tab is gone.** The proxy's traffic and approvals are
+  followed from the terminal that runs it.
+- **The overview says what OPAAS does and what it measures**: blocks A–E,
+  the auditability dimensions with their metrics, and the six steps an
+  audit runs, read from the code that runs them.
+
+#### Upgrading
+
+- To audit a single model or agent, run `opaas run` or `opaas smith run`
+  in a terminal; the dashboard no longer has forms for them.
+- To audit a manifest you completed by hand, untick the draft on `/new`:
+  a draft never overwrites an existing manifest.
+
 ### Added — the dashboard scans before it asks, and shows an audit's own steps (D83)
 
 - **`/new` scans this machine first.** It launches `opaas discover scan`

@@ -2,6 +2,7 @@
 
 import json
 import threading
+from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
@@ -253,13 +254,31 @@ def test_the_agent_page_shows_behaviour_auditability_and_absences(client, agent_
     assert views.report_name(directory, load_run(directory)) == "agent.json"
 
 
-def test_the_new_audit_page_offers_every_adapter_and_pack(client):
+def test_the_new_audit_page_offers_the_scan_and_the_system_audit_only(client):
+    """The machine is scanned first, then audited as one system: no per-model or
+    per-agent picker, no free-text forms beside it."""
     page = client.get("/new").text
-    for adapter in ("http", "mcp", "bare-model", "a2a", "langgraph", "open-webui"):
-        assert f"<option>{adapter}</option>" in page or f"<option selected>{adapter}</option>" \
-            in page
-    assert 'value="pack:banking"' in page and 'value="pack:health-es"' in page
-    assert "OPAAS_AGENT_TOKEN" in page and "127.0.0.1:8765/mcp" in page
+    assert "data-scan" in page and "data-lookout" in page and 'id="launch-system"' in page
+    for gone in ("data-pick", 'id="launch-bench"', 'id="launch-agent"', 'id="launch-discover"'):
+        assert gone not in page
+    # Each job runs in its own directory: the default manifest is named absolutely.
+    default = page.split('name="manifest" value="')[1].split('"')[0]
+    assert Path(default).is_absolute() and default.endswith("system.json")
+
+
+def test_the_overview_says_what_opaas_measures_from_its_registries(client):
+    from opaas.bench.suites import BLOCKS
+    from opaas.core.metrics import DIMENSIONS
+    from opaas.system.orchestrate import STEPS
+
+    page = client.get("/").text
+    assert "What OPAAS does" in page
+    for name in BLOCKS.values():
+        assert name in page.replace("&amp;", "&")
+    for entry in DIMENSIONS.values():
+        assert all(f'<span class="mono">{m}</span>' in page for m in entry["metrics"])
+    for step in STEPS:
+        assert f"<b>{step}</b>" in page
 
 
 def test_measured_dimensions_are_drawn_each_on_its_own():
@@ -284,7 +303,7 @@ def test_measured_dimensions_are_drawn_each_on_its_own():
     assert report["model"] == "Agent · http · http://agent.test"
 
 
-# --- Systems and sentinel (phase 22) ----------------------------------------
+# --- Systems (phase 22) ----------------------------------------------------
 
 @pytest.fixture
 def system_run(tmp_path):
@@ -329,12 +348,6 @@ def test_the_system_page_shows_coverage_card_composition_and_members(client, sys
     assert "Generate certificate v1" in page  # a system report can be certified
 
 
-def test_the_system_form_cites_stored_runs(client, bench_run):
-    page = client.get("/new").text
-    assert 'id="launch-system"' in page and 'value="discover"' in page
-    assert f"{bench_run} · bench" in page
-
-
 def test_validating_a_manifest_is_a_job_drafting_one_too():
     check_command(["audit", "validate", "system.json"])
     check_command(["audit", "draft", "-o", "system.json"])
@@ -364,6 +377,8 @@ def test_discover_picker_shapes_engines_and_agents(client, discover_run):
     body = client.get(f"/api/discover/{discover_run}").json()
     assert body["runId"] == discover_run
     assert isinstance(body["engines"], list) and isinstance(body["agents"], list)
+    # The system audit drafts its manifest from this very scan.
+    assert Path(body["inventoryPath"]).is_file()
 
 
 def test_discover_picker_is_missing_for_an_unknown_run(client):
@@ -443,46 +458,11 @@ def test_audit_live_steps_is_none_off_an_audit(bench_run):
     assert views.audit_live_steps(runs_dir(), record) is None
 
 
-@pytest.fixture
-def sentinel_files(tmp_path):
-    from opaas.core.events import AuditEvent, EventLog, evidence, parse_actor_chain
-    from opaas.sentinel.gate import ApprovalQueue
-
-    log = EventLog(tmp_path / "events.jsonl")
-    log.append(AuditEvent(action="tool_call", target="delete_file",
-                          actor_chain=parse_actor_chain("user:alice>agent:planner"),
-                          args=evidence({"path": "/etc"}), output=evidence("")).to_record())
-    queue = tmp_path / "approvals"
-    ApprovalQueue(queue).submit({"event": "e1", "target": "delete_file",
-                                 "actorChain": parse_actor_chain("user:alice>agent:planner"),
-                                 "args": evidence({"path": "/etc"}),
-                                 "policies": [{"policy": "confirm-delete", "verdict": "violate"}]})
-    return log.path, queue
-
-
-def test_the_sentinel_page_reads_the_log_and_the_queue(client, sentinel_files):
-    log, queue = sentinel_files
-    page = client.get("/sentinel", params={"log": str(log), "queue": str(queue)}).text
-    events = page.split("data-events>")[1].split("</tbody>")[0]
-    assert "user:alice &gt; agent:planner" in events and "<b>tool_call</b> delete_file" in events
-    assert "held by confirm-delete" in page and "opaas sentinel approve" in page
-    # Digests only (N4): the path the action carried never reaches the page.
-    assert "/etc" not in page
-    pending = client.get("/api/sentinel/pending", params={"queue": str(queue)}).json()
-    assert len(pending) == 1 and pending[0]["policies"] == ["confirm-delete"]
-
-
-def test_sentinel_events_stream_from_the_log(client, sentinel_files):
-    log, _ = sentinel_files
-    body = client.get("/sentinel/events", params={"log": str(log), "once": "1"}).text
-    (event,) = [json.loads(c[6:]) for c in body.split("\n\n") if c.startswith("data:")]
-    assert event["target"] == "delete_file" and event["actors"] == "user:alice > agent:planner"
-
-
-def test_a_missing_sentinel_path_is_said_not_crashed_on(client, tmp_path):
-    page = client.get("/sentinel", params={"log": str(tmp_path / "nope.jsonl")}).text
-    assert "No log at" in page
-    assert client.get("/sentinel/events", params={"log": str(tmp_path / "x")}).status_code == 404
+def test_the_dashboard_has_no_sentinel_page(client):
+    """The proxy sits on a live system's data path and is run from a terminal (D46);
+    the dashboard neither starts it nor follows it."""
+    assert "/sentinel" not in client.get("/").text
+    assert client.get("/sentinel").status_code == 404
 
 
 # --- History and comparison (phase 23) --------------------------------------

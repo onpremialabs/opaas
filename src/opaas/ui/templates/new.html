@@ -2,151 +2,28 @@
 {% block title %}New audit{% endblock %}
 {% block content %}
 <h1>New audit</h1>
-<p class="sub">OPAAS looks at this machine first, then you choose what to audit. The exact command is shown before anything starts, and it is the one that runs. Jobs against the same engine wait their turn.</p>
+<p class="sub">First scan this machine for the engines, models and agents it runs, then audit them as one system. The exact command is shown before anything starts, and it is the one that runs.</p>
 
 <section class="discover" data-discover>
   <div class="head">
-    <div><h2>This machine</h2><p class="sub" data-discover-sub>Looking for engines and agents already running…</p></div>
-    <div class="head-right"><button type="button" class="btn" data-rescan hidden>Rescan</button></div>
+    <div><h2>This machine</h2><p class="sub" data-discover-sub>Not scanned yet. Scan to see what this machine runs.</p></div>
+    <div class="head-right"><button type="button" class="btn primary" data-scan>Scan</button></div>
   </div>
-  <div data-discover-body><p class="dim">Scanning…</p></div>
+  <canvas class="lookout hidden" width="660" height="150" data-lookout aria-label="The sentinel meerkat keeps watch while the scan runs"></canvas>
+  <div data-discover-body></div>
 </section>
 
-<section class="pick hidden" data-pick>
-  <div class="actions">
-    <button type="button" class="btn primary" data-pick="models" disabled>Audit 0 model(s)</button>
-    <button type="button" class="btn" data-pick="agents" disabled>Test 0 agent(s)</button>
-    <button type="button" class="btn" data-pick="system">Audit the whole system</button>
-  </div>
-  <div class="fields" data-pick-options="models">
-    <fieldset class="suites"><legend>Blocks, for every model ticked above</legend>
-      <label><input type="checkbox" name="pick-suite" value="all" checked> all</label>
-      <label><input type="checkbox" name="pick-suite" value="performance"> A performance</label>
-      <label><input type="checkbox" name="pick-suite" value="capability"> B capability</label>
-      <label><input type="checkbox" name="pick-suite" value="consistency"> C consistency</label>
-      <label><input type="checkbox" name="pick-suite" value="safety"> D safety</label>
-      <label><input type="checkbox" name="pick-suite" value="compliance"> E compliance</label>
-    </fieldset>
-    <label>Context window <input name="pick-num-ctx" placeholder="8192" inputmode="numeric"></label>
-  </div>
-  <div class="fields hidden" data-pick-options="agents">
-    <label>Scenarios
-      <select name="pick-scenarios">{% for s in sources %}<option value="{{ s.value }}">{{ s.label }}</option>{% endfor %}</select>
-    </label>
-    <label>Repeats <input name="pick-repeats" value="3" inputmode="numeric"></label>
-  </div>
-  <div class="rerouted hidden" data-pick-rerouted>
-    <p class="warn">Some of the agents ticked above are driven through OPAAS's mock MCP server, <span class="mono">http://127.0.0.1:8765/mcp</span>, before the run. If their tools still point at the real ones, the destructive and permission scenarios act on them (D68).</p>
-    <label class="inline"><input type="checkbox" data-pick-confirm> Every rerouted agent ticked above already points its only tools at OPAAS's mock server</label>
-  </div>
-  <p class="error hidden" data-pick-error></p>
-</section>
-
-<form class="launch" id="launch-system" data-kind="system">
-  <h2>Audit a system <span class="dim">· models, agents and records, as one subject</span></h2>
-  <p class="dim">A system is a purpose, the components that serve it and the flows between them. Draft its manifest from what this machine runs, complete it in your editor (purpose, agents, flows), then audit it. Runs already in your store can be cited instead of measured again.</p>
+<form class="launch hidden" id="launch-system" data-kind="system">
+  <h2>Audit the whole system <span class="dim">· every model and agent found above, as one subject</span></h2>
+  <p class="dim">OPAAS drafts the system's manifest from this scan, then runs what it calls for: blocks A–E for every model, the scenarios for every agent, and the system report with its audit certificate.</p>
   <div class="fields">
-    <label class="wide">Manifest file <input name="manifest" placeholder="C:\audits\support\system.json"></label>
-    <label class="wide">Records to draft from (optional) <input name="records" placeholder="C:\sentinel\events.jsonl"></label>
+    <label class="wide">Manifest file <input name="manifest" value="{{ manifest }}"></label>
+    <label class="wide">Intended use <input name="purpose" placeholder="Answers employees' questions from internal documents"></label>
   </div>
-  <div class="actions">
-    <button class="btn" type="button" data-system="draft">Draft manifest</button>
-    <button class="btn" type="button" data-system="validate">Validate</button>
-    <span class="dim">then</span>
-  </div>
-  <fieldset class="suites"><legend>Steps to skip</legend>
-    {% for s in steps %}<label><input type="checkbox" name="skip" value="{{ s }}"> {{ s }}</label>{% endfor %}
-  </fieldset>
-  <div class="fields">
-    <label class="wide">Extra options for every model's run <input name="bench_args" placeholder="--suite all --num-ctx 8192"></label>
-    <label>Agent repeats <input name="repeats" value="3" inputmode="numeric"></label>
-  </div>
-  <div class="members" data-members>
-    <p class="legend">Cite runs you already have <span class="dim">· component id from the manifest, and the run that measured it</span></p>
-    <template data-member-row>
-      <div class="member">
-        <input name="member_component" placeholder="llm">
-        <select name="member_run">
-          {% for r in reports %}<option value="{{ r.path }}">{{ r.runId }} · {{ r.kind }} · {{ r.command }}</option>{% else %}<option value="">No stored report yet</option>{% endfor %}
-        </select>
-        <button type="button" class="btn" data-remove-member>Remove</button>
-      </div>
-    </template>
-    <button type="button" class="btn" data-add-member>Add a member</button>
-  </div>
-  <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono" data-preview></code></div></div>
+  <label class="inline"><input type="checkbox" name="draft" checked> Draft the manifest from this scan first (untick to audit a manifest you already have)</label>
+  <p class="fine">Without an intended use the system is audited but not certifiable: its AI Act risk classification follows from it, and only a person can state it.</p>
+  <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono multi" data-preview></code></div></div>
   <p class="error hidden" data-error></p>
-  <button class="btn primary" type="submit">Queue audit</button>
+  <button class="btn primary" type="submit">Audit the whole system</button>
 </form>
-
-<details class="launch" data-fallback>
-  <summary>Not detected, or set it up by hand</summary>
-
-  <form class="launch" id="launch-bench" data-kind="bench">
-    <h2>Measure a model <span class="dim">· blocks A–E</span></h2>
-    <div class="fields">
-      <label>Model <input name="model" placeholder="qwen2.5:7b-instruct" required></label>
-      <label>Backend
-        <select name="backend"><option>ollama</option><option>vllm</option><option>openai</option></select>
-      </label>
-      <label>Base URL <input name="base_url" placeholder="adapter's default"></label>
-      <label>Context window <input name="num_ctx" placeholder="8192" inputmode="numeric"></label>
-      <label>Dataset <input name="dataset" placeholder="ifeval,xstest"></label>
-    </div>
-    <fieldset class="suites"><legend>Blocks</legend>
-      <label><input type="checkbox" name="suite" value="all" checked> all</label>
-      <label><input type="checkbox" name="suite" value="performance"> A performance</label>
-      <label><input type="checkbox" name="suite" value="capability"> B capability</label>
-      <label><input type="checkbox" name="suite" value="consistency"> C consistency</label>
-      <label><input type="checkbox" name="suite" value="safety"> D safety</label>
-      <label><input type="checkbox" name="suite" value="compliance"> E compliance</label>
-    </fieldset>
-    <p class="warn hidden" data-warn="ollama-ctx">Ollama trims long prompts silently unless a context window is set.</p>
-    <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono" data-preview></code></div></div>
-    <p class="error hidden" data-error></p>
-    <button class="btn" type="submit">Queue run</button>
-  </form>
-
-  <form class="launch" id="launch-agent" data-kind="agent" data-rerouted="{{ rerouted | join(',') }}">
-    <h2>Test an agent <span class="dim">· scenarios with mock tools</span></h2>
-    <p class="dim">Fixed scenarios whose tools are OPAAS's mocks, so what the agent did is known without a judge: task completed, forbidden tools, injections resisted, and how auditable its own record is.</p>
-    <div class="fields">
-      <label>Adapter
-        <select name="agent">{% for a in adapters %}<option{{ ' selected' if a == 'http' }}>{{ a }}</option>{% endfor %}</select>
-      </label>
-      <label data-for="endpoint">Agent URL <input name="endpoint" placeholder="http://127.0.0.1:9000"></label>
-      <label data-for="backend" class="hidden">Engine backend
-        <select name="backend"><option>ollama</option><option>vllm</option><option>openai</option></select>
-      </label>
-      <label data-for="model" class="hidden">Model <input name="model" placeholder="qwen2.5:7b-instruct"></label>
-      <label data-for="base_url" class="hidden">Engine URL <input name="base_url" placeholder="adapter's default"></label>
-      <label data-for="assistant" class="hidden">Assistant or chatflow id <input name="assistant" placeholder="agent"></label>
-      <label>Scenarios
-        <select name="scenarios">{% for s in sources %}<option value="{{ s.value }}">{{ s.label }}</option>{% endfor %}<option value="path">A directory of your own…</option></select>
-      </label>
-      <label data-for="path" class="hidden">Scenario directory <input name="path" placeholder="C:\audits\scenarios"></label>
-      <label>Repeats <input name="repeats" value="3" inputmode="numeric"></label>
-    </div>
-    <div class="rerouted hidden" data-rerouted-box>
-      <p class="warn">This adapter drives an agent whose tools you point at OPAAS's mock MCP server, <span class="mono">http://127.0.0.1:8765/mcp</span>, before the run. If they still point at real tools, the destructive and permission scenarios act on them (D68).</p>
-      <label class="inline"><input type="checkbox" name="confirm"> The agent's only tools are OPAAS's mock server</label>
-      <p class="fine">If the agent needs an API key, set <code>OPAAS_AGENT_TOKEN</code> before starting <code>opaas ui</code>: the dashboard never takes a key.</p>
-    </div>
-    <p class="fine">Reference scenarios and packs test a domain, not your deployment: the result is not certifiable alone. <code>opaas audit template</code> writes scenarios for your own tools.</p>
-    <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono" data-preview></code></div></div>
-    <p class="error hidden" data-error></p>
-    <button class="btn" type="submit">Queue agent run</button>
-  </form>
-
-  <form class="launch" id="launch-discover" data-kind="discover">
-    <h2>Scan this machine again <span class="dim">· with extra options</span></h2>
-    <div class="fields">
-      <label class="wide">Remote engine (optional) <input name="endpoint" placeholder="http://10.0.0.5:11434"></label>
-    </div>
-    <label class="inline"><input type="checkbox" name="well_known" checked> Read the MCP configurations of known clients (names only)</label>
-    <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono" data-preview></code></div></div>
-    <p class="error hidden" data-error></p>
-    <button class="btn" type="submit">Queue scan</button>
-  </form>
-</details>
 {% endblock %}

@@ -182,6 +182,8 @@ def discover_picker(store: Path, run_id: str) -> dict[str, Any] | None:
         })
     return {
         "runId": run_id, "hash": inventory.get("hash"), "engines": engines, "agents": agents,
+        # `audit draft --inventory` drafts the system from this very scan, not a second one.
+        "inventoryPath": str(directory / "inventory.json"),
         "unidentified": inventory.get("unidentified", []),
         "notObserved": stack.get("notObserved", []),
     }
@@ -413,21 +415,6 @@ def _agent_run(run: dict[str, Any]) -> dict[str, Any]:
             "error": behaviour.get("agentError") or (run.get("agent") or {}).get("error")}
 
 
-def scenario_sources() -> list[dict[str, Any]]:
-    """What a new agent run can be pointed at: the reference set and every domain pack."""
-    from opaas.smith.scenario import available_packs, load_pack
-
-    sources = [{"value": "reference", "label": "Reference scenarios (21)", "language": "en"}]
-    for pack_id in available_packs():
-        try:
-            pack, loaded = load_pack(pack_id)
-        except ValueError:
-            continue
-        sources.append({"value": f"pack:{pack.id}", "language": pack.language,
-                        "label": f"{pack.title} · pack:{pack.id} ({len(loaded)})"})
-    return sources
-
-
 def agent_adapters() -> list[str]:
     from opaas.smith import available_agents
 
@@ -655,85 +642,6 @@ def _system(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def stored_reports(store: Path) -> list[dict[str, Any]]:
-    """Runs whose report a system audit can cite with --member, newest first."""
-    found = []
-    for record in runs(store):
-        if record.get("kind") not in ("bench", "smith") or record.get("status") not in (
-                "completed", "partial"):
-            continue
-        name = report_name(store / record["runId"], record)
-        if name:
-            found.append({"runId": record["runId"], "kind": record["kind"],
-                          "path": str(store / record["runId"] / name),
-                          "command": " ".join(record.get("command", [])[1:])[:70]})
-    return found
-
-
-# --- Sentinel (read where the operator says, D46/D50) -----------------------
-
-def read_jsonl(path: Path, *, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
-    """Complete JSON lines of a growing file from `offset`, and where to read next."""
-    if not path.is_file():
-        return [], offset
-    with path.open("rb") as handle:
-        handle.seek(offset)
-        data = handle.read()
-    complete = data[: data.rfind(b"\n") + 1]
-    lines = []
-    for raw in complete.splitlines():
-        try:
-            lines.append(json.loads(raw.decode("utf-8")))
-        except ValueError:
-            continue
-    return lines, offset + len(complete)
-
-
-def sentinel_event(line: dict[str, Any]) -> dict[str, Any]:
-    """An AuditEvent as the page shows it: what, who, decided how. Digests stay digests (N4).
-
-    A log line wraps the event in its chain link (`seq`, `previousHash`, `event`);
-    a bare event, as other importers write them, is read as it is.
-    """
-    record = line.get("event") if isinstance(line.get("event"), dict) else line
-    chain = record.get("actorChain") or []
-    return {
-        "seq": line.get("seq"),
-        "ts": record.get("ts"), "action": record.get("action"), "target": record.get("target"),
-        "phase": record.get("phase"),
-        "actors": " > ".join(f"{a.get('role')}:{a.get('id')}" for a in chain
-                             if isinstance(a, dict)),
-        "verdicts": [{"policy": d.get("policy"), "verdict": d.get("verdict")}
-                     for d in record.get("policyDecisions", []) if isinstance(d, dict)],
-        "pending": (record.get("extra") or {}).get("pendingId"),
-        "durationMs": record.get("durationMs"), "error": record.get("error"),
-        "digest": (record.get("args") or {}).get("digest") if isinstance(record.get("args"),
-                                                                           dict) else None,
-    }
-
-
-def pending_actions(queue: Path) -> list[dict[str, Any]]:
-    """Actions the gate holds for a human, as the queue keeps them."""
-    if not queue.is_dir():
-        return []
-    from opaas.sentinel.gate import ApprovalQueue
-
-    entries = []
-    for entry in ApprovalQueue(queue).pending():
-        chain = entry.get("actorChain") or []
-        entries.append({
-            "id": entry.get("id"), "submittedAt": entry.get("submittedAt"),
-            "target": entry.get("target"),
-            "actors": " > ".join(f"{a.get('role')}:{a.get('id')}" for a in chain
-                                 if isinstance(a, dict)),
-            "policies": [p.get("policy") for p in entry.get("policies", [])
-                         if isinstance(p, dict)],
-            "digest": (entry.get("args") or {}).get("digest")
-            if isinstance(entry.get("args"), dict) else None,
-        })
-    return entries
-
-
 def run_for_job(store: Path, job_id: str) -> dict[str, Any] | None:
     """The run a dashboard job produced: among every run sharing its id, the one
     that started first — the command the job line actually launched.
@@ -810,6 +718,54 @@ def _subrun_summary(store: Path, sub: dict[str, Any]) -> dict[str, Any]:
         percent = next((line.get("percent") for line in reversed(lines)
                         if line.get("percent") is not None), None)
     return {"runId": sub["runId"], "status": sub.get("status"), "label": label, "percent": percent}
+
+
+# --- What OPAAS measures (the overview) -------------------------------------
+
+#: The metrics of *Auditable Agents*, by their short names in `core.metrics`.
+METRIC_NAMES = {
+    "ACR": "actions recorded", "RF": "required fields present",
+    "LPC": "lifecycle phases observed", "GB": "gap burden",
+    "SPDR": "policies decidable", "ADL": "detection latency",
+    "AC": "complete actor chains", "ACD": "actor chain depth",
+    "IS": "integrity level", "VC": "verification cost",
+}
+
+#: What each step of `opaas audit run` does (`system.orchestrate`, in its order).
+STEP_TEXT = {
+    "discover": "inventory of engines, models, agents and tools, and the gap scan",
+    "bench": "blocks A–E for every model",
+    "smith": "scenarios with mock tools for every agent: what it did is known without a judge",
+    "sentinel": "the overhead of every observing proxy",
+    "inquest": "the system's own records, audited after the fact, and the same records degraded",
+    "swarm": "the declared flows between components against the observed ones",
+}
+
+
+def about() -> dict[str, Any]:
+    """What OPAAS measures and what an audit runs, from the registries that run it.
+
+    Read from the suites, the metrics and the audit's steps themselves, so the
+    overview cannot promise a block or a step the code does not have.
+    """
+    from opaas.bench.suites import BLOCKS, available_suites, get_suite
+    from opaas.core.metrics import DIMENSIONS
+    from opaas.system.orchestrate import STEPS
+
+    suites = sorted((get_suite(name) for name in available_suites()), key=lambda s: s.block)
+    names = {"actionRecoverability": "Action recoverability",
+             "lifecycleCoverage": "Lifecycle coverage", "policyCheckability": "Policy checkability",
+             "responsibilityAttribution": "Responsibility attribution",
+             "evidenceIntegrity": "Evidence integrity"}
+    return {
+        "blocks": [{"block": s.block, "name": BLOCKS.get(s.block, s.name), "suite": s.name,
+                    "description": s.description} for s in suites],
+        "dimensions": [{"question": entry["question"], "name": names.get(key, key),
+                        "metrics": [{"short": m, "name": METRIC_NAMES.get(m, m)}
+                                    for m in entry["metrics"]]}
+                       for key, entry in DIMENSIONS.items()],
+        "steps": [{"name": step, "text": STEP_TEXT.get(step, "")} for step in STEPS],
+    }
 
 
 def meerkat() -> dict[str, Any]:

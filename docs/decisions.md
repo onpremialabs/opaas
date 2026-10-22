@@ -50,9 +50,29 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D84 — The dashboard scans, then audits the whole system: one path, and no sentinel page
+
+**Status:** applied · **Revises:** the per-model and per-agent pickers of [D83](#d83--new-scans-before-it-asks-and-opaas-audit-runs-six-steps-show-their-own-progress), and the sentinel screen of `docs/dashboard.md` §7 · **Affects:** [`ui/app.py`](../src/opaas/ui/app.py), [`ui/views.py`](../src/opaas/ui/views.py), [`ui/static/app.js`](../src/opaas/ui/static/app.js), [`ui/templates/new.html`](../src/opaas/ui/templates/new.html), [`ui/templates/overview.html`](../src/opaas/ui/templates/overview.html)
+
+`/new` offered five ways in: models ticked from the scan, agents ticked from it, a system manifest form with steps to skip, cited runs and extra bench options, and three free-text forms for what the scan missed. A newcomer had to understand OPAAS's modules to choose among them, when what they came for is one thing: audit what this machine runs. The sentinel page asked for the paths of a proxy log and an approval queue that only an operator who had already started the proxy in a terminal could have, and the overview said what the machine had but not what OPAAS is for.
+
+**What changed.**
+- **`/new` is two steps.** *Scan* launches `opaas discover scan --well-known`, a recorded job as before (D83); while it runs, the sentinel meerkat keeps watch, and it goes back down when the scan ends. What the scan found is listed, not offered as checkboxes. The one action is **Audit the whole system**: `opaas audit draft --inventory <that scan's inventory.json> [--purpose …]`, then, once it has written the manifest, `opaas audit run <manifest>`. Both commands are shown before they run. Unticking the draft audits a manifest the operator already has. The manifest is named by its full path, defaulting to where `opaas ui` started, because every job runs in its own directory.
+- **The sentinel page is gone**, with its routes (`/sentinel`, `/sentinel/events`, `/api/sentinel/pending`). The proxy's traffic and the gate's queue are followed from the terminal that runs it, where starting it and approving already were (D46, D50).
+- **The overview says what OPAAS does and what it measures**: blocks A–E with their suites' own descriptions, the five auditability dimensions with their metrics, and the six steps an audit runs. All three are read from the registries that run them (`bench.suites`, `core.metrics.DIMENSIONS`, `system.orchestrate.STEPS`), so the page cannot promise a block or a step the code does not have. It lists what is measured; what a given run did not measure stays on that run's page, with its reason (invariant 2).
+
+**What is lost.**
+- **Auditing one model or one agent from the dashboard.** `opaas run` and `opaas smith run` remain, in a terminal, and the jobs allowlist still accepts them; the dashboard no longer has a form for them. A system with one model is still audited, through its manifest.
+- **The operator does not review the draft before the audit.** `opaas audit draft` writes down what the host shows, which is not always what the system is (an engine may serve a model no application uses). The manifest stays on disk, and the system report lists every component it audited; to audit a corrected manifest, untick the draft.
+- **A draft never overwrites a manifest** (the CLI refuses), so a second audit with the draft ticked fails on the existing file and says so; the operator unticks it or names another file.
+- **Steps to skip, cited runs and extra bench options** are no longer set from the dashboard: `opaas audit run` takes them in a terminal.
+- **Watching the proxy from a browser.** Whoever relied on it follows the log with the terminal that runs the proxy.
+
+---
+
 ## D83 — `/new` scans before it asks, and `opaas audit run`'s six steps show their own progress
 
-**Status:** applied · **Affects:** [`ui/views.py`](../src/opaas/ui/views.py), [`ui/app.py`](../src/opaas/ui/app.py), [`ui/static/app.js`](../src/opaas/ui/static/app.js), [`ui/templates/new.html`](../src/opaas/ui/templates/new.html), [`ui/templates/batch.html`](../src/opaas/ui/templates/batch.html)
+**Status:** applied; its pickers and manual forms revised by [D84](#d84--the-dashboard-scans-then-audits-the-whole-system-one-path-and-no-sentinel-page) · **Affects:** [`ui/views.py`](../src/opaas/ui/views.py), [`ui/app.py`](../src/opaas/ui/app.py), [`ui/static/app.js`](../src/opaas/ui/static/app.js), [`ui/templates/new.html`](../src/opaas/ui/templates/new.html), [`ui/templates/batch.html`](../src/opaas/ui/templates/batch.html)
 
 `/new` asked for a model id, a backend and a URL before anything ran, even though `opaas discover scan` already knows how to find an Ollama, a vLLM or an OpenAI-compatible engine on this host, with its models, and an agent that identifies itself. Nothing used that. And a job's progress bars were wrong: each block's bar was drawn from the *run's* overall percent (`RunEvent.percent`, already weighted across every block), not its own, so a block's bar visibly stalled short of 100% and never collapsed before the next one started. `opaas audit run`'s six steps (discover, bench, smith, sentinel, inquest, swarm) showed nothing live at all, even though `cli/audit.py`'s `invoke()` already logs a line per step it runs — nothing in the dashboard read it.
 
