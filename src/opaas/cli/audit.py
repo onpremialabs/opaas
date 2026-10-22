@@ -259,6 +259,9 @@ def draft_command(
         "--records-format", help="sentinel, otel or jsonl.")] = "sentinel",
     records_key: Annotated[Path | None, typer.Option(
         "--records-key", help="Public key that sealed the records.")] = None,
+    project: Annotated[Path | None, typer.Option(
+        "--project", help="Draft one environment, from its folder, instead of everything the "
+        "host serves (ignored with --inventory: the scan already carries its scope).")] = None,
     force: Annotated[bool, typer.Option("--force", help="Overwrite an existing file.")] = False,
 ) -> None:
     """Drafts a system manifest: the models, agents, tools and flows the host and records show."""
@@ -277,7 +280,8 @@ def draft_command(
         observed = (read_json(inventory)["inventory"] if inventory
                     else discover(endpoints=endpoint or [], configs=config or [],
                                   manifests=manifest or [], containers=False,
-                                  well_known=well_known, agent_endpoints=agent_endpoint or []))
+                                  well_known=well_known, agent_endpoints=agent_endpoint or [],
+                                  project=project))
         imported = (import_records(records, records_format,
                                    public_key=load_public_key(records_key)
                                    if records_key else None) if records else None)

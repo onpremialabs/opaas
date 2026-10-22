@@ -50,6 +50,43 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D85 — An audit can be scoped to one environment's folder instead of the whole host
+
+**Status:** applied · **Extends:** [D45](#d45--discover-reads-the-agent-stack-the-operator-names-and-the-gap-scan-finds-preconditions-not-violations) (only what the operator names) and [D63](#d63--opaas-identifies-a-systems-agents-and-the-models-they-use) · **Affects:** [`discover/project.py`](../src/opaas/discover/project.py), [`discover/__init__.py`](../src/opaas/discover/__init__.py), [`system/draft.py`](../src/opaas/system/draft.py), [`cli/discover.py`](../src/opaas/cli/discover.py), [`cli/audit.py`](../src/opaas/cli/audit.py), [`ui/`](../src/opaas/ui)
+
+A host scan finds every engine and every model it serves. It finds an agent only when the agent is running and identifies itself on a port (D63). On a machine with eighteen models and several projects, auditing "the system" therefore meant auditing every model the engine serves and, usually, no agent at all. The operator wanted to `cd` into one deployment's folder, or pick it in the dashboard, and have OPAAS audit that deployment.
+
+**What changed.**
+- **`discover scan --project DIR`** (and `audit draft --project DIR`) scopes the scan to one environment. Inside the folder the operator names, OPAAS reads only fixed places:
+  - MCP configurations: `.mcp.json`, `mcp.json`, `.vscode/mcp.json`, `.cursor/mcp.json`, `.roo/mcp.json`, `.gemini/settings.json`;
+  - skill directories: `.claude/skills`, `skills`;
+  - files that declare agents: `langgraph.json` (each graph), an A2A agent card;
+  - JSON workflow exports, in the folder and in `workflows/`, `flows/`, `chatflows/`, `n8n/`, `flowise/`, `agents/`: an n8n or Flowise export that contains an agent node is an agent, and its model nodes name its models.
+
+  It never crawls. With a project, the user's MCP configurations and the host's containers are not read: they belong to the host, not the environment.
+- **The host is still observed, and the scope says which parts of it belong to the environment.** The inventory gains a `project` section:
+  - each declared agent is `running` at the endpoint of an identified agent of the same kind (for an A2A card, the same name), or `null`;
+  - each named model is `servedBy` the engine that lists it (`name` or `name:latest`), or `null`;
+  - the files read are listed by relative path and hash, and what was not read, with its reason, under `notRead`.
+
+  The section's hash enters the environment hash, so every result is bound to its scope (N5). A host scan has no `project` key and keeps the hash it always had.
+- **A scoped draft takes only the environment.**
+  - It drafts the environment's models that an engine here serves, and its agents that are running.
+  - It counts everything else the host serves in a note.
+  - It notes each declared agent that is not running and each named model no engine serves. It never takes every served model as a fallback.
+- **The dashboard asks for the scope first.**
+  - *An environment*: the folder `opaas ui` started in, or one chosen with *Browse…*. The browser cannot hand a local path to a page, so a server-side picker lists folders, never files.
+  - *This whole machine*.
+  - The scan's command is shown before it runs. A scoped result lists the environment's agents and models, and the rest of the machine collapsed beside them. The manifest goes into the environment's folder unless the operator named another path.
+
+**What is lost.**
+- **What a project says outside JSON.** OPAAS carries no YAML parser, so compose files, `langgraph.yaml` and a Dify DSL are not read; they are listed under `notRead`. A model or agent named only in source code is not seen either: what a program calls is not read off its text. The draft then says the environment named no model, and the operator adds those components by hand.
+- **A declared agent that is not running cannot be audited.** It is listed, never given an endpoint by guess.
+- **Matching is by kind, not by graph.** One LangGraph server answers for every graph it serves, so every `langgraph.json` graph is matched to that server. Two LangGraph servers on one host cannot be told apart by the scan.
+- **Conventions change.** The fixed places are a versioned list in `project.py`. A client that moves its configuration is not read until the list follows it.
+
+---
+
 ## D84 — The dashboard scans, then audits the whole system: one path, and no sentinel page
 
 **Status:** applied · **Revises:** the per-model and per-agent pickers of [D83](#d83--new-scans-before-it-asks-and-opaas-audit-runs-six-steps-show-their-own-progress), and the sentinel screen of `docs/dashboard.md` §7 · **Affects:** [`ui/app.py`](../src/opaas/ui/app.py), [`ui/views.py`](../src/opaas/ui/views.py), [`ui/static/app.js`](../src/opaas/ui/static/app.js), [`ui/templates/new.html`](../src/opaas/ui/templates/new.html), [`ui/templates/overview.html`](../src/opaas/ui/templates/overview.html)

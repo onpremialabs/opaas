@@ -193,3 +193,13 @@ input, select { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px
 .found { list-style: none; margin: 0; padding: 0; font-size: 13px; columns: 2 240px; }
 .found li { padding: 2px 0; }
 .cmd code.multi { white-space: pre; }
+.scope { display: grid; gap: 8px; margin: 4px 0 6px; font-size: 13px; }
+.folder { display: flex; gap: 8px; margin-left: 24px; }
+.folder input { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; }
+.browser { margin-left: 24px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.browser-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.browser-head .mono { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.browser-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 220px; overflow: auto; font-size: 13px; }
+.browser-list li { padding: 3px 6px; border-radius: 6px; cursor: pointer; }
+.browser-list li:hover { background: var(--paper-2); }
+.discover details { margin-top: 6px; }

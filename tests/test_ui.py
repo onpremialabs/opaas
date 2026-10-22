@@ -639,3 +639,36 @@ def test_the_system_comparison_page_says_what_opaas_compare_says(client, tmp_pat
         assert f'href="/runs/{run}"' in page
     history = client.get("/runs", params={"kind": "audit"}).text
     assert history.count('data-compare-kind="system"') == 2
+
+
+# --- One environment or the whole machine (D85) -----------------------------
+
+def test_new_audit_offers_an_environment_or_the_whole_machine(client):
+    page = client.get("/new").text
+    assert 'value="project" checked' in page and 'value="host"' in page
+    assert "data-browse" in page and "data-scan-preview" in page
+    # The environment starts as the folder `opaas ui` was started from.
+    assert f'name="project" value="{Path.cwd()}"' in page
+
+
+def test_the_folder_picker_lists_folders_only(client, tmp_path):
+    (tmp_path / "support-bot").mkdir()
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "secrets.env").write_text("TOKEN=x")
+    listing = client.get("/api/folders", params={"path": str(tmp_path)}).json()
+    assert listing["folders"] == ["support-bot"] and listing["parent"]
+    assert client.get("/api/folders", params={"path": str(tmp_path / "secrets.env")}
+                      ).status_code == 404
+
+
+def test_a_scoped_scan_reaches_the_page_with_its_scope(client, tmp_path):
+    root = tmp_path / "bot"
+    root.mkdir()
+    (root / "langgraph.json").write_text(json.dumps({"graphs": {"agent": "./a.py:g"}}))
+    result = runner.invoke(cli, ["discover", "scan", "--project", str(root),
+                                 "-o", str(tmp_path / "inventory.json")])
+    assert result.exit_code == 0, result.output
+    (record,) = [r for r in list_runs() if r["kind"] == "discover"]
+    body = client.get(f"/api/discover/{record['runId']}").json()
+    assert body["project"]["root"] == "bot"
+    assert body["project"]["agents"][0]["name"] == "agent"

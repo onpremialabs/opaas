@@ -186,7 +186,31 @@ def discover_picker(store: Path, run_id: str) -> dict[str, Any] | None:
         "inventoryPath": str(directory / "inventory.json"),
         "unidentified": inventory.get("unidentified", []),
         "notObserved": stack.get("notObserved", []),
+        # A scan scoped to one environment's folder (D85): what of the above is its own.
+        "project": inventory.get("project"),
     }
+
+
+#: Folders listed for one level of the dashboard's folder picker, at most.
+MAX_FOLDERS = 400
+
+
+def folders(path: Path) -> dict[str, Any] | None:
+    """One level of the folder picker: the folder, its parent, its subfolders.
+
+    Names only, and only folders: the picker chooses where an environment is,
+    it does not show what is in it. None if `path` is not a folder.
+    """
+    try:
+        path = path.expanduser().resolve()
+        if not path.is_dir():
+            return None
+        names = sorted((p.name for p in path.iterdir()
+                        if p.is_dir() and not p.name.startswith(".")), key=str.lower)
+    except OSError:
+        return None
+    return {"path": str(path), "parent": str(path.parent) if path.parent != path else None,
+            "folders": names[:MAX_FOLDERS], "more": max(0, len(names) - MAX_FOLDERS)}
 
 
 def run_page(store: Path, run_id: str) -> dict[str, Any]:

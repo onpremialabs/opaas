@@ -86,7 +86,10 @@ if (systemForm) {
       .map((args) => "$ opaas " + args.map(quoted).join(" ")).join("\n");
     purpose.classList.toggle("hidden", !systemForm.querySelector('[name="draft"]').checked);
   };
-  systemForm.addEventListener("input", refresh);
+  systemForm.addEventListener("input", (event) => {
+    if (event.target.name === "manifest") event.target.dataset.edited = "1";
+    refresh();
+  });
   systemForm.addEventListener("refresh", refresh);
   systemForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -150,36 +153,129 @@ if (discoverBox) {
     return div;
   };
 
+  // --- Scope: one environment's folder, or the whole machine (D85) ---------
+  const scopeBox = discoverBox.querySelector("[data-scope]");
+  const folderInput = scopeBox.querySelector('[name="project"]');
+  const scanPreview = discoverBox.querySelector("[data-scan-preview]");
+  const scoped = () => scopeBox.querySelector('[name="scope"]:checked').value === "project";
+  const scanArgs = () => (scoped()
+    ? ["discover", "scan", "--project", folderInput.value.trim()]
+    : ["discover", "scan", "--well-known"]);
+  const refreshScope = () => {
+    discoverBox.querySelector("[data-folder]").classList.toggle("hidden", !scoped());
+    if (!scoped()) browser.classList.add("hidden");
+    scanPreview.textContent = "$ opaas " + scanArgs().map(quoted).join(" ");
+  };
+
+  // The folder picker lists folders only, one level at a time, from the server:
+  // a browser page cannot hand a local path to anyone.
+  const browser = discoverBox.querySelector("[data-browser]");
+  const browserList = browser.querySelector("[data-browser-list]");
+  const browserPath = browser.querySelector("[data-browser-path]");
+  let here = null;
+  const browse = async (path) => {
+    const listing = await api(`/api/folders?${new URLSearchParams({path})}`).catch(() => null);
+    if (!listing) return;
+    here = listing;
+    browser.classList.remove("hidden");
+    browserPath.textContent = listing.path;
+    browser.querySelector("[data-up]").disabled = !listing.parent;
+    browserList.innerHTML = "";
+    for (const name of listing.folders) {
+      const li = document.createElement("li");
+      li.textContent = name + "/";
+      li.addEventListener("click", () => browse(`${listing.path}${listing.path.includes("\\") ? "\\" : "/"}${name}`.replace(/([\\/])[\\/]+/g, "$1")));
+      browserList.append(li);
+    }
+    if (!listing.folders.length) browserList.innerHTML = '<li class="dim">No folders here.</li>';
+  };
+  discoverBox.querySelector("[data-browse]").addEventListener("click", () => browse(folderInput.value.trim()));
+  browser.querySelector("[data-up]").addEventListener("click", () => here && here.parent && browse(here.parent));
+  browser.querySelector("[data-choose]").addEventListener("click", () => {
+    if (here) folderInput.value = here.path;
+    browser.classList.add("hidden");
+    refreshScope();
+  });
+  scopeBox.addEventListener("input", refreshScope);
+  refreshScope();
+
+  const host = (data) => {
+    const box = document.createElement("div");
+    for (const engine of data.engines || []) {
+      box.append(card(`${engine.kind} · :${engine.port} · ${engine.version || "?"} · ${engine.bind}`,
+        (engine.models || []).map((m) => [m.name, m.quantization])));
+    }
+    if ((data.agents || []).length) {
+      box.append(card("Agents", data.agents.map((a) => [`${a.name || a.kind} · ${a.adapter}`, a.endpoint])));
+    }
+    return box;
+  };
+
   const show = (data) => {
     const engines = data.engines || [];
     const agents = data.agents || [];
     const models = engines.reduce((n, e) => n + (e.models || []).length, 0);
-    sub.textContent = engines.length || agents.length
-      ? `${engines.length} engine(s), ${models} model(s), ${agents.length} agent(s) found.`
-      : "Nothing found running on this machine.";
+    const project = data.project;
     body.innerHTML = "";
-    for (const engine of engines) {
-      body.append(card(`${engine.kind} · :${engine.port} · ${engine.version || "?"} · ${engine.bind}`,
-        (engine.models || []).map((m) => [m.name, m.quantization])));
-    }
-    if (agents.length) {
-      body.append(card("Agents", agents.map((a) => [`${a.name || a.kind} · ${a.adapter}`, a.endpoint])));
+    if (project) {
+      sub.textContent = `Environment ${project.root}: ${project.agents.length} agent(s), `
+        + `${project.models.length} model(s) declared, from ${project.files.length} file(s).`;
+      body.append(card(`Agents of ${project.root}`, project.agents.map((a) =>
+        [`${a.name} · ${a.kind}`, `${a.file} · ${a.running || "not running"}`])));
+      body.append(card(`Models of ${project.root}`, project.models.map((m) =>
+        [m.name, m.servedBy || "served by no engine here"])));
+      if (!project.models.length) {
+        body.lastChild.querySelector("ul").innerHTML =
+          '<li class="dim">None named in the files OPAAS reads; a model named only in code is not seen.</li>';
+      }
+      if (!project.agents.length) {
+        body.firstChild.querySelector("ul").innerHTML =
+          '<li class="dim">No langgraph.json, agent card, or n8n / Flowise export with an agent.</li>';
+      }
+      const rest = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = `Also on this machine, not part of this environment: ${models} model(s), ${agents.length} agent(s)`;
+      rest.append(summary, host(data));
+      body.append(rest);
+    } else {
+      sub.textContent = engines.length || agents.length
+        ? `This machine: ${engines.length} engine(s), ${models} model(s), ${agents.length} agent(s) found.`
+        : "Nothing found running on this machine.";
+      body.append(host(data));
+      if (!agents.length) {
+        const p = document.createElement("p");
+        p.className = "fine";
+        p.textContent = "Agents are found on the whole machine only when they run and identify "
+          + "themselves. Scan an environment's folder to find the agents it declares.";
+        body.append(p);
+      }
     }
     inventoryPath = data.inventoryPath || null;
     if (systemForm) {
+      // The manifest belongs with the environment it describes, unless named already.
+      const manifest = systemForm.querySelector('[name="manifest"]');
+      if (project && !manifest.dataset.edited && scoped()) {
+        const folder = folderInput.value.trim().replace(/[\\/]+$/, "");
+        manifest.value = folder + (folder.includes("\\") ? "\\" : "/") + "system.json";
+      }
       systemForm.classList.remove("hidden");
       systemForm.dispatchEvent(new Event("refresh"));
     }
   };
 
   const scan = async () => {
+    if (scoped() && !folderInput.value.trim()) {
+      sub.textContent = "Name the environment's folder, or choose the whole machine.";
+      return;
+    }
     scanBtn.disabled = true;
-    sub.textContent = "Scanning this machine for engines, models and agents…";
+    sub.textContent = scoped() ? "Scanning the environment and the engines that serve it…"
+      : "Scanning this machine for engines, models and agents…";
     body.innerHTML = "";
     const stop = lookout(canvas);
     let data = null;
     try {
-      const job = await api("/api/jobs", {args: ["discover", "scan", "--well-known"]});
+      const job = await api("/api/jobs", {args: scanArgs()});
       // At least long enough to see the sentinel look both ways.
       const [done] = await Promise.all([
         settled(job.id, (j) => j.run && j.run.status !== "running"), delay(2500)]);

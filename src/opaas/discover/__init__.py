@@ -9,6 +9,8 @@ Three parts, each deterministic and read-only:
 - `identify`: agents that identify themselves (A2A cards, Open WebUI, agent
   frameworks by their OpenAPI title) and MCP configurations in their usual
   places (D63);
+- `project`: one environment instead of the whole host, from the files its
+  folder declares (D85);
 - `gaps`: the auditability gap scan over both (OP1-lite).
 
 `discover()` assembles the first two into one evidence document whose `hash`
@@ -26,6 +28,7 @@ from typing import Any
 from opaas.core.hashing import sha256_json
 from opaas.discover import identify as _identify
 from opaas.discover import inventory as _inventory
+from opaas.discover import project as _project
 from opaas.discover.agents import Runner, agent_stack_hash, discover_agent_stack
 from opaas.discover.inventory import compare_inventories
 
@@ -42,6 +45,7 @@ def discover(
     listeners: dict | None = None,
     well_known: bool = False,
     agent_endpoints: Iterable[str] = (),
+    project: Path | None = None,
 ) -> dict[str, Any]:
     """The engine inventory and the agent stack, under one environment hash.
 
@@ -49,7 +53,18 @@ def discover(
     `well_known` adds the MCP configurations found in their usual places, and
     the agents that identify themselves are probed on every listener that is
     not an engine (D63). Agent runtimes get one GET each (D64).
+
+    `project`: one environment's folder (D85). Its own MCP configurations and
+    skills are read instead of the user's and the host's containers, and the
+    document says which agents and models belong to it (`project`), and binds
+    to that scope through its hash. The host's engines and listeners are still
+    observed: they are where the environment's models and agents run.
     """
+    scanned = _project.scan_project(project) if project is not None else None
+    if scanned is not None:
+        configs = [*configs, *scanned["paths"]["configs"]]
+        skill_dirs = [*skill_dirs, *scanned["paths"]["skillDirs"]]
+        well_known, containers = False, False
     if listeners is None:
         listeners, _ = _inventory.listening_ports()
     inventory = engines if engines is not None else _inventory.discover_environment(
@@ -79,13 +94,18 @@ def discover(
                                 if not n.startswith("MCP servers:")]
     stack["hash"] = agent_stack_hash(stack)
     document = {**inventory, "enginesHash": inventory.get("hash"), "agentStack": stack}
+    if scanned is not None:
+        document["project"] = _project.scope(scanned, document)
     document["hash"] = environment_hash(document)
     return document
 
 
 def environment_hash(document: dict[str, Any]) -> str:
+    project = (document.get("project") or {}).get("hash")
     return sha256_json({"engines": document.get("enginesHash"),
-                        "agentStack": (document.get("agentStack") or {}).get("hash")})
+                        "agentStack": (document.get("agentStack") or {}).get("hash"),
+                        # Only when scoped: a host scan keeps the hash it always had.
+                        **({"project": project} if project else {})})
 
 
 def compare_discoveries(baseline: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:

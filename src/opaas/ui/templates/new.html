@@ -2,13 +2,26 @@
 {% block title %}New audit{% endblock %}
 {% block content %}
 <h1>New audit</h1>
-<p class="sub">First scan this machine for the engines, models and agents it runs, then audit them as one system. The exact command is shown before anything starts, and it is the one that runs.</p>
+<p class="sub">Choose what to audit, scan it, then audit it as one system. The exact command is shown before anything starts, and it is the one that runs.</p>
 
 <section class="discover" data-discover>
   <div class="head">
-    <div><h2>This machine</h2><p class="sub" data-discover-sub>Not scanned yet. Scan to see what this machine runs.</p></div>
+    <div><h2>What to audit</h2><p class="sub" data-discover-sub>Not scanned yet.</p></div>
     <div class="head-right"><button type="button" class="btn primary" data-scan>Scan</button></div>
   </div>
+  <div class="scope" data-scope>
+    <label class="inline"><input type="radio" name="scope" value="project" checked> <b>An environment</b> <span class="dim">· the models and agents one project folder declares</span></label>
+    <div class="folder" data-folder>
+      <input name="project" value="{{ cwd }}" aria-label="Environment folder">
+      <button type="button" class="btn" data-browse>Browse…</button>
+    </div>
+    <div class="browser hidden" data-browser>
+      <div class="browser-head"><button type="button" class="btn" data-up>Up</button> <span class="mono dim" data-browser-path></span> <button type="button" class="btn primary" data-choose>Use this folder</button></div>
+      <ul class="browser-list" data-browser-list></ul>
+    </div>
+    <label class="inline"><input type="radio" name="scope" value="host"> <b>This whole machine</b> <span class="dim">· every engine and model it serves; agents only when they run and identify themselves</span></label>
+  </div>
+  <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono" data-scan-preview></code></div></div>
   <canvas class="lookout hidden" width="660" height="150" data-lookout aria-label="The sentinel meerkat keeps watch while the scan runs"></canvas>
   <div data-discover-body></div>
 </section>
