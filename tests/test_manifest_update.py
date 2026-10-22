@@ -13,6 +13,12 @@ from opaas.ui.dialog import DialogError, dialog_command, pick_folder
 runner = CliRunner()
 
 
+def _said(result):
+    """The output as one line: Rich wraps at the terminal's width, and a long temporary
+    path (CI's are) moves where a phrase breaks."""
+    return " ".join(result.output.split())
+
+
 def _model(cid, name):
     return {"id": cid, "kind": "model", "backend": "ollama", "model": name,
             "base_url": "http://127.0.0.1:11434"}
@@ -58,14 +64,14 @@ def test_audit_draft_updates_an_existing_manifest_and_refuses_without_saying_how
                                   "model": "qwen2.5:7b"})
     out.write_text(json.dumps(written))
     refused = runner.invoke(cli, ["audit", "draft", "--project", str(root), "-o", str(out)])
-    assert refused.exit_code == 2 and "--update" in refused.output
+    assert refused.exit_code == 2 and "--update" in _said(refused)
     updated = runner.invoke(cli, ["audit", "draft", "--project", str(root), "-o", str(out),
                                   "--update"])
     assert updated.exit_code == 0, updated.output
     after = json.loads(out.read_text())
     assert after["purpose"] == "Answers employees."
     assert [c["id"] for c in after["components"]] == ["files", "llm"]
-    assert "Nothing new observed" in updated.output
+    assert "Nothing new observed" in _said(updated)
 
 
 # --- The system's folder dialog ----------------------------------------------
@@ -78,8 +84,8 @@ def test_each_platform_opens_its_own_folder_dialog():
     assert dialog_command("/home/me", platform="linux",
                           which=lambda n: n == "kdialog")[:2] == ["kdialog",
                                                                   "--getexistingdirectory"]
-    tk = dialog_command("C:\work", platform="win32")
-    assert "askdirectory" in tk[3] and tk[4] == "C:\work"
+    tk = dialog_command(r"C:\work", platform="win32")
+    assert "askdirectory" in tk[3] and tk[4] == r"C:\work"
 
 
 def _done(code, out="", err=""):

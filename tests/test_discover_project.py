@@ -16,6 +16,12 @@ from opaas.system.manifest import load_manifest
 runner = CliRunner()
 
 
+def _said(result):
+    """The output as one line: Rich wraps at the terminal's width, and a long temporary
+    path (CI's are) moves where a phrase breaks."""
+    return " ".join(result.output.split())
+
+
 def _engines():
     def handler(request):
         if request.url.path == "/api/version":
@@ -172,7 +178,7 @@ def test_a_project_that_is_not_a_folder_is_refused(tmp_path):
         scan_project(tmp_path / "missing")
     result = runner.invoke(cli, ["discover", "scan", "--project", str(tmp_path / "missing"),
                                  "-o", str(tmp_path / "inventory.json")])
-    assert result.exit_code == 2 and "not a folder" in result.output
+    assert result.exit_code == 2 and "not a folder" in _said(result)
 
 
 def test_an_empty_draft_says_nothing_was_found_instead_of_an_invalid_manifest(tmp_path):
@@ -180,7 +186,7 @@ def test_an_empty_draft_says_nothing_was_found_instead_of_an_invalid_manifest(tm
     root.mkdir()
     result = runner.invoke(cli, ["audit", "draft", "--project", str(root),
                                  "-o", str(root / "system.json")])
-    assert result.exit_code == 2 and "Nothing was found" in result.output
+    assert result.exit_code == 2 and "Nothing was found" in _said(result)
     assert not (root / "system.json").exists()
 
 
@@ -188,6 +194,7 @@ def test_discover_scan_takes_a_project_and_prints_its_scope(project, tmp_path):
     out = tmp_path / "inventory.json"
     result = runner.invoke(cli, ["discover", "scan", "--project", str(project), "-o", str(out)])
     assert result.exit_code == 0, result.output
-    assert "Project support-bot" in result.output and "not running" in result.output
-    assert "service ollama" in result.output and "frameworks" in result.output
+    said = _said(result)
+    assert "Project support-bot" in said and "not running" in said
+    assert "service ollama" in said and "frameworks" in said
     assert json.loads(out.read_text())["inventory"]["project"]["root"] == "support-bot"
