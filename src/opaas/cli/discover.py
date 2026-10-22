@@ -43,6 +43,10 @@ WellKnown = Annotated[bool, typer.Option(
     "Claude Code, Cursor, VS Code, Windsurf, Continue) where they keep them. Names only.")]
 AgentEndpoint = Annotated[list[str], typer.Option(
     "--agent-endpoint", help="A remote agent to identify, by URL. Repeatable.")]
+Project = Annotated[Path | None, typer.Option(
+    "--project", help="One environment instead of the whole host: the folder whose MCP "
+    "configurations, skills, agent files and workflow exports say what belongs to it. "
+    "`.` for the current folder.")]
 
 
 @app.command("scan")
@@ -55,6 +59,7 @@ def scan_command(
     containers: Containers = True,
     well_known: WellKnown = False,
     agent_endpoint: AgentEndpoint = None,
+    project: Project = None,
     out: Out = Path("inventory.json"),
     force: Force = False,
 ) -> None:
@@ -67,12 +72,16 @@ def scan_command(
         if not path.exists():
             error(f"[red]Not found:[/red] {path}")
             raise typer.Exit(code=2)
+    if project is not None and not project.is_dir():
+        error(f"[red]{project} is not a folder.[/red] Name the folder of the environment "
+              "to audit, or `.` for the current one.")
+        raise typer.Exit(code=2)
     refuse_overwrite(out, force)
     with recorded_run(ctx, "discover") as recorded:
         document = discover(endpoints=endpoint or [], configs=config or [],
                             manifests=manifest or [], skill_dirs=skills or [],
                             containers=containers, well_known=well_known,
-                            agent_endpoints=agent_endpoint or [])
+                            agent_endpoints=agent_endpoint or [], project=project)
         digest = write_document(out, envelope("inventory", {"inventory": document},
                                               environment={"inventory": document}))
         recorded.keep(out)
@@ -98,6 +107,19 @@ def scan_command(
     for agent in stack.get("agentEndpoints", []):
         console.print(f"  agent  {agent['kind']:<12} {_plain(agent['name'])} at "
                       f"{agent['endpoint']} [dim]({_plain(agent['basis'])})[/dim]")
+    scoped = document.get("project")
+    if scoped:
+        console.print(f"[bold]Project[/bold] {_plain(scoped['root'])} · "
+                      f"{len(scoped['files'])} file(s) read")
+        for agent in scoped["agents"]:
+            where = agent["running"] or "not running"
+            console.print(f"  agent  {agent['kind']:<12} {_plain(agent['name'])} "
+                          f"[dim]({_plain(agent['file'])})[/dim] {where}")
+        for model in scoped["models"]:
+            console.print(f"  model  {_plain(model['name'])} "
+                          f"{model['servedBy'] or '[yellow]served by no engine here[/yellow]'}")
+        if not scoped["agents"] and not scoped["models"]:
+            console.print("  [yellow]The folder names no agent and no model.[/yellow]")
     if stack.get("wellKnownConfigs"):
         console.print(f"  [dim]well-known MCP configurations read: "
                       f"{', '.join(stack['wellKnownConfigs'])}[/dim]")

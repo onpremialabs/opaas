@@ -109,6 +109,26 @@ runtimes, actor chains, image digests): a gap is a missing precondition for audi
 predicted violation. Sign a skill with `opaas discover sign-skill DIR --key skills.pem`; a
 signature counts only when it verifies under a key named with `--skill-key`.
 
+**One environment instead of the whole host.** When several deployments share a machine, name
+the one to audit by its folder:
+
+```bash
+cd ~/projects/support-bot
+opaas discover scan --project . -o inventory.json
+```
+
+OPAAS then reads that folder's own MCP configurations (`.mcp.json`, `.vscode/mcp.json`,
+`.cursor/mcp.json`…) and skills (`.claude/skills`, `skills/`) instead of the user's and the
+host's containers, and the files that declare its agents: the graphs of a `langgraph.json`, an
+A2A agent card, and the n8n or Flowise workflow exports (`*.json` in the folder or in
+`workflows/`, `flows/`, `chatflows/`…) that contain an agent node, with the models their model
+nodes name. It reads those fixed places only, never crawls. The host's engines and listeners
+are still observed, because that is where the environment's models and agents run; the
+inventory's `project` section says which of them belong to it: each agent *running* at an
+identified endpoint or *not running*, each model *served* by an engine here or not. YAML (a
+compose file) and source code are not read, and the scan says so: a model named only in code
+is not seen. The scope is part of the environment hash.
+
 Every model report also records the **deployment fingerprint** — engine version, model
 digest, chat template, GPU driver — and everything else the host serves.
 
@@ -181,6 +201,10 @@ opaas audit draft -o system.json --records events.jsonl
 ```
 
 ```bash
+opaas audit draft --project . -o system.json      # one environment, not the whole host
+```
+
+```bash
 opaas audit template system.json -o scenarios/
 ```
 
@@ -198,7 +222,10 @@ with `--member`, and writes a system report: members by hash, declared against o
 composition, a **components × dimensions table** where every cell is *measured*, *not
 measured* or *not applicable* with its reason, Q1–Q6, block E for the system's purpose, and
 your thresholds judged **comply, violate or undecidable**. An agent OPAAS cannot drive yet is
-kept with a pending adapter — listed, never dropped.
+kept with a pending adapter — listed, never dropped. With `--project` (or an inventory scanned
+with it) the draft takes only that environment's models and running agents; everything else
+the host serves, a declared agent that is not running, and a named model no engine here serves
+are left out with a note each.
 
 ### 6 · Continuous monitoring
 
@@ -227,9 +254,9 @@ run store on `127.0.0.1` only. It shows every run with its command and its files
 against their hashes, per-category intervals, what was not measured, live progress, and
 versioned audit certificates. It launches measuring commands only, each shown
 before it runs, and jobs against one engine wait their turn. The *Overview* says what OPAAS
-measures and what an audit runs. *New audit* scans this machine (the sentinel meerkat keeps watch
-until the scan ends), lists the engines, models and agents it found, and audits them as one
-system: it drafts the manifest from that scan, with the intended use if you give it, then runs
+measures and what an audit runs. *New audit* scans one environment, the folder `opaas ui` was started from
+or one chosen with *Browse…*, or the whole machine (the sentinel meerkat keeps watch until the
+scan ends), lists the models and agents it found, and audits them as one system: it drafts the manifest from that scan, with the intended use if you give it, then runs
 `opaas audit run`. A single model or agent is audited from the terminal (`opaas run`, `opaas smith
 run`). An agent run shows its behaviour, its task completion by category and the five
 auditability dimensions. A system shows its coverage matrix and Auditability Card. Each shows

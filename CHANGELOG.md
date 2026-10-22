@@ -10,6 +10,20 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Added — audit one environment, not the whole host (D85)
+
+- **`opaas discover scan --project DIR`** and **`opaas audit draft
+  --project DIR`** scope the audit to one project folder. The scan reads
+  that folder's MCP configurations and skills, the agents its
+  `langgraph.json`, A2A card and n8n or Flowise exports declare, and the
+  models those exports name. The host's engines and listeners are still
+  observed, and the inventory says which agents run and which models are
+  served. A scoped draft takes only the environment's models and running
+  agents, and leaves a note for the rest.
+- **The dashboard's *New audit* asks for the scope first**: an environment
+  (the folder `opaas ui` started in, or one picked with *Browse…*), or this
+  whole machine.
+
 ### Changed — the dashboard scans, then audits the whole system (D84)
 
 - **`/new` has one path.** *Scan* runs `opaas discover scan` while the

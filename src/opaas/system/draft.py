@@ -13,6 +13,12 @@ the models and tools it called and the flows between them. With records, only
 the models actually used are declared; the others an engine serves are
 noted, not drafted.
 
+**One environment, when the scan was scoped to a folder** (D85): only the
+models its files name and an engine here serves, and only its agents that are
+running, are drafted. Everything else the host serves is counted in a note,
+not drafted; an agent the folder declares that is not running, and a model it
+names that no engine here serves, are noted too.
+
 **A draft is not a declaration.** It writes down what is there, which is not
 the same as what the system is: an engine may serve a model no application
 uses, and an agent nothing identifies and that left no records cannot be
@@ -57,6 +63,12 @@ def draft_manifest(
     notes: list[str] = []
     taken: set[str] = set()
     usage = _usage(records) if records is not None else None
+    scoped = inventory.get("project")
+    wanted: set[str] = set()
+    for model in (scoped or {}).get("models") or []:
+        if model.get("servedBy"):
+            wanted |= {str(model["name"]), f"{model['name']}:latest"}
+    outside = 0
 
     def unique(base: str, suffix: str) -> str:
         candidate = (slugify(base) or "component")[:56]
@@ -79,6 +91,9 @@ def draft_manifest(
             name = str(model.get("name") or "")
             if not name:
                 continue
+            if scoped is not None and name not in wanted:
+                outside += 1
+                continue
             if usage is not None and name not in usage["models"]:
                 notes.append(f"{name} is served by {engine.get('kind')} and was not called in "
                              "the records: not drafted.")
@@ -93,7 +108,11 @@ def draft_manifest(
     stack = inventory.get("agentStack") or {}
     model_ids = {c["model"]: c["id"] for c in components if c["kind"] == "model"}
     agent_ids: dict[str, str] = {}
+    running = {a.get("running") for a in (scoped or {}).get("agents") or [] if a.get("running")}
     for agent in stack.get("agentEndpoints") or []:
+        if scoped is not None and agent.get("endpoint") not in running:
+            outside += 1
+            continue
         component_id = unique(str(agent.get("name") or agent.get("kind")), str(agent["kind"]))
         agent_ids[str(agent.get("name"))] = component_id
         components.append({"id": component_id, "kind": "agent", "adapter": agent["adapter"],
@@ -146,7 +165,9 @@ def draft_manifest(
                 if proxy and target in model_ids:
                     flow["via"] = proxy
                 flows.append(flow)
-    for runtime in stack.get("agentRuntimes") or []:
+    if scoped is not None:
+        notes.extend(_scope_notes(scoped, outside))
+    for runtime in [] if scoped is not None else stack.get("agentRuntimes") or []:
         notes.append(
             f"An agent runtime is running ({runtime.get('name') or runtime.get('process')}). "
             "Declare it as an agent component with the adapter and endpoint that reach it: "
@@ -176,6 +197,28 @@ def draft_manifest(
     if records_source:
         manifest["records"] = [{**records_source, **({"component": proxy} if proxy else {})}]
     return manifest, notes
+
+
+def _scope_notes(scoped: dict[str, Any], outside: int) -> list[str]:
+    """What a folder-scoped draft left out, and why (D85)."""
+    notes = []
+    for agent in scoped.get("agents") or []:
+        if not agent.get("running"):
+            notes.append(f"{agent['kind']} agent '{agent['name']}' is declared in "
+                         f"{agent['file']} and is not running on this host: start it, then "
+                         "scan again. Not drafted.")
+    for model in scoped.get("models") or []:
+        if not model.get("servedBy"):
+            notes.append(f"{model['name']} is named in the project and no engine here serves "
+                         "it: pull it, or name its engine with --endpoint. Not drafted.")
+    if not scoped.get("models"):
+        notes.append(f"The project '{scoped.get('root')}' names no model in the files OPAAS "
+                     "reads (a model named only in code is not seen): add the models its agents "
+                     "use as model components.")
+    if outside:
+        notes.append(f"{outside} model(s) and agent(s) this host serves are not the project's: "
+                     "not drafted.")
+    return notes
 
 
 def _usage(records: list[dict[str, Any]]) -> dict[str, Any]:

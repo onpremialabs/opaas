@@ -171,7 +171,15 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
     async def new_job(request: Request) -> Response:
         # Every job runs in its own directory: the manifest the draft writes and the
         # audit reads must be named absolutely, so the default is where `opaas ui` started.
-        return page(request, "new.html", manifest=str(Path.cwd() / "system.json"))
+        return page(request, "new.html", manifest=str(Path.cwd() / "system.json"),
+                    cwd=str(Path.cwd()))
+
+    async def folder_list(request: Request) -> Response:
+        """One level of the folder picker; the environment is where `opaas ui` started."""
+        listing = views.folders(Path(request.query_params.get("path") or Path.cwd()))
+        if listing is None:
+            return JSONResponse({"error": "Not a folder."}, status_code=404)
+        return JSONResponse(listing)
 
     async def discover_latest(request: Request) -> Response:
         return JSONResponse(views.latest_discover(store) or {"runId": None})
@@ -235,6 +243,7 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         Route("/new", new_job),
         Route("/api/discover/latest", discover_latest),
         Route("/api/discover/{run_id}", discover_run),
+        Route("/api/folders", folder_list),
         Route("/batch", batch_page),
         Route("/jobs/{job_id}", job_page),
         Route("/api/jobs", api_jobs, methods=["GET", "POST"]),

@@ -139,7 +139,8 @@ src/opaas/
 │   └── classifiers/    Optional block D classifiers: registry, cache, calibration
 ├── discover/           inventory.py (engines, D40), agents.py (MCP, tools, skills,
 │                       containers), gaps.py (rules G01–G09, versioned + hashed) (D45),
-│                       identify.py (agents that identify themselves, well-known MCP configs, D63)
+│                       identify.py (agents that identify themselves, well-known MCP configs, D63),
+│                       project.py (one environment's folder instead of the whole host, D85)
 ├── smith/              scenario.py (JSON format), oracle.py (mock tools = ground truth),
 │                       agents.py (bare-model, http, mcp), rerouted.py (a2a, open-webui,
 │                       langgraph, D68; langserve, dify, flowise, n8n, D69: tools rerouted

@@ -64,7 +64,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas compliance` | Writes the block E declaration template |
 | `opaas datasets` / `fetch` / `import` | Dataset and classifier cache: status, download, convert |
 | `opaas backends` / `suites` / `version` | Adapters, blocks, tool and methodology version |
-| `opaas discover scan` / `gaps` / `sign-skill` | Inventory of engines, agents and agent stack; auditability gap scan; sign a skill for G05 |
+| `opaas discover scan` / `gaps` / `sign-skill` | Inventory of engines, agents and agent stack (`--project DIR`: one environment's folder instead of the whole host); auditability gap scan; sign a skill for G05 |
 | `opaas smith scenarios` / `packs` / `run` | Validate scenarios; list the domain packs; run them against an agent |
 | `opaas sentinel observe` | Recording (and opt-in gating) reverse proxy |
 | `opaas sentinel approvals` / `approve` / `deny` | The gate's approval queue |
@@ -73,7 +73,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas swarm analyze` / `attribute` | Flow topology, per-edge figures, faults; attribution subgraph |
 | `opaas card build` / `manifest` | Auditability Card; deployment manifest |
 | `opaas evidence sign` / `verify` | Sign and verify any evidence document |
-| `opaas audit draft` | Draft a system manifest: models, agents, tools and flows the host and records show |
+| `opaas audit draft` | Draft a system manifest: models, agents, tools and flows the host and records show (`--project DIR`: only one environment's) |
 | `opaas audit template` | Scenario templates for the manifest's tools; you write the answers |
 | `opaas audit run` | Audit a system from its manifest; write the system report and open its audit certificate |
 | `opaas audit validate` / `extract` | Check a system manifest; read any document into measurements |
@@ -126,6 +126,9 @@ Stated as plainly as the report states it:
   any framework agent whose tools cannot be rerouted to OPAAS's mock server; and whether a rerouted agent had other tools is declared, not observed.
 - **Skill signatures in other schemes** (OpenPGP, minisign, Sigstore) — only OPAAS's own is
   verified, and only under a key you name; the rest are *not observed*, never ok.
+- **What a project declares outside the files OPAAS reads** (`--project`): YAML (compose
+  files, Dify DSL) and source code are not read, so a model or agent named only there is not
+  seen; the scan lists them under `notRead`.
 - **Whether an agent runtime's actions need credentials** — it gets one GET to `/`, which
   shows its front door only.
 - **Streams in shapes the sentinel does not assemble** — OpenAI, the Responses API and Ollama
