@@ -579,20 +579,27 @@ The dashboard walks a newcomer through what the README describes:
 
 1. **Prerequisites:** Python, `nvidia-smi`, cached datasets and classifiers,
    offline mode. This is the same report as the cover-page menu.
-2. **Discover:** run the inventory and show engines, models, agents, MCP servers
-   and gaps.
-3. **Models:** pick the served models and their backend and context window, and
-   launch `run --suite all` for each. The warnings the README gives are shown
-   where they apply: `--num-ctx` on Ollama, concurrency, generation caps.
-4. **Agents:** pick the adapter and the scenarios, among the operator's own,
-   `opaas audit template` and the packs. Before any rerouted-agent run, a
-   blocking confirmation states that the agent's tools must point at the mock
-   MCP server, because otherwise its scenarios act on real tools (D68).
+2. **Discover:** `/new` runs the inventory itself, as a real recorded job
+   (one from the last 5 minutes is reused rather than scanned again), and shows
+   engines, models and agents that identify themselves as checkboxes (D83).
+3. **Models:** tick one or many served models; each ticked model queues its own
+   `run --suite all`, prefilled with its backend, URL and context window. The
+   warnings the README gives are shown where they apply: `--num-ctx` on Ollama,
+   concurrency, generation caps. Several ticked models land together on
+   `/batch`.
+4. **Agents:** tick one or many discovered agents, or pick the adapter and the
+   scenarios by hand among the operator's own, `opaas audit template` and the
+   packs. Before any rerouted-agent run, a blocking confirmation states that
+   the agent's tools must point at the mock MCP server, because otherwise its
+   scenarios act on real tools (D68).
 5. **System:** `audit draft`, the manifest shown for completion, then
-   `audit run` citing the runs already in the store as `--member`.
-6. **Live:** the progress of every running job, sentinel's events as they
-   arrive, and the gate's held actions with who must approve them. Approving
-   stays where D50 puts it; the dashboard only shows.
+   `audit run` citing the runs already in the store as `--member`. Its own six
+   steps (discover, bench, smith, sentinel, inquest, swarm) show live, each
+   with whichever of its invocations are running (D83).
+6. **Live:** the progress of every running job — one block, or one of an
+   audit's six steps, filling to 100% before the next starts (D83) — sentinel's
+   events as they arrive, and the gate's held actions with who must approve
+   them. Approving stays where D50 puts it; the dashboard only shows.
 7. **Result:** the report per category with its limitations, then the draft
    certificate of phase 19, ready to download.
 

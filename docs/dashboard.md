@@ -129,6 +129,8 @@ These files are the interface between the CLI and the dashboard. Each carries a 
 
 **One queue per endpoint.** Two measurements against the same engine at the same time contaminate each other: block A's latency and throughput, and the concurrency OPAAS believes it is sending. So jobs that name the same endpoint run one after another, in the order they were queued. Jobs on different endpoints, and jobs that touch no endpoint (`discover`, `inquest`, `compare`, `certificate`), run alongside. The queue is shown, and a queued job can be removed before it starts.
 
+**A batch is several independent jobs, not one.** Ticking several models or agents in `/new` queues one job per selection, the same as queuing them one at a time would; the per-endpoint queue above still serialises whichever of them share an engine. `/batch` only tracks the set together — nothing in the store knows they were launched as a batch (D83).
+
 **Cancelling.** A running job can be cancelled. The process receives an interrupt, and its run ends `interrupted`, keeping whatever it wrote. Nothing is deleted.
 
 **What the dashboard does not launch:**
@@ -156,10 +158,11 @@ A server on `127.0.0.1` is still reachable by every local user and by any web pa
 
 | Screen | Route | Shows |
 |---|---|---|
-| Overview | `/` | Prerequisites (Python, `nvidia-smi`, cached datasets and classifiers, offline mode), what discovery found, the latest runs, the queue |
-| New audit | `/audit/new` | The guided flow: discover → models → agents → system → run. Every step shows its command |
-| Live | `/runs/{id}/live` | Progress per phase, the event lines, the command, elapsed time; cancel |
-| Run | `/runs/{id}` | Results per block and category with intervals; *not measured* with reasons; deployment fingerprint; files with hashes; certificate versions to download. For an agent: behaviour with what each line counts, instability, task completion by category, the five auditability dimensions each on its own, bias, toxicity and every run; no draft of its own, since an agent is certified within a system audit |
+| Overview | `/` | Prerequisites (Python, `nvidia-smi`, cached datasets and classifiers, offline mode), the latest runs, the queue |
+| New audit | `/new` | **Scans first.** Launches `opaas discover scan` (a real, recorded job; one from the last 5 minutes is reused) and offers what it found — engines with their models, and agents that identify themselves — as checkboxes: one or many models, one or many agents, or the whole-system manifest form (D83). A manual, free-text form stays available, collapsed, for what the scan cannot reach. Every path shows its command before it runs |
+| Batch | `/batch?ids=…` | Ticking several models or agents from `/new` queues one job per selection and lands here: every job in the batch, tracked side by side (D83) |
+| Job | `/jobs/{id}` | The job's command, its progress — one block (or one of an audit's six steps) at a time, filling to 100% before the next starts (D83) — its output log, cancel, and, once it ends, the link to the run it produced |
+| Run | `/runs/{id}` | Results per block and category with intervals; *not measured* with reasons; deployment fingerprint; files with hashes; certificate versions to generate and download. For an agent: behaviour with what each line counts, instability, task completion by category, the five auditability dimensions each on its own, bias, toxicity and every run; no draft of its own, since an agent is certified within a system audit |
 | History | `/runs` | Every run, filtered by kind, model, backend, fingerprint, OPAAS version, date and status |
 | Compare | from `/runs`, as a `compare` run | Tick runs of one kind (models, agents or systems) in the history: the dashboard launches `opaas compare`, and the comparison run's page shows its result per figure, or per cell for systems, side by side, overlapping intervals marked as no difference, figures on different terms marked not comparable, its comparability warnings first (D80) |
 | Sentinel | `/sentinel?log=…&queue=…` | Events as they arrive (digests, actor chains, verdicts), held actions with the command their approver runs; the paths are the operator's, remembered in the browser |

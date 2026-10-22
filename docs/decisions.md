@@ -50,6 +50,23 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D83 — `/new` scans before it asks, and `opaas audit run`'s six steps show their own progress
+
+**Status:** applied · **Affects:** [`ui/views.py`](../src/opaas/ui/views.py), [`ui/app.py`](../src/opaas/ui/app.py), [`ui/static/app.js`](../src/opaas/ui/static/app.js), [`ui/templates/new.html`](../src/opaas/ui/templates/new.html), [`ui/templates/batch.html`](../src/opaas/ui/templates/batch.html)
+
+`/new` asked for a model id, a backend and a URL before anything ran, even though `opaas discover scan` already knows how to find an Ollama, a vLLM or an OpenAI-compatible engine on this host, with its models, and an agent that identifies itself. Nothing used that. And a job's progress bars were wrong: each block's bar was drawn from the *run's* overall percent (`RunEvent.percent`, already weighted across every block), not its own, so a block's bar visibly stalled short of 100% and never collapsed before the next one started. `opaas audit run`'s six steps (discover, bench, smith, sentinel, inquest, swarm) showed nothing live at all, even though `cli/audit.py`'s `invoke()` already logs a line per step it runs — nothing in the dashboard read it.
+
+**What changed.**
+- **`/new` now scans first.** Opening it launches `opaas discover scan --well-known` as an ordinary recorded job (never a bare probe from the server itself — the dashboard still measures nothing, D75 §2) unless a scan from the last 5 minutes already exists (`views.latest_discover`). Its inventory is read back (`views.discover_picker`) and offered as checkboxes: one or many models, one or many agents (an adapter the picker cannot run yet, or a rerouted one needing confirmation, says so instead of hiding), or the existing whole-system manifest form. The old free-text forms are kept, collapsed under "set it up by hand", for an engine the scan cannot reach.
+- **Ticking several models or agents queues one independent job per selection**, landing on a new `/batch?ids=…` page that tracks all of them; each is still its own run, comparable afterwards with `opaas compare` like any other.
+- **A block's progress bar now fills to 100% and closes before the next one opens.** The fix needed no new data: `index`/`total` already travel on every progress line, so a block's own share is `percent·total − (index−1)·100`, computed in `app.js` without touching `bench/runner.py`.
+- **`opaas audit run`'s six steps now show live**, each with whichever of its invocations are running (several models under "bench" show as several). The pairing needed no new instrumentation either: `invoke()`'s per-step progress line and the nested run it causes always happen in the same order, since a skipped step calls neither (`views.audit_live_steps`).
+- **A real bug, found along the way: `views.run_for_job` found the wrong run for an audit job.** Every step `opaas audit run` takes opens its own run in the same process, inheriting the dashboard's job id from the environment; the lookup picked whichever matched run existed last (the final step's), not the audit itself. Fixed to the one with the earliest `startedAt` — always the command the job line launched. This made the "Report ready" link and the certificate button unreachable correctly for a dashboard-launched system audit; `run.html` itself needed no change.
+
+**What is lost.** A step's live percent is only ever as real as the command that reports one: `bench` does, the other five do not, and the stepper shows them running/done, never an invented fraction (invariant 2 applies to chrome, not only to reports). The live stepper is also not the final truth — once the audit closes, its system report's own `steps` (already on the run page) says what actually happened, including what was skipped; the live view only has to look reasonable while it runs.
+
+---
+
 ## D82 — The CLI speaks one way: a full-screen menu, help by task, links instead of decision numbers
 
 **Status:** applied · **Revises:** the cover page and inline menu of `cli/banner.py` and `cli/menu.py`; the inline menu is gone, and the cover page remains for `opaas version` · **Affects:** [`cli/tui.py`](../src/opaas/cli/tui.py), [`cli/docs.py`](../src/opaas/cli/docs.py), [`cli/common.py`](../src/opaas/cli/common.py) (`error`, `warning`, `success`, `next_steps`), `opaas --help`, every command's error messages

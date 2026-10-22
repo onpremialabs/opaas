@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Batch{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/new">New audit</a> / batch</p>
+<h1>Batch</h1>
+<p class="sub">{{ ids | length }} job{{ 's' if ids | length != 1 }} queued together. Each is its own run, comparable afterwards with <code>opaas compare</code>.</p>
+
+{% if not ids %}
+<div class="empty"><p>Nothing was queued. <a href="/new">Start a new audit</a>.</p></div>
+{% endif %}
+
+<div class="batch" data-batch>
+{% for id in ids %}
+  <div class="card job-row" data-job-row="{{ id }}">
+    <div class="head">
+      <p class="sub" data-where>Job <span class="mono">{{ id }}</span></p>
+      <span data-status></span>
+    </div>
+    <div class="phases" data-phases></div>
+    <p class="ready hidden" data-ready></p>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}
