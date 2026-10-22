@@ -163,6 +163,7 @@ if (discoverBox) {
     : ["discover", "scan", "--well-known"]);
   const refreshScope = () => {
     discoverBox.querySelector("[data-folder]").classList.toggle("hidden", !scoped());
+    discoverBox.querySelector("[data-folder-note]").classList.toggle("hidden", !scoped());
     if (!scoped()) browser.classList.add("hidden");
     scanPreview.textContent = "$ opaas " + scanArgs().map(quoted).join(" ");
   };
@@ -173,26 +174,54 @@ if (discoverBox) {
   const browserList = browser.querySelector("[data-browser-list]");
   const browserPath = browser.querySelector("[data-browser-path]");
   let here = null;
-  const browse = async (path) => {
+  const join = (folder, name) =>
+    `${folder}${folder.includes("\\") ? "\\" : "/"}${name}`.replace(/([\/])[\/]+/g, "$1");
+  const same = (a, b) => a.replace(/[\/]+$/, "").toLowerCase() === b.replace(/[\/]+$/, "").toLowerCase();
+  let picked = null;
+  // One click picks a folder; "Open" (or a double click) goes into it.
+  const browse = async (path, select) => {
     const listing = await api(`/api/folders?${new URLSearchParams({path})}`).catch(() => null);
     if (!listing) return;
     here = listing;
+    picked = null;
     browser.classList.remove("hidden");
     browserPath.textContent = listing.path;
     browser.querySelector("[data-up]").disabled = !listing.parent;
     browserList.innerHTML = "";
     for (const name of listing.folders) {
+      const path = join(listing.path, name);
       const li = document.createElement("li");
-      li.textContent = name + "/";
-      li.addEventListener("click", () => browse(`${listing.path}${listing.path.includes("\\") ? "\\" : "/"}${name}`.replace(/([\\/])[\\/]+/g, "$1")));
+      const label = document.createElement("span");
+      label.textContent = name;
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "btn small";
+      open.textContent = "Open";
+      li.append(label, open);
+      const pick = () => {
+        for (const row of browserList.children) row.classList.remove("on");
+        li.classList.add("on");
+        picked = path;
+        folderInput.value = path;
+        refreshScope();
+      };
+      li.addEventListener("click", (event) => (event.target === open ? browse(path) : pick()));
+      li.addEventListener("dblclick", () => browse(path));
       browserList.append(li);
+      if (select && same(path, select)) { pick(); li.scrollIntoView({block: "nearest"}); }
     }
     if (!listing.folders.length) browserList.innerHTML = '<li class="dim">No folders here.</li>';
   };
-  discoverBox.querySelector("[data-browse]").addEventListener("click", () => browse(folderInput.value.trim()));
-  browser.querySelector("[data-up]").addEventListener("click", () => here && here.parent && browse(here.parent));
+  // Opens beside the folder already named, with it picked, so a sibling is one click away.
+  discoverBox.querySelector("[data-browse]").addEventListener("click", async () => {
+    const current = folderInput.value.trim();
+    const listing = await api(`/api/folders?${new URLSearchParams({path: current})}`).catch(() => null);
+    if (listing && listing.parent) browse(listing.parent, listing.path);
+    else browse(current);
+  });
+  browser.querySelector("[data-up]").addEventListener("click", () => here && here.parent && browse(here.parent, here.path));
   browser.querySelector("[data-choose]").addEventListener("click", () => {
-    if (here) folderInput.value = here.path;
+    if (!picked && here) folderInput.value = here.path;
     browser.classList.add("hidden");
     refreshScope();
   });
@@ -291,10 +320,13 @@ if (discoverBox) {
   };
   scanBtn.addEventListener("click", scan);
 
-  // A scan from the last few minutes is still this machine: shown, not rerun.
+  // A scan from the last few minutes of the very scope on screen (the folder
+  // `opaas ui` started in, by default) is shown, not rerun. Any other scan is
+  // not this environment's: the page waits for Scan.
   (async () => {
     const latest = await api("/api/discover/latest").catch(() => null);
     if (!latest || !latest.runId) return;
+    if (scoped() ? !(latest.project && same(latest.project, folderInput.value.trim())) : latest.project) return;
     const data = await api(`/api/discover/${latest.runId}`).catch(() => null);
     if (!data) return;
     show(data);

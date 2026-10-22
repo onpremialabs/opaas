@@ -672,3 +672,22 @@ def test_a_scoped_scan_reaches_the_page_with_its_scope(client, tmp_path):
     body = client.get(f"/api/discover/{record['runId']}").json()
     assert body["project"]["root"] == "bot"
     assert body["project"]["agents"][0]["name"] == "agent"
+
+
+def test_new_audit_says_which_folder_it_detected(client):
+    page = client.get("/new").text
+    assert f'OPAAS was started in <span class="mono">{Path.cwd()}</span>' in page
+
+
+def test_a_recent_scan_says_its_scope_so_new_audit_shows_it_only_for_that_folder(
+        client, tmp_path):
+    """A scan of another folder, or of the whole machine, is not this environment's."""
+    root = tmp_path / "bot"
+    root.mkdir()
+    result = runner.invoke(cli, ["discover", "scan", "--project", str(root),
+                                 "-o", str(tmp_path / "inventory.json")])
+    assert result.exit_code == 0, result.output
+    assert client.get("/api/discover/latest").json()["project"] == str(root)
+    result = runner.invoke(cli, ["discover", "scan", "-o", str(tmp_path / "host.json")])
+    assert result.exit_code == 0, result.output
+    assert client.get("/api/discover/latest").json()["project"] is None

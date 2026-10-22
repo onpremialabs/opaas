@@ -131,7 +131,9 @@ def latest_discover(store: Path, *, max_age_s: float = 300.0) -> dict[str, Any] 
             continue
         age = (now - started).total_seconds()
         if age <= max_age_s:
-            return {"runId": record["runId"], "ageSeconds": round(age)}
+            # Its scope: `/new` shows it only for the folder it is about to scan (D85).
+            return {"runId": record["runId"], "ageSeconds": round(age),
+                    "project": _option(record.get("command") or [], "--project")}
         return None  # newest first: an older one would be staler still
     return None
 
