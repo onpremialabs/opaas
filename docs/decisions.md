@@ -77,6 +77,8 @@ A host scan finds every engine and every model it serves. It finds an agent only
 - **The dashboard asks for the scope first.**
   - *An environment*: the folder `opaas ui` started in, or one chosen with *Browse…*. The browser cannot hand a local path to a page, so a server-side picker lists folders, never files.
   - *This whole machine*.
+  - The folder `opaas ui` started in is detected and pre-filled, and the page says so. *Browse…* opens beside it with it picked: one click picks a folder, *Open* (or a double click) goes into it, so a specific folder is chosen without typing its path.
+  - A recent scan is shown on arrival only if it is of the scope on screen (the same folder, or the whole machine). Any other scan is not this environment's, and the page waits for *Scan*: the user's one action.
   - The scan's command is shown before it runs. A scoped result lists the environment's agents and models, and the rest of the machine collapsed beside them. The manifest goes into the environment's folder unless the operator named another path.
 
 **What is lost.**

@@ -21,8 +21,9 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
   served. A scoped draft takes only the environment's models and running
   agents, and leaves a note for the rest.
 - **The dashboard's *New audit* asks for the scope first**: an environment
-  (the folder `opaas ui` started in, or one picked with *Browse…*), or this
-  whole machine.
+  or this whole machine. The folder `opaas ui` started in is detected and
+  pre-filled. *Browse…* picks another with one click, and *Open* goes into
+  a folder. Pressing *Scan* is all that is left to do.
 
 ### Changed — the dashboard scans, then audits the whole system (D84)
 

@@ -15,8 +15,9 @@
       <input name="project" value="{{ cwd }}" aria-label="Environment folder">
       <button type="button" class="btn" data-browse>Browse…</button>
     </div>
+    <p class="fine folder-note" data-folder-note>Detected: OPAAS was started in <span class="mono">{{ cwd }}</span>. Browse to choose another folder.</p>
     <div class="browser hidden" data-browser>
-      <div class="browser-head"><button type="button" class="btn" data-up>Up</button> <span class="mono dim" data-browser-path></span> <button type="button" class="btn primary" data-choose>Use this folder</button></div>
+      <div class="browser-head"><button type="button" class="btn" data-up>Up</button> <span class="mono dim" data-browser-path></span> <button type="button" class="btn primary" data-choose>Done</button></div>
       <ul class="browser-list" data-browser-list></ul>
     </div>
     <label class="inline"><input type="radio" name="scope" value="host"> <b>This whole machine</b> <span class="dim">· every engine and model it serves; agents only when they run and identify themselves</span></label>
