@@ -10,6 +10,35 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Added — the dashboard scans before it asks, and shows an audit's own steps (D83)
+
+- **`/new` scans this machine first.** It launches `opaas discover scan`
+  (a real, recorded job, reusing one from the last 5 minutes if there is
+  one) and offers what it found — engines, their models, and agents that
+  identify themselves — as checkboxes, instead of asking for a model id,
+  backend and URL up front. The old free-text forms are kept, collapsed
+  under "set it up by hand", for an engine the scan cannot reach.
+- **Ticking several models or agents queues one job per selection**, landing
+  on a new `/batch` page that tracks all of them together.
+- **A block's progress bar now fills to 100% and closes before the next
+  one starts**, instead of stalling at whatever share of the whole run it
+  happened to be when that block's last line arrived.
+- **`opaas audit run`'s six steps (discover, bench, smith, sentinel,
+  inquest, swarm) now show live** in the dashboard, each with whichever
+  of its invocations are running — several models under "bench" show as
+  several. A step without its own percent (every one but "bench") shows
+  running or done, never an invented number.
+
+### Fixed — a dashboard-launched system audit pointed at the wrong run
+
+- `opaas audit run`'s own steps each open their own run in the same
+  process, sharing the dashboard's job id; the "run a job produced" lookup
+  picked whichever of those happened to exist last, not the audit itself.
+  That made the "Report ready" link and the certificate button land on a
+  step's run instead of the audit's, for a system audit launched from the
+  dashboard. Fixed to the run with the earliest start time, which is always
+  the one the job line launched.
+
 ### Added — a full-screen `opaas`, and one way of speaking (D82)
 
 - **`opaas` in a terminal opens a full screen.** The meerkat of the cover page

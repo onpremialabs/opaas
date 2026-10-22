@@ -116,6 +116,14 @@ details summary { cursor: pointer; color: var(--ink-2); margin: 6px 0; }
 .phase { display: grid; grid-template-columns: 140px minmax(0, 1fr) 52px; gap: 12px; align-items: center; }
 .pbar { height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
 .pbar > i { display: block; height: 100%; background: var(--data); width: 0; transition: width .4s; }
+.pbar.indeterminate > i { width: 30% !important; background: var(--run); animation: opaas-pulse 1.4s ease-in-out infinite; }
+@keyframes opaas-pulse { 0% { margin-left: 0; } 50% { margin-left: 70%; } 100% { margin-left: 0; } }
+.phase.overall { font-weight: 600; margin-bottom: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.phase.done, .phase.step-done { color: var(--ink-2); }
+.phase.done .pbar > i, .phase.step-done .pbar > i { background: var(--ok); }
+.phase.step-failed .pbar > i { background: var(--fail); }
+.phase.step-pending { color: var(--ink-3); }
+.phase.step-pending .pbar { opacity: .5; }
 .log { max-height: 280px; overflow: auto; font-size: 12px; white-space: pre-wrap; background: var(--paper-2); padding: 10px; border-radius: 8px; }
 
 .mob { width: 100%; max-width: 660px; display: block; margin: 6px 0 4px; image-rendering: pixelated; }

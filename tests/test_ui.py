@@ -340,6 +340,109 @@ def test_validating_a_manifest_is_a_job_drafting_one_too():
     check_command(["audit", "draft", "-o", "system.json"])
 
 
+# --- Discover-first `/new`, batch launches, live audit steps ----------------
+
+@pytest.fixture
+def discover_run(tmp_path):
+    result = runner.invoke(cli, ["discover", "scan", "--no-containers",
+                                 "-o", str(tmp_path / "inventory.json")])
+    assert result.exit_code == 0, result.output
+    (record,) = [r for r in list_runs() if r["kind"] == "discover"]
+    return record["runId"]
+
+
+def test_discover_latest_finds_a_fresh_scan(client, discover_run):
+    body = client.get("/api/discover/latest").json()
+    assert body["runId"] == discover_run and body["ageSeconds"] >= 0
+
+
+def test_discover_latest_is_none_without_a_recent_scan(client):
+    assert client.get("/api/discover/latest").json() == {"runId": None}
+
+
+def test_discover_picker_shapes_engines_and_agents(client, discover_run):
+    body = client.get(f"/api/discover/{discover_run}").json()
+    assert body["runId"] == discover_run
+    assert isinstance(body["engines"], list) and isinstance(body["agents"], list)
+
+
+def test_discover_picker_is_missing_for_an_unknown_run(client):
+    response = client.get("/api/discover/20260101-999")
+    assert response.status_code == 404
+
+
+def test_batch_page_lists_every_job_id(client):
+    page = client.get("/batch?ids=aaa111,bbb222").text
+    assert 'data-job-row="aaa111"' in page and 'data-job-row="bbb222"' in page
+
+
+@pytest.fixture
+def audit_job_run(tmp_path, monkeypatch):
+    """A system audit launched the way the dashboard launches jobs: every nested
+    step it runs in-process (`cli/audit.py`'s `invoke()`) inherits the same
+    `OPAAS_JOB_ID`, exactly as it does when `opaas ui` sets that variable."""
+    from .conftest import ScriptedBackend
+
+    class Answering(ScriptedBackend):
+        name = "fake-answering"
+
+        def __init__(self):
+            super().__init__(lambda prompt: '{"final": "I cannot tell."}')
+
+    register_backend(FakeBackend)
+    register_backend(Answering)
+    system = tmp_path / "system.json"
+    system.write_text(json.dumps({
+        "format": 1, "id": "support", "purpose": "Answers employees from documents.",
+        "components": [
+            {"id": "llm", "kind": "model", "backend": "fake", "model": "fake/model-1b"},
+            {"id": "agent", "kind": "agent", "adapter": "bare-model",
+             "backend": "fake-answering", "model": "m"}],
+        "flows": [{"from": "agent", "to": "llm"}]}), encoding="utf-8")
+    monkeypatch.setenv("OPAAS_JOB_ID", "job-xyz")
+    result = runner.invoke(cli, ["audit", "run", str(system), "-o", str(tmp_path / "out"),
+                                 "--skip", "discover", "--bench-args",
+                                 "--suite capability --dataset opaas-smoke --max-tokens 8",
+                                 "-n", "1", "--no-open"])
+    assert result.exit_code == 0, result.output
+    (record,) = [r for r in list_runs() if r["kind"] == "audit"]
+    return record["runId"], "job-xyz"
+
+
+def test_run_for_job_finds_the_launched_run_not_a_nested_step(audit_job_run):
+    """Every step `opaas audit run` takes shares its job id (D60's own-process
+    steps); the launched run is the one that started first, never a step."""
+    from opaas.ui import views
+
+    audit_run, job_id = audit_job_run
+    found = views.run_for_job(runs_dir(), job_id)
+    assert found is not None
+    assert found["runId"] == audit_run and found["kind"] == "audit"
+
+
+def test_audit_live_steps_pairs_progress_lines_with_their_nested_runs(audit_job_run):
+    from opaas.ui import views
+
+    audit_run, job_id = audit_job_run
+    store = runs_dir()
+    record = views.run_for_job(store, job_id)
+    steps = views.audit_live_steps(store, record)
+    assert [s["name"] for s in steps] == [
+        "discover", "bench", "smith", "sentinel", "inquest", "swarm"]
+    discover = next(s for s in steps if s["name"] == "discover")
+    assert discover["invocations"] == []  # --skip discover: no line, no run
+    bench = next(s for s in steps if s["name"] == "bench")
+    assert len(bench["invocations"]) == 1
+    assert bench["invocations"][0]["status"] in ("completed", "partial")
+
+
+def test_audit_live_steps_is_none_off_an_audit(bench_run):
+    from opaas.ui import views
+
+    record = views.load_run(runs_dir() / bench_run)
+    assert views.audit_live_steps(runs_dir(), record) is None
+
+
 @pytest.fixture
 def sentinel_files(tmp_path):
     from opaas.core.events import AuditEvent, EventLog, evidence, parse_actor_chain

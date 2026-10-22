@@ -11,13 +11,17 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from opaas.core.store import RUN_FILE, list_runs, load_run, read_progress, verify_files
+from opaas.core.store import RUN_FILE, StoreError, list_runs, load_run, read_progress, verify_files
 
 #: Where a run keeps the report the pages summarise, in order of preference.
 REPORTS = ("report.json", "system-audit/system-report.json", "comparison.json")
+
+#: A discovered engine's `kind` -> the `--backend` value `opaas run` accepts.
+ENGINE_KIND_TO_BACKEND = {"ollama": "ollama", "vllm": "vllm", "openai-compatible": "openai"}
 
 #: The meerkat's head: the top rows and left columns of the CLI's grid.
 HEAD_ROWS, HEAD_COLS = 14, 22
@@ -106,6 +110,81 @@ def filter_runs(records: list[dict[str, Any]], query: dict[str, str]) -> list[di
         return True
 
     return [r for r in records if keep(r)]
+
+
+def latest_discover(store: Path, *, max_age_s: float = 300.0) -> dict[str, Any] | None:
+    """The most recent usable `discover scan` run, if still within `max_age_s`.
+
+    `discover gaps` shares the same `kind`: the command itself, not only the
+    kind, decides which runs count. None if every scan is stale or there is
+    none, so `/new` knows to launch a fresh one.
+    """
+    now = datetime.now(timezone.utc)
+    for record in runs(store):  # newest first
+        if record.get("kind") != "discover" or (record.get("command") or [])[2:3] != ["scan"]:
+            continue
+        if record.get("status") not in ("completed", "partial"):
+            continue
+        try:
+            started = datetime.fromisoformat(str(record["startedAt"]).replace("Z", "+00:00"))
+        except (KeyError, ValueError):
+            continue
+        age = (now - started).total_seconds()
+        if age <= max_age_s:
+            return {"runId": record["runId"], "ageSeconds": round(age)}
+        return None  # newest first: an older one would be staler still
+    return None
+
+
+def discover_picker(store: Path, run_id: str) -> dict[str, Any] | None:
+    """A discover run's inventory, laid out for `/new`'s picker.
+
+    None if the run does not exist or wrote no inventory (it failed before
+    writing anything): the page then falls back to the manual form.
+    """
+    from opaas.ui.jobs import REROUTED_AGENTS
+
+    directory = store / run_id
+    try:
+        record = load_run(directory)
+    except (StoreError, ValueError):
+        return None
+    if "inventory.json" not in record.get("files", {}):
+        return None
+    try:
+        payload = json.loads((directory / "inventory.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    inventory = payload.get("inventory") or {}
+    smith_adapters = set(agent_adapters())
+    engines = []
+    for engine in inventory.get("engines", []):
+        models = [{"name": m.get("name"), "digest": m.get("digest"),
+                  "quantization": m.get("quantization"), "parameterSize": m.get("parameterSize")}
+                  for m in engine.get("models", [])]
+        engines.append({
+            "kind": engine.get("kind"), "port": engine.get("port"),
+            "version": engine.get("version"), "bind": engine.get("bind"),
+            "backend": ENGINE_KIND_TO_BACKEND.get(engine.get("kind")),
+            "baseUrl": f"http://127.0.0.1:{engine['port']}" if engine.get("port") else None,
+            "models": models,
+        })
+    stack = inventory.get("agentStack") or {}
+    agents = []
+    for entry in stack.get("agentEndpoints", []):
+        adapter = entry.get("adapter") or entry.get("kind")
+        agents.append({
+            "kind": entry.get("kind"), "adapter": adapter, "name": entry.get("name"),
+            "endpoint": f"http://{entry['endpoint']}" if entry.get("endpoint") else None,
+            "basis": entry.get("basis"),
+            "runnable": adapter in smith_adapters,
+            "rerouted": adapter in REROUTED_AGENTS,
+        })
+    return {
+        "runId": run_id, "hash": inventory.get("hash"), "engines": engines, "agents": agents,
+        "unidentified": inventory.get("unidentified", []),
+        "notObserved": stack.get("notObserved", []),
+    }
 
 
 def run_page(store: Path, run_id: str) -> dict[str, Any]:
@@ -656,10 +735,24 @@ def pending_actions(queue: Path) -> list[dict[str, Any]]:
 
 
 def run_for_job(store: Path, job_id: str) -> dict[str, Any] | None:
-    """The run a dashboard job produced, found by the job id its record carries."""
+    """The run a dashboard job produced: among every run sharing its id, the one
+    that started first — the command the job line actually launched.
+
+    A nested command (`opaas audit run`'s own steps, D60) opens its own run in
+    the same process, inheriting the same job id from the environment. The
+    first one to open is always the launched command itself, never a step it
+    ran along the way.
+    """
+    matches = _runs_for_job(store, job_id)
+    return matches[0] if matches else None
+
+
+def _runs_for_job(store: Path, job_id: str) -> list[dict[str, Any]]:
+    """Every run sharing a job id, oldest first."""
     if not store.is_dir():
-        return None
-    for directory in sorted(store.iterdir(), reverse=True):
+        return []
+    found = []
+    for directory in sorted(store.iterdir()):
         path = directory / RUN_FILE
         if not path.is_file():
             continue
@@ -668,8 +761,55 @@ def run_for_job(store: Path, job_id: str) -> dict[str, Any] | None:
         except ValueError:
             continue
         if record.get("jobId") == job_id:
-            return load_run(directory)
-    return None
+            found.append(load_run(directory))
+    return found
+
+
+def subruns_for_job(store: Path, job_id: str, primary_run_id: str) -> list[dict[str, Any]]:
+    """A job's runs other than its primary one, oldest first: an audit's own steps."""
+    return [r for r in _runs_for_job(store, job_id) if r["runId"] != primary_run_id]
+
+
+#: `cli/audit.py`'s `invoke()` logs the subcommand name as `phase`; `run` is
+#: bench's own verb, not a step's name.
+STEP_ARG_TO_NAME = {"discover": "discover", "run": "bench", "smith": "smith",
+                    "sentinel": "sentinel", "inquest": "inquest", "swarm": "swarm"}
+
+
+def audit_live_steps(store: Path, record: dict[str, Any]) -> list[dict[str, Any]] | None:
+    """The 6 steps of a running `opaas audit run`, each with its live sub-run(s).
+
+    Not the final truth: once the audit closes, its system report's own
+    `steps` (already shown on the run page) says what happened, including
+    what was skipped. This is only what to show while it runs. Each
+    step-start line the audit's own progress log carries (`cli/audit.py`)
+    pairs, in order, with the nested run it caused — a skipped step never
+    logs a line and never opens a run, so the pairing never drifts.
+    """
+    from opaas.system.orchestrate import STEPS
+
+    if record.get("kind") != "audit" or not record.get("jobId"):
+        return None
+    progress, _ = read_progress(store / record["runId"])
+    started = [line for line in progress if line.get("phase")]
+    subruns = subruns_for_job(store, record["jobId"], record["runId"])
+    steps: dict[str, list[dict[str, Any]]] = {name: [] for name in STEPS}
+    for line, sub in zip(started, subruns, strict=False):
+        name = STEP_ARG_TO_NAME.get(line["phase"])
+        if name is not None:
+            steps[name].append(_subrun_summary(store, sub))
+    return [{"name": name, "invocations": steps[name]} for name in STEPS]
+
+
+def _subrun_summary(store: Path, sub: dict[str, Any]) -> dict[str, Any]:
+    """One nested run as the stepper shows it: its status, and its own percent if it has one."""
+    label = _option(sub.get("command") or [], "--model", "-m") or sub.get("endpoint")
+    percent = None
+    if sub.get("status") == "running":
+        lines, _ = read_progress(store / sub["runId"])
+        percent = next((line.get("percent") for line in reversed(lines)
+                        if line.get("percent") is not None), None)
+    return {"runId": sub["runId"], "status": sub.get("status"), "label": label, "percent": percent}
 
 
 def meerkat() -> dict[str, Any]:

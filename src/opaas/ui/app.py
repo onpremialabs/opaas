@@ -179,6 +179,19 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
                     adapters=views.agent_adapters(), rerouted=sorted(REROUTED_AGENTS),
                     reports=views.stored_reports(store), steps=list(STEPS))
 
+    async def discover_latest(request: Request) -> Response:
+        return JSONResponse(views.latest_discover(store) or {"runId": None})
+
+    async def discover_run(request: Request) -> Response:
+        picker = views.discover_picker(store, request.path_params["run_id"])
+        if picker is None:
+            return JSONResponse({"error": "No inventory for this run."}, status_code=404)
+        return JSONResponse(picker)
+
+    async def batch_page(request: Request) -> Response:
+        ids = [i for i in (request.query_params.get("ids") or "").split(",") if i]
+        return page(request, "batch.html", ids=ids)
+
     def _path(request: Request, name: str) -> Path | None:
         value = (request.query_params.get(name) or "").strip()
         return Path(value).expanduser() if value else None
@@ -254,7 +267,9 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         if job.log and job.log.is_file():
             log = job.log.read_bytes()[-4000:].decode("utf-8", "replace")
         report = views.report_name(store / run["runId"], run) if run else None
-        return JSONResponse({**job.as_dict(), "run": run, "log": log, "reportFile": report})
+        steps = views.audit_live_steps(store, run) if run else None
+        return JSONResponse({**job.as_dict(), "run": run, "log": log, "reportFile": report,
+                             "steps": steps})
 
     async def favicon(request: Request) -> Response:
         return Response(views.head_svg(), media_type="image/svg+xml")
@@ -269,6 +284,9 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         Route("/runs/{run_id}/events", run_events),
         Route("/runs/{run_id}/files/{path:path}", run_file),
         Route("/new", new_job),
+        Route("/api/discover/latest", discover_latest),
+        Route("/api/discover/{run_id}", discover_run),
+        Route("/batch", batch_page),
         Route("/jobs/{job_id}", job_page),
         Route("/api/jobs", api_jobs, methods=["GET", "POST"]),
         Route("/api/jobs/{job_id}", api_job, methods=["GET"]),
