@@ -110,10 +110,7 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         return templates.TemplateResponse(request, name, context)
 
     async def overview(request: Request) -> Response:
-        from opaas.cli.banner import status_lines
-
-        status = [{"mark": mark, "text": text} for mark, text, _ in status_lines()]
-        return page(request, "overview.html", runs=views.runs(store)[:8], status=status,
+        return page(request, "overview.html", runs=views.runs(store)[:8],
                     jobs=[j.as_dict() for j in jobs.queue()][-8:], about=views.about())
 
     async def runs_page(request: Request) -> Response:

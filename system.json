@@ -1,0 +1,134 @@
+{
+  "format": 1,
+  "id": "system",
+  "purpose": "TO COMPLETE: the intended use of this system. The AI Act risk classification (art. 6, annex III) depends on it.",
+  "components": [
+    {
+      "id": "qwen3-coder-30b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "qwen3-coder:30b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "qwen2.5-coder-32b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "qwen2.5-coder:32b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "llama3.2-vision-11b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "llama3.2-vision:11b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "nomic-embed-text-latest",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "nomic-embed-text:latest",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "qwen3-1.7b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "qwen3:1.7b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "gemma4-latest",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "gemma4:latest",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "llama3.2-3b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "llama3.2:3b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "llama3.2-1b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "llama3.2:1b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "mistral-7b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "mistral:7b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "qwen2.5-7b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "qwen2.5:7b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "moondream-1.8b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "moondream:1.8b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "nomic-embed-text-v2-moe-latest",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "nomic-embed-text-v2-moe:latest",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "qwen3-vl-8b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "qwen3-vl:8b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "glm-ocr-latest",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "glm-ocr:latest",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "gemma3-12b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "gemma3:12b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "qwen2.5-latest",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "qwen2.5:latest",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "qwen2.5-coder-14b",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "qwen2.5-coder:14b",
+      "base_url": "http://127.0.0.1:11434"
+    },
+    {
+      "id": "qwen3.6-latest",
+      "kind": "model",
+      "backend": "ollama",
+      "model": "qwen3.6:latest",
+      "base_url": "http://127.0.0.1:11434"
+    }
+  ],
+  "flows": []
+}

@@ -72,10 +72,6 @@ section { margin: 0 0 28px; }
 .filters a { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); text-decoration: none; font-size: 12px; }
 .filters a.on { background: var(--brand); color: var(--paper); border-color: var(--brand); }
 
-.checks { list-style: none; margin: 0; padding: 0; }
-.checks li { padding: 6px 0; border-bottom: 1px solid var(--line); }
-.markc { display: inline-block; width: 22px; }
-.m-ok .markc { color: var(--ok); } .m-todo .markc { color: var(--warn); } .m-info { color: var(--ink-3); }
 
 .empty { border: 1px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; color: var(--ink-2); }
 .btn { display: inline-block; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; cursor: pointer; text-decoration: none; }

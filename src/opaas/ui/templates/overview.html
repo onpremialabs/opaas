@@ -3,7 +3,7 @@
 {% block title %}Overview{% endblock %}
 {% block content %}
 <h1>Overview</h1>
-<p class="sub">What this machine has, and the runs in your store. Nothing here measures: every result comes from an <code>opaas</code> command.</p>
+<p class="sub">What OPAAS measures, and the runs in your store. Nothing here measures: every result comes from an <code>opaas</code> command.</p>
 
 <section class="about">
   <h2>What OPAAS does</h2>
@@ -40,15 +40,6 @@
   {% endfor %}
   </ol>
   <a class="btn primary" href="/new">New audit</a>
-</section>
-
-<section>
-  <h2>This machine</h2>
-  <ul class="checks">
-  {% for line in status %}
-    <li class="m-{{ 'ok' if line.mark == '✓' else ('todo' if line.mark == '○' else 'info') }}"><span class="markc">{{ line.mark }}</span>{{ line.text }}</li>
-  {% endfor %}
-  </ul>
 </section>
 
 {% if jobs %}
