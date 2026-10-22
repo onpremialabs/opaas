@@ -30,3 +30,18 @@
   <span class="ivalue mono">{{ (row.point * 100) | round(1) }}%{% if row.n %} <small>n {{ row.n }}</small>{% endif %}</span>
 </div>
 {%- endmacro %}
+
+{% macro stepper(now) -%}
+{# The audit pipeline (D88). `now` is the stage under way; the ones before it are done.
+   app.js moves it on `/new` as the scan and the choice go by. #}
+{% set stages = [('scope', 'Scope'), ('scan', 'Scan'), ('choose', 'Choose'), ('audit', 'Audit'), ('report', 'Report'), ('certificate', 'Certificate')] %}
+{% set at = (stages | map(attribute=0) | list).index(now) %}
+<div class="stepper-bar">
+  <ol class="stepper" aria-label="Audit pipeline" data-stepper>
+  {% for key, label in stages %}
+    <li class="step {{ 'done' if loop.index0 < at else ('now' if loop.index0 == at else 'next') }}" data-stage="{{ key }}"{% if loop.index0 == at %} aria-current="step"{% endif %}><span class="dot">{{ '✓' if loop.index0 < at else '%02d' % loop.index }}</span>{{ label }}</li>
+    {% if not loop.last %}<li class="bar{{ ' lit' if loop.index0 < at }}" aria-hidden="true"></li>{% endif %}
+  {% endfor %}
+  </ol>
+</div>
+{%- endmacro %}

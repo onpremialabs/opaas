@@ -1,6 +1,7 @@
 {% extends "base.html" %}
-{% from "_macros.html" import state, command, interval, figure %}
+{% from "_macros.html" import state, command, interval, figure, stepper %}
 {% block title %}Run {{ record.runId }}{% endblock %}
+{% block hero %}{% if record.kind in ('audit', 'bench', 'smith') %}{{ stepper('report') }}{% endif %}{% endblock %}
 {% block content %}
 <div class="head">
   <div>

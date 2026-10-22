@@ -272,7 +272,7 @@ def test_the_overview_says_what_opaas_measures_from_its_registries(client):
     from opaas.system.orchestrate import STEPS
 
     page = client.get("/").text
-    assert "What OPAAS does" in page
+    assert "Audit the AI you already run." in page and "Start an audit" in page
     # What the machine has cached is the terminal menu's business, not the overview's.
     assert "This machine" not in page and "unmeasured" not in page
     for name in BLOCKS.values():
@@ -726,3 +726,46 @@ def test_new_audit_offers_the_whole_system_or_only_what_is_ticked(client):
     page = client.get("/new").text
     assert 'data-mode="all"' in page and 'data-mode="selected"' in page
     assert "not chosen for this audit" in page
+
+
+# --- The redesign (D88): theme, pipeline stepper, tabs, docs -----------------
+
+def test_the_theme_is_chosen_in_the_header_and_applied_before_the_page_paints(client):
+    page = client.get("/").text
+    head = page.split("</head>")[0]
+    # Not deferred, and before app.js: a dark page never flashes light.
+    assert '<script src="/static/theme.js"></script>' in head
+    assert head.index("theme.js") < head.index("app.js")
+    assert "data-theme-toggle" in page
+    assert client.get("/static/theme.js").status_code == 200
+    css = client.get("/static/opaas.css").text
+    assert ':root[data-theme="dark"]' in css and ':root:not([data-theme="light"])' in css
+
+
+def test_the_overview_shows_the_pipeline_and_links_the_docs(client):
+    from opaas.cli.docs import doc
+
+    page = client.get("/").text
+    for stage in ("Scope", "Scan", "Choose", "Audit", "Report", "Certificate"):
+        assert f"<b>{stage}</b>" in page
+    for topic in ("guide", "reference", "methodology", "decisions"):
+        assert f'href="{doc(topic)}"' in page
+    assert "data-pose" in page
+
+
+def test_the_stepper_follows_the_audit_from_scope_to_report(client, bench_run, launched):
+    def now(page):
+        return page.split('aria-current="step"')[0].rsplit('data-stage="', 1)[1].split('"')[0]
+
+    assert now(client.get("/new").text) == "scope"
+    job = _post(client, "/api/jobs", {"args": ["discover", "scan"]}).json()
+    assert now(client.get(f"/jobs/{job['id']}").text) == "audit"
+    assert now(client.get(f"/runs/{bench_run}").text) == "report"
+
+
+def test_the_history_has_a_tab_per_kind_with_its_count(client, bench_run):
+    page = client.get("/runs").text
+    assert 'href="/runs?kind=bench"' in page and "Models <span class=\"count\">1</span>" in page
+    assert "All <span class=\"count\">1</span>" in page
+    tab = client.get("/runs", params={"kind": "bench"}).text
+    assert 'class="on" aria-current="page">Models' in tab

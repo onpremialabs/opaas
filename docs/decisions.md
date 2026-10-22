@@ -50,6 +50,39 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D88 — The dashboard is laid out as the audit pipeline, in a light or a dark theme
+
+**Status:** applied · **Revises:** the screens of `docs/dashboard.md` §7 · **Affects:** [`ui/templates/`](../src/opaas/ui/templates), [`ui/static/opaas.css`](../src/opaas/ui/static/opaas.css), [`ui/static/theme.js`](../src/opaas/ui/static/theme.js), [`ui/static/app.js`](../src/opaas/ui/static/app.js), [`ui/app.py`](../src/opaas/ui/app.py), [`ui/views.py`](../src/opaas/ui/views.py), [`cli/docs.py`](../src/opaas/cli/docs.py)
+
+The dashboard's pages had grown one at a time. The overview was a list. The audit's stages (scope, scan, choose, audit, report, certificate) were spread over pages that did not say where in the pipeline a person stood. The documentation was not linked at all. The design was agreed on a canvas first, five screens, before any code changed.
+
+**What changed.**
+- **Three tabs and the docs:** *Overview*, *Audit*, *Runs*, and *Docs ↗*. The docs link uses the same `cli/docs.py` links as the CLI's help, which gains a `decisions` topic.
+- **The overview is a landing page.**
+  - A dark hero says what OPAAS does, with *Start an audit* and the guide.
+  - The OPAAS meerkat stands in the hero, drawn from the CLI's own grid, as every meerkat in the dashboard is.
+  - The six-stage pipeline.
+  - *Jobs now* and *Latest runs*.
+  - *What it measures*, read from the registries as before (D84).
+  - Four links into the documentation: guide, reference, methodology, decisions.
+- **A pipeline stepper** heads the audit:
+  - on *Audit* (`/new`) it moves from scope to scan to choose as the person goes;
+  - on a job it stands at *audit*;
+  - on the page of an audit, model or agent run it stands at *report*.
+- **Audit** sets the scope beside a dark panel where the sentinel keeps watch during the scan. The findings follow: counts first, then a tick per agent and model, each with a chip for its kind, the stack, and the cloud models folded away. The action card comes last.
+- **A job** opens on a dark hero with its command, cancel and the meerkats, then its steps and its live log side by side.
+- **Runs** gains a tab per kind with its count (systems, models, agents, scans, certificates, comparisons). The filters, the comparison bar and the table sit in cards.
+- **Light or dark, the person's choice.** A switch in the header sets the theme, kept in this browser. Until one is chosen, the system's preference holds. `theme.js` is loaded in `<head>`, not deferred, so a dark page never flashes light. The header, the hero, the panels and the terminals are dark in both themes: they are the dashboard's frame.
+- **Nothing is loaded from elsewhere.** The CSP still allows only the dashboard's own files and no inline styles. IBM Plex is used where it is installed, and the system's face everywhere else.
+- **Also fixed:** the folder picker's path join and comparison dropped Windows backslashes (a regular expression that lost them when written), so a trailing `\` defeated the "same folder" check.
+
+**What is lost.**
+- **A heavier page**, and more CSS to keep consistent: a component restyled in one place must be checked in both themes.
+- **The choice of theme lives in one browser** (`localStorage`). Another browser, or a private window, starts from the system's preference.
+- **No web font.** Where IBM Plex is not installed, the dashboard looks like the system it runs on, not like the design.
+
+---
+
 ## D87 — A project scan reads the whole folder for declarations: config, Claude Code, CI, code; the operator chooses what to audit
 
 **Status:** applied · **Revises:** [D85](#d85--an-audit-can-be-scoped-to-one-environments-folder-instead-of-the-whole-host)'s fixed places and its "YAML and code are not read" · **Affects:** [`discover/project.py`](../src/opaas/discover/project.py), [`system/draft.py`](../src/opaas/system/draft.py), [`system/manifest.py`](../src/opaas/system/manifest.py), [`system/orchestrate.py`](../src/opaas/system/orchestrate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), [`ui/`](../src/opaas/ui), `pyproject.toml`

@@ -39,6 +39,40 @@ document.addEventListener("click", async (event) => {
   }
 });
 
+// --- The theme: light or dark, the person's choice (D88) ---------------------
+// theme.js applied a stored choice before the page painted; this is the switch.
+const themeBtn = document.querySelector("[data-theme-toggle]");
+if (themeBtn) {
+  const current = () => document.documentElement.dataset.theme
+    || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const label = () => {
+    themeBtn.querySelector("[data-theme-label]").textContent =
+      current() === "dark" ? "Light mode" : "Dark mode";
+  };
+  themeBtn.addEventListener("click", () => {
+    const next = current() === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("opaas.theme", next); } catch (e) { /* not remembered */ }
+    label();
+  });
+  label();
+}
+
+// --- The pipeline stepper: the audit's stage, moved as /new goes on ----------
+function stage(name) {
+  const stepper = document.querySelector("[data-stepper]");
+  if (!stepper) return;
+  const steps = [...stepper.querySelectorAll("[data-stage]")];
+  const at = steps.findIndex((s) => s.dataset.stage === name);
+  steps.forEach((step, i) => {
+    step.className = `step ${i < at ? "done" : i === at ? "now" : "next"}`;
+    step.toggleAttribute("aria-current", i === at);
+    if (i === at) step.setAttribute("aria-current", "step");
+    step.querySelector(".dot").textContent = i < at ? "✓" : String(i + 1).padStart(2, "0");
+  });
+  stepper.querySelectorAll(".bar").forEach((bar, i) => bar.classList.toggle("lit", i < at));
+}
+
 // --- New audit: scan this machine, then audit the whole system --------------
 // The scan is a real, recorded `discover scan` job, never a probe from the
 // server itself. While it runs the sentinel keeps watch. What it found is
@@ -197,8 +231,8 @@ if (discoverBox) {
   const browserPath = browser.querySelector("[data-browser-path]");
   let here = null;
   const join = (folder, name) =>
-    `${folder}${folder.includes("\\") ? "\\" : "/"}${name}`.replace(/([\/])[\/]+/g, "$1");
-  const same = (a, b) => a.replace(/[\/]+$/, "").toLowerCase() === b.replace(/[\/]+$/, "").toLowerCase();
+    `${folder}${folder.includes("\\") ? "\\" : "/"}${name}`.replace(/([\\/])[\\/]+/g, "$1");
+  const same = (a, b) => a.replace(/[\\/]+$/, "").toLowerCase() === b.replace(/[\\/]+$/, "").toLowerCase();
   let picked = null;
   // One click picks a folder; "Open" (or a double click) goes into it.
   const browse = async (path, select) => {
@@ -273,32 +307,49 @@ if (discoverBox) {
   scopeBox.addEventListener("input", refreshScope);
   refreshScope();
 
+  // One tick per model or agent: its name, a chip for its kind, where it is.
   const picks = (title, items, empty) => {
     const div = document.createElement("div");
     div.className = "card";
     const h3 = document.createElement("h3");
     h3.textContent = title;
     const ul = document.createElement("ul");
-    ul.className = "found picks";
+    ul.className = "picks";
     for (const item of items) {
       const li = document.createElement("li");
       const label = document.createElement("label");
-      label.className = "inline";
+      if (item.disabled) label.className = "off";
       const box = document.createElement("input");
       box.type = "checkbox";
       box.checked = !item.disabled;
       box.disabled = Boolean(item.disabled);
       box.dataset.pickItem = JSON.stringify({kind: item.kind, name: item.name});
-      const detail = document.createElement("span");
-      detail.className = "dim mono";
-      detail.textContent = item.detail;
-      label.append(box, document.createTextNode(` ${item.label} `), detail);
+      const chip = document.createElement("span");
+      chip.className = "kind";
+      chip.textContent = item.chip;
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      meta.textContent = item.detail;
+      label.append(box, document.createTextNode(` ${item.label} `), chip, meta);
       li.append(label);
       ul.append(li);
     }
-    if (!items.length) ul.innerHTML = `<li class="dim">${empty}</li>`;
+    if (!items.length) {
+      const li = document.createElement("li");
+      li.className = "dim";
+      li.textContent = empty;
+      ul.append(li);
+    }
     div.append(h3, ul);
     return div;
+  };
+  const fact = (count, what) => {
+    const span = document.createElement("span");
+    span.className = "fact";
+    const b = document.createElement("b");
+    b.textContent = count;
+    span.append(b, document.createTextNode(` ${what}`));
+    return span;
   };
   document.addEventListener("change", (event) => {
     if (event.target.matches("[data-pick-item]") && systemForm) {
@@ -308,6 +359,7 @@ if (discoverBox) {
 
   const host = (data) => {
     const box = document.createElement("div");
+    box.className = "grid-2";
     for (const engine of data.engines || []) {
       box.append(card(`${engine.kind} · :${engine.port} · ${engine.version || "?"} · ${engine.bind}`,
         (engine.models || []).map((m) => [m.name, m.quantization])));
@@ -326,25 +378,71 @@ if (discoverBox) {
     body.innerHTML = "";
     if (project) {
       const local = project.models.filter((m) => m.servedBy && !/embed/i.test(m.name));
-      sub.textContent = `Environment ${project.root}: ${project.agents.length} agent(s) and `
-        + `${project.models.length} model(s) declared, ${local.length} of them served here, `
-        + `from ${project.files.length} file(s). Untick what not to audit.`;
-      body.append(picks(`Agents of ${project.root}`, project.agents.map((a) => ({
-        kind: "agent", name: a.name, label: `${a.name} · ${a.kind}`,
-        detail: `${a.file} · ${a.running ? `running at ${a.running}` : "not running: listed, not driven"}`,
-      })), "No agent declared in the files OPAAS reads."));
-      body.append(picks(`Models of ${project.root}`, project.models.map((m) => {
-        const embed = /embed/i.test(m.name);
-        const why = m.servedBy ? (embed ? "embedding model: not benchmarked" : m.servedBy)
-          : m.provider ? `${m.provider} (cloud): listed, never certified` : "served by no engine here";
-        return {kind: "model", name: m.name, label: m.name, detail: why,
-                disabled: !m.servedBy || embed};
-      }), "No model named in the files OPAAS reads."));
-      if ((project.services || []).length || (project.frameworks || []).length) {
-        body.append(card(`Stack of ${project.root}`, [
-          ...(project.services || []).map((x) => [`service ${x.name}`, x.image || "built here"]),
-          ...(project.frameworks || []).map((f) => [f.name, `${f.files} file(s)`])]));
+      const cloud = project.models.filter((m) => !m.servedBy && m.provider);
+      const notDriven = project.agents.filter((a) => !a.running);
+      sub.textContent = `Environment ${project.root}: read ${project.files.length} file(s). `
+        + "Untick what not to audit.";
+      const facts = document.createElement("div");
+      facts.className = "facts-bar";
+      facts.append(fact(project.agents.length, "agents"), fact(local.length, "models served here"),
+        fact(cloud.length, "cloud models"));
+      body.append(facts);
+      const grid = document.createElement("div");
+      grid.className = "grid-2";
+      const agentsCard = picks(`Agents of ${project.root}`, project.agents.map((a) => ({
+        kind: "agent", name: a.name, label: a.name,
+        chip: a.kind === "claude-code-action" ? "CI" : a.kind,
+        detail: a.running ? `running at ${a.running}` : (a.model ? `→ ${a.model}` : a.file),
+      })), "No agent declared in the files OPAAS reads.");
+      if (notDriven.length) {
+        const note = document.createElement("p");
+        note.className = "callout";
+        note.textContent = `${notDriven.length} of them run behind nothing OPAAS can drive: they `
+          + "are listed in the report with their behaviour not measured, never left out. Start "
+          + "them and scan again to drive them.";
+        agentsCard.append(note);
       }
+      const modelsCard = picks(`Models of ${project.root}`,
+        project.models.filter((m) => m.servedBy || !m.provider).map((m) => {
+          const embed = /embed/i.test(m.name);
+          if (!m.servedBy) {
+            return {kind: "model", name: m.name, label: m.name, chip: "not served",
+                    detail: "no engine here serves it", disabled: true};
+          }
+          return {kind: "model", name: m.name, label: m.name, chip: embed ? "embedding" : "local",
+                  detail: embed ? "not benchmarked" : m.servedBy, disabled: embed};
+        }), "No model this environment names is served here.");
+      if (cloud.length) {
+        const more = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.textContent = `${cloud.length} cloud model(s) — listed in the report, never certified`;
+        const names = document.createElement("p");
+        names.className = "mono dim";
+        names.textContent = cloud.map((m) => `${m.name} (${m.provider})`).join(" · ");
+        more.append(summary, names);
+        modelsCard.append(more);
+      }
+      if ((project.services || []).length || (project.frameworks || []).length) {
+        const h3 = document.createElement("h3");
+        h3.textContent = "Stack";
+        const chips = document.createElement("div");
+        chips.className = "chips";
+        for (const x of project.services || []) {
+          const chip = document.createElement("span");
+          chip.className = "kind";
+          chip.textContent = `${x.name} · ${x.image || "built here"}`;
+          chips.append(chip);
+        }
+        modelsCard.append(h3, chips);
+        if ((project.frameworks || []).length) {
+          const p = document.createElement("p");
+          p.className = "fine";
+          p.textContent = "Code imports " + project.frameworks.map((f) => f.name).join(", ") + ".";
+          modelsCard.append(p);
+        }
+      }
+      grid.append(agentsCard, modelsCard);
+      body.append(grid);
       const rest = document.createElement("details");
       const summary = document.createElement("summary");
       summary.textContent = `Also on this machine, not part of this environment: ${models} model(s), ${agents.length} agent(s)`;
@@ -375,6 +473,7 @@ if (discoverBox) {
       systemForm.classList.remove("hidden");
       systemForm.dispatchEvent(new Event("refresh"));
     }
+    stage("choose");
   };
 
   const scan = async () => {
@@ -383,6 +482,7 @@ if (discoverBox) {
       return;
     }
     scanBtn.disabled = true;
+    stage("scan");
     sub.textContent = scoped() ? "Scanning the environment and the engines that serve it…"
       : "Scanning this machine for engines, models and agents…";
     body.innerHTML = "";
@@ -400,6 +500,7 @@ if (discoverBox) {
     }
     stop();
     if (data) show(data);
+    else stage("scope");
     scanBtn.disabled = false;
     scanBtn.textContent = "Scan again";
   };
@@ -724,6 +825,16 @@ async function mob(canvas, mode) {
   };
   requestAnimationFrame(frame);
 }
+
+// The sentinel standing on the overview: drawn once, still.
+async function pose(canvas) {
+  const sprite = await api("/mascot.json").catch(() => null);
+  if (!sprite) return;
+  const s = (canvas.height - 34) / sprite.rows.length;
+  scene(canvas, sprite, [{x: (canvas.width - 40 * s) / 2, s}], () => ({rise: 1, flip: false}));
+}
+const posed = document.querySelector("[data-pose]");
+if (posed) pose(posed);
 
 // The sentinel on watch while the machine is scanned: it rises, then looks one
 // way and the other until `stop()`, which puts it away. The only meerkat that

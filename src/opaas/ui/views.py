@@ -85,6 +85,11 @@ def _describe(directory: Path, record: dict[str, Any]) -> dict[str, Any]:
 FILTERS = ("kind", "status", "model", "backend", "version", "fingerprint", "since", "until")
 
 
+#: The history's tabs (D88): a run kind and what the page calls it.
+RUN_TABS = (("audit", "Systems"), ("bench", "Models"), ("smith", "Agents"),
+            ("discover", "Scans"), ("certificate", "Certificates"), ("compare", "Comparisons"))
+
+
 def filter_runs(records: list[dict[str, Any]], query: dict[str, str]) -> list[dict[str, Any]]:
     """Runs matching every filter given. Text filters match a part, case aside."""
     def keep(record: dict[str, Any]) -> bool:

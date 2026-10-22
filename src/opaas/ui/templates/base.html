@@ -7,19 +7,26 @@
 <title>{% block title %}OPAAS{% endblock %} · OPAAS</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/opaas.css">
+<script src="/static/theme.js"></script>
 <script src="/static/app.js" defer></script>
 </head>
 <body>
 <header class="top">
   <a class="brand" href="/"><img src="/favicon.svg" alt="" class="mark"><span>OPAAS</span></a>
-  <nav>
-    <a href="/" class="{{ 'on' if request.url.path == '/' }}">Overview</a>
-    <a href="/new" class="{{ 'on' if request.url.path.startswith('/new') }}">New audit</a>
-    <a href="/runs" class="{{ 'on' if request.url.path.startswith('/runs') }}">Runs</a>
+  <nav aria-label="Main">
+    <a href="/" class="{{ 'on' if request.url.path == '/' }}"{% if request.url.path == '/' %} aria-current="page"{% endif %}>Overview</a>
+    <a href="/new" class="{{ 'on' if request.url.path.startswith('/new') or request.url.path.startswith('/jobs') or request.url.path.startswith('/batch') }}"{% if request.url.path.startswith('/new') %} aria-current="page"{% endif %}>Audit</a>
+    <a href="/runs" class="{{ 'on' if request.url.path.startswith('/runs') }}"{% if request.url.path.startswith('/runs') %} aria-current="page"{% endif %}>Runs</a>
+    <a href="{{ docs }}" rel="noreferrer">Docs ↗</a>
   </nav>
+  <button type="button" class="theme-btn" data-theme-toggle aria-label="Switch between light and dark mode">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z"/></svg>
+    <span data-theme-label>Dark mode</span>
+  </button>
   <span class="where mono">127.0.0.1 · v{{ version }}</span>
 </header>
-<main class="page">
+{% block hero %}{% endblock %}
+<main class="page{% block page_class %}{% endblock %}">
 {% block content %}{% endblock %}
 </main>
 <footer class="foot">

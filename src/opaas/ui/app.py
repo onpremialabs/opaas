@@ -103,8 +103,12 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
     token = token or secrets.token_urlsafe(24)
     jobs = jobs or JobManager(store=store)
     templates = Jinja2Templates(directory=str(HERE / "templates"))
+    from opaas.cli.docs import REPOSITORY, doc
+
+    # The same links the CLI's help gives: one place says where the docs live.
     templates.env.globals.update(version=__version__, spec=OPAAS_SPEC_VERSION,
-                                 store=str(store), token=token)
+                                 store=str(store), token=token, doc=doc,
+                                 docs=f"{REPOSITORY}/tree/develop/docs")
 
     def page(request: Request, name: str, **context: Any) -> Response:
         return templates.TemplateResponse(request, name, context)
@@ -116,8 +120,10 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
     async def runs_page(request: Request) -> Response:
         every = views.runs(store)
         query = {name: request.query_params.get(name, "") for name in views.FILTERS}
+        kinds = {kind: sum(1 for r in every if r.get("kind") == kind)
+                 for kind, _ in views.RUN_TABS}
         return page(request, "runs.html", runs=views.filter_runs(every, query), query=query,
-                    total=len(every),
+                    total=len(every), tabs=views.RUN_TABS, kinds=kinds,
                     statuses=sorted({str(r.get("status")) for r in every}),
                     versions=sorted({str(r.get("opaasVersion")) for r in every}))
 

@@ -1,80 +1,119 @@
 {% extends "base.html" %}
 {% from "_macros.html" import state %}
 {% block title %}Overview{% endblock %}
+{% block page_class %} overview{% endblock %}
+{% block hero %}
+<section class="hero">
+  <div class="hero-in">
+    <div class="hero-top">
+      <div class="hero-copy">
+        <span class="eyebrow">On-Prem AI Audit Suite · onpremIA Labs</span>
+        <h1>Audit the AI you already run.</h1>
+        <p class="lead">OPAAS looks at a deployment that is already running — its models, its agents, the system they form — measures how each performs and behaves and how auditable it is, and turns the result into a signed certificate anyone can verify offline. Per category, with intervals. Never one score.</p>
+        <div class="hero-actions">
+          <a class="btn signal" href="/new">Start an audit
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></a>
+          <a class="btn ghost" href="{{ doc('guide') }}" rel="noreferrer">Read the guide ↗</a>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="burrow"><canvas width="460" height="190" data-pose aria-label="The OPAAS meerkat, standing sentinel"></canvas></div>
+        <div class="term"><span class="prompt">$</span> cd &lt;the environment's folder&gt;<br><span class="prompt">$</span> opaas<br><span class="note">The environment is the folder you start from: New audit takes it as its scope.</span></div>
+      </div>
+    </div>
+    <h2 class="pipeline-title">The pipeline</h2>
+    <ol class="pipeline">
+      <li><span class="n">01</span><b>Scope</b><span>An environment's folder, or the whole machine</span></li>
+      <li><span class="n">02</span><b>Scan</b><span>Engines, models, agents, stack — read-only</span></li>
+      <li><span class="n">03</span><b>Choose</b><span>The whole system, or only what you tick</span></li>
+      <li><span class="n">04</span><b>Audit</b><span>bench A–E · smith · inquest · swarm</span></li>
+      <li><span class="n">05</span><b>Report</b><span>Per category, with intervals; what was not measured, said</span></li>
+      <li><span class="n">06</span><b>Certificate</b><span>Verifiable offline by a third party</span></li>
+    </ol>
+  </div>
+</section>
+{% endblock %}
 {% block content %}
-<h1>Overview</h1>
-<p class="sub">What OPAAS measures, and the runs in your store. Nothing here measures: every result comes from an <code>opaas</code> command.</p>
-
-<section class="about">
-  <h2>What OPAAS does</h2>
-  <p>OPAAS audits AI that is already running on your premises: the models an engine serves, the agents built on them, and the system they form together. It measures how each model performs and behaves, and how auditable each agent is, and turns the result into a signed certificate a third party can verify offline. Every figure is given per category, with its interval; nothing is folded into one score.</p>
-</section>
-
-<section>
-  <h2>What it measures</h2>
-  <div class="grid2">
-    <div class="card">
-      <h3>Models · blocks A–E</h3>
-      <ul class="measures">
-      {% for b in about.blocks %}
-        <li><span class="tag">{{ b.block }}</span> <b>{{ b.name }}</b> <span class="dim">· {{ b.description }}</span></li>
-      {% endfor %}
-      </ul>
-    </div>
-    <div class="card">
-      <h3>Agents · auditability</h3>
-      <ul class="measures">
-      {% for d in about.dimensions %}
-        <li><span class="tag">{{ d.question }}</span> <b>{{ d.name }}</b> <span class="dim">· {% for m in d.metrics %}<span class="mono">{{ m.short }}</span> {{ m.name }}{{ ', ' if not loop.last }}{% endfor %}</span></li>
-      {% endfor %}
-      </ul>
-    </div>
-  </div>
-</section>
-
-<section>
-  <h2>What an audit runs</h2>
-  <ol class="steps">
-  {% for s in about.steps %}
-    <li><b>{{ s.name }}</b> <span class="dim">· {{ s.text }}</span></li>
-  {% endfor %}
-  </ol>
-  <a class="btn primary" href="/new">New audit</a>
-</section>
-
-{% if jobs %}
-<section>
-  <h2>Jobs</h2>
-  <table class="list">
-    <tbody>
+<div class="grid-2">
+  <section class="card">
+    <h2>Jobs now
+      {% set running = jobs | selectattr('status', 'equalto', 'running') | list %}
+      {% set queued = jobs | selectattr('status', 'equalto', 'queued') | list %}
+      {% if running %}<span class="state s-running">{{ running | length }} running</span>{% endif %}
+      {% if queued %}<span class="state s-queued">{{ queued | length }} queued</span>{% endif %}
+    </h2>
+    {% if jobs %}
+    <div class="rows">
     {% for job in jobs | reverse %}
-      <tr><td><a href="/jobs/{{ job.id }}" class="mono">{{ job.command | join(' ') | truncate(80) }}</a></td>
-          <td>{% if job.endpoint %}<span class="dim mono">{{ job.endpoint }}</span>{% endif %}</td>
-          <td class="r">{{ state(job.status) }}</td></tr>
+      <div class="row">
+        <div class="grow"><a href="/jobs/{{ job.id }}" class="mono">{{ job.command[1:] | join(' ') | truncate(70) }}</a>
+          {% if job.endpoint %}<br><span class="dim mono">{{ job.endpoint }}</span>{% endif %}</div>
+        {{ state(job.status) }}
+      </div>
     {% endfor %}
-    </tbody>
-  </table>
+    </div>
+    {% else %}
+    <p class="dim">Nothing is running. <a href="/new">Start an audit</a>.</p>
+    {% endif %}
+    <p class="fine">Jobs against one engine wait their turn: two measurements at once would contaminate each other.</p>
+  </section>
+
+  <section class="card">
+    <h2>Latest runs <a class="more" href="/runs">All runs →</a></h2>
+    {% if runs %}
+    <div class="rows">
+    {% for run in runs %}
+      <div class="row">
+        <a href="/runs/{{ run.runId }}" class="mono">{{ run.runId }}</a>
+        <span class="kind">{{ run.kind }}</span>
+        <span class="grow dim mono">{{ (run.command or [])[1:] | join(' ') | truncate(60) }}</span>
+        {{ state(run.status) }}
+      </div>
+    {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">
+      <p><b>Start your first audit.</b> Runs appear here as soon as any <code>opaas</code> command records one.</p>
+      <a class="btn primary" href="/new">New audit</a>
+    </div>
+    {% endif %}
+  </section>
+</div>
+
+<section class="about-measures">
+  <h2 class="section-title">What it measures</h2>
+  <div class="grid-3">
+    <div class="card">
+      <span class="kicker">Models · bench</span>
+      <h3>Blocks A–E</h3>
+      <ul class="measure-list">
+      {% for b in about.blocks %}<li><b>{{ b.block }}</b> {{ b.name }} — {{ b.description }}</li>{% endfor %}
+      </ul>
+    </div>
+    <div class="card">
+      <span class="kicker">Agents · smith · inquest</span>
+      <h3>Auditability {{ about.dimensions[0].question }}–{{ about.dimensions[-1].question }}</h3>
+      <ul class="measure-list">
+      {% for d in about.dimensions %}<li><b>{{ d.question }}</b> {{ d.name }} — {% for m in d.metrics %}<span class="mono">{{ m.short }}</span> {{ m.name }}{{ ', ' if not loop.last }}{% endfor %}</li>{% endfor %}
+      </ul>
+    </div>
+    <div class="card">
+      <span class="kicker">System · audit run</span>
+      <h3>{{ about.steps | length }} steps, one subject</h3>
+      <ul class="measure-list">
+      {% for s in about.steps %}<li><b>{{ s.name }}</b> {{ s.text }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
 </section>
-{% endif %}
 
 <section>
-  <h2>Latest runs <a class="more" href="/runs">All runs</a></h2>
-  {% if runs %}
-  <table class="list">
-    <tbody>
-    {% for run in runs %}
-      <tr><td><a href="/runs/{{ run.runId }}" class="mono">{{ run.runId }}</a></td>
-          <td>{{ run.kind }}</td>
-          <td class="dim mono">{{ (run.command or [])[1:] | join(' ') | truncate(60) }}</td>
-          <td class="r">{{ state(run.status) }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="empty">
-    <p><b>Start your first audit.</b> Runs appear here as soon as any <code>opaas</code> command records one.</p>
-    <a class="btn primary" href="/new">New audit</a>
+  <h2 class="section-title">Documentation</h2>
+  <div class="grid-4">
+    <a class="card doc-card" href="{{ doc('guide') }}" rel="noreferrer"><b>Guide ↗</b><span>Every audit mode, step by step</span></a>
+    <a class="card doc-card" href="{{ doc('reference') }}" rel="noreferrer"><b>Reference ↗</b><span>Commands, options, what is not measured</span></a>
+    <a class="card doc-card" href="{{ doc('methodology') }}" rel="noreferrer"><b>Methodology ↗</b><span>What each figure may — and may not — claim</span></a>
+    <a class="card doc-card" href="{{ doc('decisions') }}" rel="noreferrer"><b>Decisions ↗</b><span>Why each choice, and what it costs</span></a>
   </div>
-  {% endif %}
 </section>
 {% endblock %}
