@@ -86,6 +86,7 @@ def run_audit(
     supplied: Sequence[tuple[str, Path, str]] = (),
     only: Sequence[str] = (),
     skip: Sequence[str] = (),
+    components: Sequence[str] = (),
     bench_args: str = "",
     repeats: int = 3,
     force: bool = False,
@@ -94,10 +95,17 @@ def run_audit(
 
     `invoke` runs one OPAAS command line and returns its exit code; the CLI
     passes the app itself, tests pass the same app with fake backends.
+    `components`: the ones the operator chose (D87). The rest stay in the
+    report, each step for them skipped as not chosen: declared, never omitted.
     """
     for name in (*only, *skip):
         if name not in STEPS:
             raise AuditPlanError(f"Unknown step '{name}'. Steps: {', '.join(STEPS)}.")
+    unknown = [c for c in components if manifest.component(c) is None]
+    if unknown:
+        raise AuditPlanError(f"Unknown component(s) {', '.join(unknown)}: --component takes "
+                             "ids from the manifest.")
+    chosen = set(components)
     out.mkdir(parents=True, exist_ok=True)
     run = AuditRun(out=out)
     #: (component, document kind) the operator supplied: that document is not produced again.
@@ -123,6 +131,10 @@ def run_audit(
             return False
         if (reason := wanted(step)) is not None:
             run.steps.append(StepOutcome(step, component, "skipped", reason))
+            return False
+        if chosen and component != SYSTEM_ROW and component not in chosen:
+            run.steps.append(StepOutcome(step, component, "skipped",
+                                         "not chosen for this audit by the operator"))
             return False
         # A document left by an earlier audit in the same directory is not this
         # step's result: only a file this invocation wrote counts (D76).
@@ -184,6 +196,9 @@ def run_audit(
                 "this agent is known only from the records it left: declare the adapter and "
                 "endpoint that reach it to run scenarios; the records themselves are audited "
                 "on the row of the component that keeps them" if adapter == "observed" else
+                "this agent is declared in its project's files and nothing OPAAS can drive "
+                "reaches it: declare the adapter and endpoint that do to run scenarios"
+                if adapter == "declared" else
                 f"smith has no {adapter} adapter yet; this agent will be measured once it "
                 "has, with this same manifest; its records, if any, are audited on the row of "
                 "the component that keeps them")

@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DECLARED = {
     "httpx": "httpx", "typer": "typer", "pydantic": "pydantic", "rich": "rich",
     "cryptography": "cryptography", "psutil": "psutil", "segno": "segno",
+    # An environment's YAML configuration, read with safe_load (D87).
+    "yaml": "pyyaml",
     # The classifiers extra, imported lazily (CLAUDE.md, code conventions).
     "torch": "torch", "transformers": "transformers", "huggingface_hub": "huggingface-hub",
     # The token extra: the root signs from a PKCS#11 hardware token (D65).

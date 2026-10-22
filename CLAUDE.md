@@ -31,7 +31,8 @@ status are in [`docs/workplan.md`](docs/workplan.md).
 
 Python 3.10+, CLI built on Typer + Rich, reports modelled with Pydantic v2, signatures with
 `cryptography`. Runtime deps are deliberately few (`httpx`, `typer`, `pydantic`, `rich`,
-`cryptography`, `psutil`, `segno` for the certificate's QR code); torch/transformers live behind the optional `classifiers` extra, and the dashboard's Starlette, uvicorn and Jinja2 behind the `ui` extra.
+`cryptography`, `psutil`, `segno` for the certificate's QR code, `pyyaml` for a project's
+YAML configuration, safe_load only); torch/transformers live behind the optional `classifiers` extra, and the dashboard's Starlette, uvicorn and Jinja2 behind the `ui` extra.
 
 ## Non-negotiable invariants
 
@@ -140,7 +141,8 @@ src/opaas/
 ├── discover/           inventory.py (engines, D40), agents.py (MCP, tools, skills,
 │                       containers), gaps.py (rules G01–G09, versioned + hashed) (D45),
 │                       identify.py (agents that identify themselves, well-known MCP configs, D63),
-│                       project.py (one environment's folder instead of the whole host, D85)
+│                       project.py (one environment's folder: what it declares in config,
+│                       Claude Code, CI and code, D85, D87)
 ├── smith/              scenario.py (JSON format), oracle.py (mock tools = ground truth),
 │                       agents.py (bare-model, http, mcp), rerouted.py (a2a, open-webui,
 │                       langgraph, D68; langserve, dify, flowise, n8n, D69: tools rerouted

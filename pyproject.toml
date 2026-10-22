@@ -51,6 +51,9 @@ dependencies = [
     # memory there is no universal CLI and doing it per-OS by hand is more fragile.
     "psutil>=5.9",
     "segno>=1.6",
+    # An environment's own configuration is YAML as often as JSON (compose files,
+    # app configs): read with safe_load only, never executed (D87).
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]

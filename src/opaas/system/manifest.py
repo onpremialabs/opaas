@@ -71,9 +71,12 @@ REROUTED_REQUIRES: dict[str, tuple[str, str]] = {
 #: the records it left. Their behaviour is not measured until an adapter exists;
 #: their auditability is, from their records. A2A, Open WebUI and LangGraph
 #: left this set in phase 11 (D68); LangServe, Dify, Flowise and n8n after them
-#: (D69), which says why the rest are still here.
+#: (D69), which says why the rest are still here. `declared` is an agent its
+#: project's files declare and nothing reaches yet (D87): a configured app agent,
+#: a Claude Code subagent, Claude Code in CI, GitHub Copilot.
 PENDING_ADAPTERS: frozenset[str] = frozenset({
     "agent-api", "observed", "letta", "autogen", "crewai", "openhands", "anythingllm",
+    "declared",
 })
 
 _TOP_LEVEL = frozenset({

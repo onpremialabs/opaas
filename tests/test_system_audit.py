@@ -276,6 +276,31 @@ def test_skipped_and_failed_steps_are_recorded_with_their_reason(tmp_path):
                   only=["everything"])
 
 
+def test_only_the_chosen_components_are_measured_and_the_rest_stay_listed(tmp_path):
+    """Choosing what to audit never omits the rest: each of its steps reads not chosen (D87)."""
+    invoke = _Recorder()
+    run = run_audit(_system(tmp_path), base=tmp_path, out=tmp_path / "out", invoke=invoke,
+                    components=["agent"])
+    commands = [" ".join(call[:2]) for call in invoke.calls]
+    assert "run --model" not in commands and commands.count("smith run") == 1
+    outcomes = {(s.step, s.component): s for s in run.steps}
+    assert outcomes[("bench", "llm")].status == "skipped"
+    assert outcomes[("bench", "llm")].reason == "not chosen for this audit by the operator"
+    # The system-wide steps still run: they are no one component's.
+    assert "discover scan" in commands
+    with pytest.raises(AuditPlanError, match="Unknown component"):
+        run_audit(_system(tmp_path), base=tmp_path, out=tmp_path / "o2", invoke=_Recorder(),
+                  components=["nope"])
+
+
+def test_a_declared_agent_is_pending_with_why(tmp_path):
+    manifest = _manifest([MODEL, {"id": "redactor", "kind": "agent", "adapter": "declared",
+                                  "name": "redactor"}])
+    run = run_audit(manifest, base=tmp_path, out=tmp_path / "out", invoke=_Recorder())
+    (pending,) = [s for s in run.steps if s.component == "redactor"]
+    assert pending.status == "pending" and "declared in its project's files" in pending.reason
+
+
 # ------------------------------------------------------------------ the CLI
 
 
