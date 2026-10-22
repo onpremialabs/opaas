@@ -158,7 +158,7 @@ A server on `127.0.0.1` is still reachable by every local user and by any web pa
 
 | Screen | Route | Shows |
 |---|---|---|
-| Overview | `/` | What OPAAS does; what it measures, read from the registries that measure it (blocks A–E from the suites, the auditability dimensions and their metrics from `core.metrics`) and the steps an audit runs (`system.orchestrate.STEPS`) (D84); prerequisites (cached datasets and classifiers, versions), the latest runs, the queue |
+| Overview | `/` | What OPAAS does; what it measures, read from the registries that measure it (blocks A–E from the suites, the auditability dimensions and their metrics from `core.metrics`) and the steps an audit runs (`system.orchestrate.STEPS`) (D84); the latest runs, the queue. What this machine has cached is `opaas`'s menu in the terminal, not the overview's |
 | New audit | `/new` | **Scan, then audit the whole system** (D84). *Scan* launches `opaas discover scan --well-known` (a real, recorded job); the sentinel meerkat keeps watch until it ends, and a scan from the last 5 minutes is shown without rescanning (D83). What it found — engines with their models, agents that identify themselves — is listed. The one action is *Audit the whole system*: `opaas audit draft --inventory <that scan>` writes the manifest (with the intended use, if given), then `opaas audit run` audits it; unticking the draft audits a manifest you already have. Both commands are shown before they run |
 | Batch | `/batch?ids=…` | Several jobs, tracked side by side (D83) |
 | Job | `/jobs/{id}` | The job's command, its progress — one block (or one of an audit's six steps) at a time, filling to 100% before the next starts (D83) — its output log, cancel, and, once it ends, the link to the run it produced |

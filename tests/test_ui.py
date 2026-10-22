@@ -273,6 +273,8 @@ def test_the_overview_says_what_opaas_measures_from_its_registries(client):
 
     page = client.get("/").text
     assert "What OPAAS does" in page
+    # What the machine has cached is the terminal menu's business, not the overview's.
+    assert "This machine" not in page and "unmeasured" not in page
     for name in BLOCKS.values():
         assert name in page.replace("&amp;", "&")
     for entry in DIMENSIONS.values():
