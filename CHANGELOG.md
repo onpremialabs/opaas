@@ -10,6 +10,34 @@ The methodology version embedded in every report (`OPAAS_SPEC_VERSION`,
 
 ## [Unreleased]
 
+### Changed — a project scan finds what the project declares, and you choose what to audit (D87)
+
+- **`discover scan --project` reads the whole folder for declarations.**
+  It finds:
+  - the `agents:` of an application's configuration (YAML or JSON) and
+    their models;
+  - the models in each provider section;
+  - Claude Code subagents and Claude Code in CI;
+  - GitHub Copilot's instructions;
+  - compose services;
+  - the frameworks the code imports, and its LangGraph graphs.
+
+  Installed packages (`.venv`, `node_modules`) are skipped.
+- **The draft is the whole environment.** Local models are drafted to
+  benchmark, cloud models as `external`, and every declared agent as a
+  component. An agent nothing drives yet gets the new `declared` adapter,
+  and each agent flows to its model. An empty draft is refused instead of
+  writing an invalid manifest.
+- **`audit run --component ID`** audits only the chosen components; the
+  rest stay in the report as not chosen. *New audit* lists every model and
+  agent with a tick: *Audit the whole system*, or *Audit only what is
+  ticked*.
+
+#### Upgrading
+
+- **New runtime dependency: `pyyaml`** (pinned in `uv.lock`). Run
+  `uv sync`.
+
 ### Changed — the manifest is updated, and Browse opens the system's dialog (D86)
 
 - **`opaas audit draft --update`** adds what a new scan observed to an

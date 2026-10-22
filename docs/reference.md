@@ -73,6 +73,7 @@ The ones you will reach for. Full list with `opaas run --help`.
 | `opaas swarm analyze` / `attribute` | Flow topology, per-edge figures, faults; attribution subgraph |
 | `opaas card build` / `manifest` | Auditability Card; deployment manifest |
 | `opaas evidence sign` / `verify` | Sign and verify any evidence document |
+| `opaas audit run` … `--component ID` | Audit only the components named; the rest are listed, not measured |
 | `opaas audit draft` | Draft a system manifest: models, agents, tools and flows the host and records show (`--project DIR`: only one environment's; `--update`: add to an existing manifest, keep what is in it) |
 | `opaas audit template` | Scenario templates for the manifest's tools; you write the answers |
 | `opaas audit run` | Audit a system from its manifest; write the system report and open its audit certificate |
@@ -126,9 +127,10 @@ Stated as plainly as the report states it:
   any framework agent whose tools cannot be rerouted to OPAAS's mock server; and whether a rerouted agent had other tools is declared, not observed.
 - **Skill signatures in other schemes** (OpenPGP, minisign, Sigstore) — only OPAAS's own is
   verified, and only under a key you name; the rest are *not observed*, never ok.
-- **What a project declares outside the files OPAAS reads** (`--project`): YAML (compose
-  files, Dify DSL) and source code are not read, so a model or agent named only there is not
-  seen; the scan lists them under `notRead`.
+- **What a project decides at run time** (`--project`): configuration is parsed and code is
+  searched for imports, graphs and quoted model names, never run. A model or agent chosen at
+  run time, or a local model named in code that no engine here serves, is not seen.
+- **Components not chosen** (`audit run --component`): listed in the report, not measured.
 - **Whether an agent runtime's actions need credentials** — it gets one GET to `/`, which
   shows its front door only.
 - **Streams in shapes the sentinel does not assemble** — OpenAI, the Responses API and Ollama

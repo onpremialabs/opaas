@@ -94,6 +94,10 @@ def draft_manifest(
             if scoped is not None and name not in wanted:
                 outside += 1
                 continue
+            if scoped is not None and "embed" in name.lower():
+                notes.append(f"{name} is an embedding model: blocks A–E measure generation, so "
+                             "it is not drafted as a model to benchmark.")
+                continue
             if usage is not None and name not in usage["models"]:
                 notes.append(f"{name} is served by {engine.get('kind')} and was not called in "
                              "the records: not drafted.")
@@ -157,6 +161,8 @@ def draft_manifest(
                 components.append({"id": unique(str(tool["name"]), "tool"), "kind": "tool",
                                    "name": str(tool["name"])})
     flows: list[dict[str, str]] = []
+    if scoped is not None:
+        _scope_components(scoped, components, model_ids, agent_ids, unique, flows)
     if usage is not None:
         known = {**model_ids, **tool_ids}
         for actor, target in sorted(usage["edges"]):
@@ -249,18 +255,56 @@ def _identity(component: dict[str, Any]) -> tuple[str, str]:
     return kind, f"id:{component.get('id')}"
 
 
+def _scope_components(scoped: dict[str, Any], components: list[dict[str, Any]],
+                      model_ids: dict[str, str], agent_ids: dict[str, str], unique: Any,
+                      flows: list[dict[str, str]]) -> None:
+    """The project's own agents that are not running, its cloud models, and their flows (D87).
+
+    A declared agent nothing reaches is drafted with the `declared` adapter:
+    listed, its behaviour not measured until something drives it. A model only
+    a cloud provider serves is an `external` component: listed, never certified
+    (D22). Each agent flows to the model its configuration names.
+    """
+    external: dict[str, str] = {}
+    for model in scoped.get("models") or []:
+        if model.get("servedBy") or not model.get("provider"):
+            continue
+        component_id = unique(str(model["name"]), "external")
+        external[str(model["name"])] = component_id
+        components.append({"id": component_id, "kind": "external",
+                           "provider": str(model["provider"]), "name": str(model["name"]),
+                           "description": f"Named in {', '.join(model.get('files') or [])}."})
+    for agent in scoped.get("agents") or []:
+        if agent.get("running"):
+            continue
+        component_id = unique(str(agent["name"]), str(agent["kind"]))
+        agent_ids.setdefault(str(agent["name"]), component_id)
+        components.append({"id": component_id, "kind": "agent", "adapter": "declared",
+                           "name": str(agent["name"]),
+                           "description": f"{agent.get('basis') or agent['kind']}, declared "
+                           f"in {agent['file']}; not running."})
+        model = agent.get("model")
+        target = (model_ids.get(model) or model_ids.get(f"{model}:latest")
+                  or external.get(model))
+        if model and target:
+            flows.append({"from": component_id, "to": target})
+
+
 def _scope_notes(scoped: dict[str, Any], outside: int) -> list[str]:
-    """What a folder-scoped draft left out, and why (D85)."""
+    """What a folder-scoped draft left out, and why (D85, D87)."""
     notes = []
     for agent in scoped.get("agents") or []:
         if not agent.get("running"):
-            notes.append(f"{agent['kind']} agent '{agent['name']}' is declared in "
-                         f"{agent['file']} and is not running on this host: start it, then "
-                         "scan again. Not drafted.")
+            notes.append(f"{agent['kind']} agent '{agent['name']}' ({agent['file']}) is not "
+                         "running: drafted with the 'declared' adapter, its behaviour not "
+                         "measured until something drives it.")
     for model in scoped.get("models") or []:
-        if not model.get("servedBy"):
-            notes.append(f"{model['name']} is named in the project and no engine here serves "
-                         "it: pull it, or name its engine with --endpoint. Not drafted.")
+        if model.get("servedBy"):
+            continue
+        notes.append(f"{model['name']} is served by {model['provider']}, a cloud provider: "
+                     "drafted as external, listed and never certified." if model.get("provider")
+                     else f"{model['name']} is named in the project and no engine here serves "
+                     "it: pull it, or name its engine with --endpoint. Not drafted.")
     if not scoped.get("models"):
         notes.append(f"The project '{scoped.get('root')}' names no model in the files OPAAS "
                      "reads (a model named only in code is not seen): add the models its agents "

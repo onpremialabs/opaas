@@ -39,6 +39,10 @@
   <p class="fine">Without an intended use the system is audited but not certifiable: its AI Act risk classification follows from it, and only a person can state it.</p>
   <div class="preview"><span class="dim">This will run</span><div class="cmd"><code class="mono multi" data-preview></code></div></div>
   <p class="error hidden" data-error></p>
-  <button class="btn primary" type="submit">Audit the whole system</button>
+  <div class="actions">
+    <button class="btn primary" type="submit" data-mode="all">Audit the whole system</button>
+    <button class="btn hidden" type="submit" data-mode="selected">Audit only what is ticked</button>
+  </div>
+  <p class="fine">Either way the report lists every component: what was not ticked reads <i>not measured, not chosen for this audit</i>.</p>
 </form>
 {% endblock %}

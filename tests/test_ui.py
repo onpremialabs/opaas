@@ -710,3 +710,19 @@ def test_browse_opens_the_systems_dialog_and_says_when_there_is_none(client, mon
     assert response.status_code == 501 and "no display" in response.json()["error"]
     # Opening a window on the desktop is a POST, behind the session header.
     assert client.post("/api/folders/pick", json={}).status_code == 403
+
+
+def test_the_manifest_api_gives_ids_and_names_only(client, tmp_path):
+    manifest = tmp_path / "system.json"
+    manifest.write_text(json.dumps({"format": 1, "id": "s", "purpose": "secret purpose",
+                                    "components": [{"id": "llm", "kind": "model",
+                                                    "backend": "ollama", "model": "m:1b"}]}))
+    body = client.get("/api/manifest", params={"path": str(manifest)}).json()
+    assert body == {"components": [{"id": "llm", "kind": "model", "model": "m:1b"}]}
+    assert client.get("/api/manifest", params={"path": str(tmp_path / "x")}).status_code == 404
+
+
+def test_new_audit_offers_the_whole_system_or_only_what_is_ticked(client):
+    page = client.get("/new").text
+    assert 'data-mode="all"' in page and 'data-mode="selected"' in page
+    assert "not chosen for this audit" in page

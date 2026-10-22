@@ -193,6 +193,23 @@ def discover_picker(store: Path, run_id: str) -> dict[str, Any] | None:
     }
 
 
+def manifest_components(path: Path) -> list[dict[str, Any]] | None:
+    """A system manifest's components, as `/new` maps what was ticked to their ids (D87).
+
+    Ids, kinds and the names a scan shows; nothing else of the file. None if
+    it is not a readable manifest.
+    """
+    try:
+        document = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return None
+    components = document.get("components") if isinstance(document, dict) else None
+    if not isinstance(components, list):
+        return None
+    return [{key: c.get(key) for key in ("id", "kind", "model", "name", "adapter")
+             if c.get(key) is not None} for c in components if isinstance(c, dict)]
+
+
 #: Folders listed for one level of the dashboard's folder picker, at most.
 MAX_FOLDERS = 400
 

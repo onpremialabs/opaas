@@ -54,8 +54,9 @@ async function settled(id, isDone) {
   }
 }
 
-// Shown as a shell would need it, so the preview can be pasted as it is.
-const quoted = (word) => (/[\s"'$`\\]/.test(word) ? `"${word.replace(/(["$`\\])/g, "\\$1")}"` : word);
+// Shown as a shell would need it, so the preview can be pasted as it is. A
+// Windows path keeps its backslashes: only a quote is escaped inside "…".
+const quoted = (word) => (/[\s"'$`]/.test(word) ? `"${word.replace(/"/g, '\\"')}"` : word);
 
 const systemForm = document.getElementById("launch-system");
 let inventoryPath = null;
@@ -72,14 +73,16 @@ function systemCommands(form) {
     if (value("purpose")) draft.push("--purpose", value("purpose"));
     commands.push(draft);
   }
-  commands.push(["audit", "run", manifest]);
+  const run = ["audit", "run", manifest];
+  const ticks = [...document.querySelectorAll("[data-pick-item]")];
+  if (ticks.some((t) => !t.checked && !t.disabled)) run.push("--component", "…");
+  commands.push(run);
   return commands;
 }
 
 if (systemForm) {
   const preview = systemForm.querySelector("[data-preview]");
   const error = systemForm.querySelector("[data-error]");
-  const submit = systemForm.querySelector('button[type="submit"]');
   const purpose = systemForm.querySelector('[name="purpose"]').closest("label");
   const fail = (message) => { error.textContent = message; error.classList.remove("hidden"); };
   const refresh = () => {
@@ -92,8 +95,18 @@ if (systemForm) {
     refresh();
   });
   systemForm.addEventListener("refresh", refresh);
+  // What was ticked, as the manifest names it: models by model, agents by name.
+  const chosenIds = async (manifest) => {
+    const picks = [...document.querySelectorAll("[data-pick-item]:checked")]
+      .map((t) => JSON.parse(t.dataset.pickItem));
+    const listed = await api(`/api/manifest?${new URLSearchParams({path: manifest})}`);
+    return listed.components.filter((c) => picks.some((p) =>
+      (p.kind === "model" && c.kind === "model" && (c.model === p.name || c.model === `${p.name}:latest`))
+      || (p.kind === "agent" && c.kind === "agent" && c.name === p.name))).map((c) => c.id);
+  };
   systemForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const selected = event.submitter && event.submitter.dataset.mode === "selected";
     error.classList.add("hidden");
     const manifest = new FormData(systemForm).get("manifest").trim();
     if (!manifest) return fail("Enter the path of the system manifest.");
@@ -102,6 +115,8 @@ if (systemForm) {
       return fail("Enter the manifest's full path, e.g. C:\\audits\\system.json.");
     }
     const commands = systemCommands(systemForm);
+    const submit = event.submitter || systemForm.querySelector('button[type="submit"]');
+    submit.dataset.label = submit.dataset.label || submit.textContent;
     submit.disabled = true;
     try {
       // The draft must exist before the audit reads it: one job, then the other.
@@ -114,11 +129,17 @@ if (systemForm) {
           throw new Error(said || "The manifest could not be drafted.");
         }
       }
-      await launch(commands[commands.length - 1]);
+      const run = ["audit", "run", commands[commands.length - 1][2]];
+      if (selected) {
+        const ids = await chosenIds(run[2]);
+        if (!ids.length) throw new Error("Tick at least one model or agent to audit.");
+        for (const id of ids) run.push("--component", id);
+      }
+      await launch(run);
     } catch (e) {
       fail(e.message);
       submit.disabled = false;
-      submit.textContent = "Audit the whole system";
+      submit.textContent = submit.dataset.label;
     }
   });
   refresh();
@@ -252,6 +273,39 @@ if (discoverBox) {
   scopeBox.addEventListener("input", refreshScope);
   refreshScope();
 
+  const picks = (title, items, empty) => {
+    const div = document.createElement("div");
+    div.className = "card";
+    const h3 = document.createElement("h3");
+    h3.textContent = title;
+    const ul = document.createElement("ul");
+    ul.className = "found picks";
+    for (const item of items) {
+      const li = document.createElement("li");
+      const label = document.createElement("label");
+      label.className = "inline";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = !item.disabled;
+      box.disabled = Boolean(item.disabled);
+      box.dataset.pickItem = JSON.stringify({kind: item.kind, name: item.name});
+      const detail = document.createElement("span");
+      detail.className = "dim mono";
+      detail.textContent = item.detail;
+      label.append(box, document.createTextNode(` ${item.label} `), detail);
+      li.append(label);
+      ul.append(li);
+    }
+    if (!items.length) ul.innerHTML = `<li class="dim">${empty}</li>`;
+    div.append(h3, ul);
+    return div;
+  };
+  document.addEventListener("change", (event) => {
+    if (event.target.matches("[data-pick-item]") && systemForm) {
+      systemForm.dispatchEvent(new Event("refresh"));
+    }
+  });
+
   const host = (data) => {
     const box = document.createElement("div");
     for (const engine of data.engines || []) {
@@ -271,19 +325,25 @@ if (discoverBox) {
     const project = data.project;
     body.innerHTML = "";
     if (project) {
-      sub.textContent = `Environment ${project.root}: ${project.agents.length} agent(s), `
-        + `${project.models.length} model(s) declared, from ${project.files.length} file(s).`;
-      body.append(card(`Agents of ${project.root}`, project.agents.map((a) =>
-        [`${a.name} · ${a.kind}`, `${a.file} · ${a.running || "not running"}`])));
-      body.append(card(`Models of ${project.root}`, project.models.map((m) =>
-        [m.name, m.servedBy || "served by no engine here"])));
-      if (!project.models.length) {
-        body.lastChild.querySelector("ul").innerHTML =
-          '<li class="dim">None named in the files OPAAS reads; a model named only in code is not seen.</li>';
-      }
-      if (!project.agents.length) {
-        body.firstChild.querySelector("ul").innerHTML =
-          '<li class="dim">No langgraph.json, agent card, or n8n / Flowise export with an agent.</li>';
+      const local = project.models.filter((m) => m.servedBy && !/embed/i.test(m.name));
+      sub.textContent = `Environment ${project.root}: ${project.agents.length} agent(s) and `
+        + `${project.models.length} model(s) declared, ${local.length} of them served here, `
+        + `from ${project.files.length} file(s). Untick what not to audit.`;
+      body.append(picks(`Agents of ${project.root}`, project.agents.map((a) => ({
+        kind: "agent", name: a.name, label: `${a.name} · ${a.kind}`,
+        detail: `${a.file} · ${a.running ? `running at ${a.running}` : "not running: listed, not driven"}`,
+      })), "No agent declared in the files OPAAS reads."));
+      body.append(picks(`Models of ${project.root}`, project.models.map((m) => {
+        const embed = /embed/i.test(m.name);
+        const why = m.servedBy ? (embed ? "embedding model: not benchmarked" : m.servedBy)
+          : m.provider ? `${m.provider} (cloud): listed, never certified` : "served by no engine here";
+        return {kind: "model", name: m.name, label: m.name, detail: why,
+                disabled: !m.servedBy || embed};
+      }), "No model named in the files OPAAS reads."));
+      if ((project.services || []).length || (project.frameworks || []).length) {
+        body.append(card(`Stack of ${project.root}`, [
+          ...(project.services || []).map((x) => [`service ${x.name}`, x.image || "built here"]),
+          ...(project.frameworks || []).map((f) => [f.name, `${f.files} file(s)`])]));
       }
       const rest = document.createElement("details");
       const summary = document.createElement("summary");
@@ -311,6 +371,7 @@ if (discoverBox) {
         const folder = folderInput.value.trim().replace(/[\\/]+$/, "");
         manifest.value = folder + (folder.includes("\\") ? "\\" : "/") + "system.json";
       }
+      systemForm.querySelector('[data-mode="selected"]').classList.toggle("hidden", !project);
       systemForm.classList.remove("hidden");
       systemForm.dispatchEvent(new Event("refresh"));
     }

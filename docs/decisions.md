@@ -50,6 +50,50 @@ Signing non-reproducible bytes produces a credential nobody can verify and that 
 
 ---
 
+## D87 — A project scan reads the whole folder for declarations: config, Claude Code, CI, code; the operator chooses what to audit
+
+**Status:** applied · **Revises:** [D85](#d85--an-audit-can-be-scoped-to-one-environments-folder-instead-of-the-whole-host)'s fixed places and its "YAML and code are not read" · **Affects:** [`discover/project.py`](../src/opaas/discover/project.py), [`system/draft.py`](../src/opaas/system/draft.py), [`system/manifest.py`](../src/opaas/system/manifest.py), [`system/orchestrate.py`](../src/opaas/system/orchestrate.py), [`cli/audit.py`](../src/opaas/cli/audit.py), [`ui/`](../src/opaas/ui), `pyproject.toml`
+
+D85 was tried on a real agentic platform (swarm-platform-builder). It found **nothing**: 0 agents and 0 models from 0 files. Because the draft then had no components, it was invalid and `system.json` was never written. Yet the project declares a great deal, all in places D85 did not read:
+
+- five application agents with their models, under `agents:` in `config.yaml`;
+- its providers (Anthropic, Ollama, OpenAI) with their models;
+- two Claude Code subagents in `.claude/agents/`;
+- Claude Code running in CI in two workflows;
+- a LangGraph `StateGraph` in its backend;
+- a compose file with Ollama, Qdrant, Postgres and Redis.
+
+**What changed.**
+- **The walk covers the whole folder**, bounded: depth 8, 20,000 files, 1 MB per file. It skips what is installed or generated (`.venv`, `node_modules`, `dist`, caches) and every hidden folder except those that hold agent configuration (`.claude`, `.github`, `.vscode`…). Each file is read for what it *declares*:
+  - **application configuration** (`config*`, `settings*`, `agents*`, `models*`, `llm*`, `app*` in YAML or JSON): its `agents:` mapping, each agent with its model, and every `model`/`*_model` key with the provider section it sits in;
+  - **Claude Code subagents** (`.claude/agents/*.md`, name and model from the front matter);
+  - **Claude Code in CI** (a workflow using `anthropics/claude-code-action`);
+  - **GitHub Copilot** (`.github/copilot-instructions.md`, chat modes, agents, prompts);
+  - **compose services** with their images, where an engine or agent-framework image is marked;
+  - **code**: the frameworks it imports (LangGraph, LangChain, CrewAI, the Anthropic and OpenAI SDKs…), each `StateGraph(` as a LangGraph agent, and quoted names that an engine here serves or that belong to a cloud family (`claude-`, `gpt-`, `o3`, `gemini-`…);
+  - plus everything D85 read.
+
+  An agent declared in two files is one agent, listed with both files. `x` and `x:latest` are one model, kept under the name the engine serves.
+- **YAML is parsed with PyYAML's `safe_load`**, a new runtime dependency (pinned in `uv.lock`). Configuration is never executed. Code is searched and never run.
+- **The draft is the whole environment.**
+  - **Local models** an engine serves become model components to benchmark. An embedding model is skipped, with a note: blocks A–E measure generation.
+  - **Cloud models** become `external` components: listed, never certified (D22).
+  - **Every declared agent is a component.** A running agent gets its adapter. Any other agent gets the new pending adapter `declared`: listed, its behaviour not measured until something drives it, and the step says so.
+  - **Each agent flows to the model its configuration names.**
+  - **A draft with no component** is refused with what to do. Writing an invalid manifest is no longer possible.
+- **The operator chooses what to audit.** `audit run --component ID` (repeatable) measures only those components. Every step for the rest is recorded as *skipped: not chosen for this audit by the operator*, so the report still lists them, not measured, never omitted (invariant 2). On *New audit* every model and agent is a tick:
+  - local models and agents are ticked;
+  - cloud and embedding models are listed, unticked and disabled;
+  - *Audit the whole system* audits everything; *Audit only what is ticked* maps the ticks to the manifest's ids (`/api/manifest`) and passes `--component`.
+
+**What is lost.**
+- **Reading code is reading text.** An import says a framework is used, not how. A quoted name that is a model is seen only when an engine serves it or it names a cloud family, so a local model named in a string the engine does not serve is not seen. A model or agent chosen at run time is never seen.
+- **Names in configuration are taken at their word.** A `model:` key that names something else is listed as a model, and the operator corrects the manifest.
+- **A bigger runtime footprint**: PyYAML. It is small, ubiquitous, and imported only where a project is scanned.
+- **Choosing is not certifying a part.** A system audited with some components unticked reports them as not measured, and its certificate says so. The operator cannot present the result as a full audit.
+
+---
+
 ## D86 — The manifest lives in the environment's folder and is updated, never replaced; Browse opens the system's own folder dialog
 
 **Status:** applied · **Revises:** D84's "a draft never overwrites a manifest, so a second audit with the draft ticked fails", and D85's in-page folder list as the only picker · **Affects:** [`system/draft.py`](../src/opaas/system/draft.py), [`cli/audit.py`](../src/opaas/cli/audit.py), [`ui/dialog.py`](../src/opaas/ui/dialog.py), [`ui/app.py`](../src/opaas/ui/app.py), [`ui/static/app.js`](../src/opaas/ui/static/app.js)
@@ -80,7 +124,7 @@ Auditing the same environment twice from the dashboard failed on the second run.
 
 ## D85 — An audit can be scoped to one environment's folder instead of the whole host
 
-**Status:** applied · **Extends:** [D45](#d45--discover-reads-the-agent-stack-the-operator-names-and-the-gap-scan-finds-preconditions-not-violations) (only what the operator names) and [D63](#d63--opaas-identifies-a-systems-agents-and-the-models-they-use) · **Affects:** [`discover/project.py`](../src/opaas/discover/project.py), [`discover/__init__.py`](../src/opaas/discover/__init__.py), [`system/draft.py`](../src/opaas/system/draft.py), [`cli/discover.py`](../src/opaas/cli/discover.py), [`cli/audit.py`](../src/opaas/cli/audit.py), [`ui/`](../src/opaas/ui)
+**Status:** applied; its fixed places and "YAML and code are not read" revised by [D87](#d87--a-project-scan-reads-the-whole-folder-for-declarations-config-claude-code-ci-code-the-operator-chooses-what-to-audit) · **Extends:** [D45](#d45--discover-reads-the-agent-stack-the-operator-names-and-the-gap-scan-finds-preconditions-not-violations) (only what the operator names) and [D63](#d63--opaas-identifies-a-systems-agents-and-the-models-they-use) · **Affects:** [`discover/project.py`](../src/opaas/discover/project.py), [`discover/__init__.py`](../src/opaas/discover/__init__.py), [`system/draft.py`](../src/opaas/system/draft.py), [`cli/discover.py`](../src/opaas/cli/discover.py), [`cli/audit.py`](../src/opaas/cli/audit.py), [`ui/`](../src/opaas/ui)
 
 A host scan finds every engine and every model it serves. It finds an agent only when the agent is running and identifies itself on a port (D63). On a machine with eighteen models and several projects, auditing "the system" therefore meant auditing every model the engine serves and, usually, no agent at all. The operator wanted to `cd` into one deployment's folder, or pick it in the dashboard, and have OPAAS audit that deployment.
 

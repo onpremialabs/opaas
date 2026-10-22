@@ -117,17 +117,26 @@ cd ~/projects/support-bot
 opaas discover scan --project . -o inventory.json
 ```
 
-OPAAS then reads that folder's own MCP configurations (`.mcp.json`, `.vscode/mcp.json`,
-`.cursor/mcp.json`…) and skills (`.claude/skills`, `skills/`) instead of the user's and the
-host's containers, and the files that declare its agents: the graphs of a `langgraph.json`, an
-A2A agent card, and the n8n or Flowise workflow exports (`*.json` in the folder or in
-`workflows/`, `flows/`, `chatflows/`…) that contain an agent node, with the models their model
-nodes name. It reads those fixed places only, never crawls. The host's engines and listeners
+OPAAS then walks that folder, skipping installed packages (`.venv`, `node_modules`) and
+caches, and reads each file for what it declares:
+- the project's own MCP configurations and skills, instead of the user's and the host's
+  containers;
+- the `agents:` of its application configuration (YAML or JSON), with their models, and the
+  models in each provider section (`ollama:`, `openai:`, `anthropic:`…);
+- Claude Code subagents (`.claude/agents/`), Claude Code in CI (`anthropics/claude-code-action`)
+  and GitHub Copilot's instructions;
+- `langgraph.json` graphs and every `StateGraph` built in code, A2A agent cards, n8n and
+  Flowise exports;
+- compose services with their images;
+- the frameworks the code imports, and the quoted model names in code that an engine here
+  serves or that name a cloud model.
+
+Configuration is parsed (YAML with `safe_load`), never executed; code is searched, never run. The host's engines and listeners
 are still observed, because that is where the environment's models and agents run; the
 inventory's `project` section says which of them belong to it: each agent *running* at an
-identified endpoint or *not running*, each model *served* by an engine here or not. YAML (a
-compose file) and source code are not read, and the scan says so: a model named only in code
-is not seen. The scope is part of the environment hash.
+identified endpoint or *not running*, each model *served* by an engine here, by a cloud
+provider, or not at all. A model or agent chosen only at run time is not seen. The scope is
+part of the environment hash.
 
 Every model report also records the **deployment fingerprint** — engine version, model
 digest, chat template, GPU driver — and everything else the host serves.
@@ -227,9 +236,15 @@ composition, a **components × dimensions table** where every cell is *measured*
 measured* or *not applicable* with its reason, Q1–Q6, block E for the system's purpose, and
 your thresholds judged **comply, violate or undecidable**. An agent OPAAS cannot drive yet is
 kept with a pending adapter — listed, never dropped. With `--project` (or an inventory scanned
-with it) the draft takes only that environment's models and running agents; everything else
-the host serves, a declared agent that is not running, and a named model no engine here serves
-are left out with a note each. `--update` adds what a new scan observed to an existing
+with it) the draft is the whole environment:
+- its local models, to benchmark (embedding models are skipped);
+- its cloud models, as `external` components that are listed and never certified;
+- every agent it declares. An agent that nothing drives yet gets the `declared` adapter, which
+  lists it with its behaviour not measured.
+- a flow from each agent to its model.
+
+`opaas audit run system.json --component ID` audits only the components named. The rest stay in
+the report as *not chosen for this audit*. `--update` adds what a new scan observed to an existing
 manifest and keeps everything already in it, components no longer observed included.
 
 ### 6 · Continuous monitoring

@@ -66,6 +66,9 @@ def run_command(
         "--only", help=f"Run only these steps: {', '.join(STEPS)}. Repeatable.")] = None,
     skip: Annotated[list[str], typer.Option(
         "--skip", help="Steps not to run; their cells read not measured. Repeatable.")] = None,
+    component: Annotated[list[str], typer.Option(
+        "--component", "-c", help="Audit only this component, by its id in the manifest; the "
+        "rest stay in the report, not measured. Repeatable.")] = None,
     bench_args: Annotated[str, typer.Option(
         "--bench-args", help="Extra `opaas run` options for every model, quoted.")] = "",
     repeats: Annotated[int, typer.Option("--repeats", "-n", min=1,
@@ -117,7 +120,8 @@ def run_command(
                 return _invoke(args)
 
             run = run_audit(manifest, base=base, out=out, invoke=invoke, supplied=supplied,
-                            only=only or [], skip=skip or [], bench_args=bench_args,
+                            only=only or [], skip=skip or [], components=component or [],
+                            bench_args=bench_args,
                             repeats=repeats, force=force)
             body = build_report(manifest, manifest_hash=file_digest(system),
                                 members=run.members, steps=run.steps, thresholds=thresholds,
@@ -319,6 +323,11 @@ def draft_command(
                             or document["purpose"] == PURPOSE_PLACEHOLDER]]
     for note in notes:
         console.print(f"  [yellow]note:[/yellow] {_plain(note)}")
+    if not document["components"]:
+        error("[red]Nothing was found to put in a manifest.[/red] The notes above say where "
+              "OPAAS looked; name the engines with --endpoint, or scan the environment's "
+              "folder with --project.")
+        raise typer.Exit(code=2)
     try:
         load_manifest(document, known_adapters=tuple(available_agents()))
     except SystemManifestError as exc:

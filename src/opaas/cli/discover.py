@@ -116,8 +116,16 @@ def scan_command(
             console.print(f"  agent  {agent['kind']:<12} {_plain(agent['name'])} "
                           f"[dim]({_plain(agent['file'])})[/dim] {where}")
         for model in scoped["models"]:
-            console.print(f"  model  {_plain(model['name'])} "
-                          f"{model['servedBy'] or '[yellow]served by no engine here[/yellow]'}")
+            where = model["servedBy"] or (f"{model['provider']} (cloud)" if model.get("provider")
+                                          else "[yellow]served by no engine here[/yellow]")
+            console.print(f"  model  {_plain(model['name'])} {where}")
+        for service in scoped.get("services", []):
+            console.print(f"  service {_plain(service['name']):<12} "
+                          f"{_plain(service.get('image') or 'built here')} "
+                          f"[dim]({_plain(service['file'])})[/dim]")
+        if scoped.get("frameworks"):
+            console.print("  frameworks " + ", ".join(
+                f"{_plain(f['name'])} ({f['files']} file(s))" for f in scoped["frameworks"]))
         if not scoped["agents"] and not scoped["models"]:
             console.print("  [yellow]The folder names no agent and no model.[/yellow]")
     if stack.get("wellKnownConfigs"):

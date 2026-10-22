@@ -174,6 +174,13 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         return page(request, "new.html", manifest=str(Path.cwd() / "system.json"),
                     cwd=str(Path.cwd()))
 
+    async def manifest_api(request: Request) -> Response:
+        path = (request.query_params.get("path") or "").strip()
+        components = views.manifest_components(Path(path)) if path else None
+        if components is None:
+            return JSONResponse({"error": "No readable manifest there."}, status_code=404)
+        return JSONResponse({"components": components})
+
     async def folder_pick(request: Request) -> Response:
         """The system's own folder dialog, on this desktop; the page falls back to its list."""
         from opaas.ui import dialog
@@ -259,6 +266,7 @@ def create_app(store: Path, *, token: str | None = None, hosts: set[str] | None 
         Route("/api/discover/latest", discover_latest),
         Route("/api/discover/{run_id}", discover_run),
         Route("/api/folders", folder_list),
+        Route("/api/manifest", manifest_api),
         Route("/api/folders/pick", folder_pick, methods=["POST"]),
         Route("/batch", batch_page),
         Route("/jobs/{job_id}", job_page),
